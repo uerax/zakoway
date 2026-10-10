@@ -737,196 +737,262 @@ class _VideoSourceViewState extends State<VideoSourceView> {
 
         // 3. 针对就绪/点选状态的“换词检索”折叠开关 (默认收敛，不干扰看剧)
         if (state.status != SourceProbeStatus.empty && state.status != SourceProbeStatus.error) ...[
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                if (_showAdvancedSearch.contains(src.id)) {
-                  _showAdvancedSearch.remove(src.id);
-                } else {
-                  _showAdvancedSearch.add(src.id);
-                }
-              });
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _showAdvancedSearch.contains(src.id)
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.tune_rounded,
-                    size: 13,
-                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _showAdvancedSearch.contains(src.id) ? '收起自定义换词' : '未找到想要的版本？换词重搜',
-                    style: TextStyle(
-                      fontFamily: theme.textTheme.bodySmall?.fontFamily,
-                      fontFamilyFallback: theme.textTheme.bodySmall?.fontFamilyFallback,
-                      fontSize: 11,
-                      color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.8),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (isShowManual) const SizedBox(height: 8),
-        ],
-
-        // 4. 手动换词与自定义搜索面板 (在未搜到、报错、或用户手动展开时展示)
-        if (isShowManual) ...[
-          if (uniqueKeywords.isNotEmpty) ...[
-            Text(
-              '推荐片名别名：',
-              style: TextStyle(
-                fontFamily: theme.textTheme.bodySmall?.fontFamily,
-                fontFamilyFallback: theme.textTheme.bodySmall?.fontFamilyFallback,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.85),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: uniqueKeywords.take(6).map((kw) {
-                final isCurrentKw = state.keyword == kw;
-                return InkWell(
+          Builder(
+            builder: (context) {
+              final isExpanded = _showAdvancedSearch.contains(src.id);
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
                   onTap: () {
-                    widget.onUserAction?.call();
-                    _getController(src.id).text = kw;
-                    widget.aggregator?.reProbeSource(src.id, kw);
+                    // 即刻触发展开/收起，杜绝人工延时
+                    setState(() {
+                      if (isExpanded) {
+                        _showAdvancedSearch.remove(src.id);
+                      } else {
+                        _showAdvancedSearch.add(src.id);
+                      }
+                    });
                   },
-                  borderRadius: BorderRadius.circular(6),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: isCurrentKw
-                          ? primaryColor.withValues(alpha: 0.16)
-                          : (isDark ? Colors.white.withAlpha(10) : Colors.black.withAlpha(5)),
+                      color: isExpanded
+                          ? (isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(8))
+                          : primaryColor.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: isCurrentKw
-                            ? primaryColor.withValues(alpha: 0.6)
-                            : (isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(8)),
-                        width: 0.5,
+                        color: isExpanded
+                            ? (isDark ? Colors.white.withAlpha(18) : Colors.black.withAlpha(12))
+                            : primaryColor.withValues(alpha: 0.28),
+                        width: 0.8,
                       ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Flexible(
-                          child: Text(
-                            kw,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: theme.textTheme.bodySmall?.fontFamily,
-                              fontFamilyFallback: theme.textTheme.bodySmall?.fontFamilyFallback,
-                              fontSize: 11,
-                              color: isCurrentKw ? primaryColor : theme.colorScheme.onSurface,
-                              fontWeight: isCurrentKw ? FontWeight.w600 : FontWeight.normal,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
                         Icon(
                           Icons.search_rounded,
-                          size: 11,
-                          color: isCurrentKw ? primaryColor : theme.disabledColor,
+                          size: 13,
+                          color: isExpanded
+                              ? theme.textTheme.bodySmall?.color?.withValues(alpha: 0.85)
+                              : primaryColor,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          isExpanded ? '收起自定义换词' : '未找到想要的版本？换词重搜',
+                          style: TextStyle(
+                            fontFamily: theme.textTheme.bodySmall?.fontFamily,
+                            fontFamilyFallback: theme.textTheme.bodySmall?.fontFamilyFallback,
+                            fontSize: 11,
+                            fontWeight: isExpanded ? FontWeight.w500 : FontWeight.w600,
+                            color: isExpanded
+                                ? theme.textTheme.bodySmall?.color?.withValues(alpha: 0.85)
+                                : primaryColor,
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        AnimatedRotation(
+                          turns: isExpanded ? 0.5 : 0,
+                          duration: const Duration(milliseconds: 160),
+                          child: Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 13,
+                            color: isExpanded
+                                ? theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7)
+                                : primaryColor.withValues(alpha: 0.75),
+                          ),
                         ),
                       ],
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 10),
-          ],
+                ),
+              );
+            },
+          ),
+        ],
 
-          // 现代 iOS 胶囊搜索框
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withAlpha(12) : Colors.black.withAlpha(6),
-                    borderRadius: BorderRadius.circular(10),
+        // 4. 手动换词与自定义搜索面板 (带抽屉平滑高度补间动画)
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: isShowManual
+              ? Padding(
+                  padding: EdgeInsets.only(
+                    top: (state.status != SourceProbeStatus.empty &&
+                            state.status != SourceProbeStatus.error)
+                        ? 10.0
+                        : 0.0,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.search_rounded, size: 15, color: theme.disabledColor),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: TextField(
-                          controller: _getController(src.id),
+                      if (uniqueKeywords.isNotEmpty) ...[
+                        Text(
+                          '推荐片名别名：',
                           style: TextStyle(
-                            fontFamily: theme.textTheme.bodyMedium?.fontFamily,
-                            fontFamilyFallback: theme.textTheme.bodyMedium?.fontFamilyFallback,
-                            fontSize: 12,
+                            fontFamily: theme.textTheme.bodySmall?.fontFamily,
+                            fontFamilyFallback: theme.textTheme.bodySmall?.fontFamilyFallback,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.85),
                           ),
-                          decoration: InputDecoration(
-                            hintText: '输入在 ${src.name} 检索的片名...',
-                            hintStyle: TextStyle(
-                              fontFamily: theme.textTheme.bodySmall?.fontFamily,
-                              fontFamilyFallback: theme.textTheme.bodySmall?.fontFamilyFallback,
-                              fontSize: 11,
-                              color: theme.disabledColor,
-                            ),
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                          onSubmitted: (val) {
-                            if (val.trim().isNotEmpty) {
-                              widget.onUserAction?.call();
-                              widget.aggregator?.reProbeSource(src.id, val.trim());
-                            }
-                          },
                         ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: uniqueKeywords.take(6).map((kw) {
+                            final isCurrentKw = state.keyword == kw;
+                            return InkWell(
+                              onTap: () {
+                                widget.onUserAction?.call();
+                                _getController(src.id).text = kw;
+                                widget.aggregator?.reProbeSource(src.id, kw);
+                              },
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                                decoration: BoxDecoration(
+                                  color: isCurrentKw
+                                      ? primaryColor.withValues(alpha: 0.16)
+                                      : (isDark ? Colors.white.withAlpha(10) : Colors.black.withAlpha(5)),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isCurrentKw
+                                        ? primaryColor.withValues(alpha: 0.6)
+                                        : (isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(8)),
+                                    width: 0.5,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        kw,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontFamily: theme.textTheme.bodySmall?.fontFamily,
+                                          fontFamilyFallback: theme.textTheme.bodySmall?.fontFamilyFallback,
+                                          fontSize: 11,
+                                          color: isCurrentKw ? primaryColor : theme.colorScheme.onSurface,
+                                          fontWeight: isCurrentKw ? FontWeight.w600 : FontWeight.normal,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.search_rounded,
+                                      size: 11,
+                                      color: isCurrentKw ? primaryColor : theme.disabledColor,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+
+                      // 单层胶囊搜索框 (整体外层为输入框，消除双层嵌套)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: SizedBox(
+                              height: 34,
+                              child: TextField(
+                                controller: _getController(src.id),
+                                maxLines: 1,
+                                textInputAction: TextInputAction.search,
+                                textAlignVertical: TextAlignVertical.center,
+                                // 特殊处理说明：显式约束 cursorHeight 与 cursorWidth，防止 Windows DirectWrite 下中文字体度量异常导致光标向上/向下溢出输入框
+                                cursorHeight: 14,
+                                cursorWidth: 1.5,
+                                cursorRadius: const Radius.circular(1),
+                                cursorColor: primaryColor,
+                                style: TextStyle(
+                                  fontFamily: theme.textTheme.bodyMedium?.fontFamily,
+                                  fontFamilyFallback: theme.textTheme.bodyMedium?.fontFamilyFallback,
+                                  fontSize: 12,
+                                  height: 1.2,
+                                ),
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  filled: true,
+                                  fillColor: isDark ? Colors.white.withAlpha(12) : Colors.black.withAlpha(6),
+                                  prefixIcon: Icon(Icons.search_rounded, size: 15, color: theme.disabledColor),
+                                  prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 34),
+                                  hintText: '输入在 ${src.name} 检索的片名...',
+                                  hintStyle: TextStyle(
+                                    fontFamily: theme.textTheme.bodySmall?.fontFamily,
+                                    fontFamilyFallback: theme.textTheme.bodySmall?.fontFamilyFallback,
+                                    fontSize: 11,
+                                    height: 1.2,
+                                    color: theme.disabledColor,
+                                  ),
+                                  contentPadding: const EdgeInsets.only(right: 10),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide(color: primaryColor, width: 1.2),
+                                  ),
+                                ),
+                                onSubmitted: (val) {
+                                  if (val.trim().isNotEmpty) {
+                                    widget.onUserAction?.call();
+                                    widget.aggregator?.reProbeSource(src.id, val.trim());
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          BouncingScaleCard(
+                            scaleDown: 0.94,
+                            onTap: () {
+                              final val = _getController(src.id).text.trim();
+                              if (val.isNotEmpty) {
+                                widget.onUserAction?.call();
+                                widget.aggregator?.reProbeSource(src.id, val);
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7.5),
+                              decoration: BoxDecoration(
+                                color: primaryColor,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '重搜',
+                                style: TextStyle(
+                                  fontFamily: theme.textTheme.labelSmall?.fontFamily,
+                                  fontFamilyFallback: theme.textTheme.labelSmall?.fontFamilyFallback,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              BouncingScaleCard(
-                scaleDown: 0.94,
-                onTap: () {
-                  final val = _getController(src.id).text.trim();
-                  if (val.isNotEmpty) {
-                    widget.onUserAction?.call();
-                    widget.aggregator?.reProbeSource(src.id, val);
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7.5),
-                  decoration: BoxDecoration(
-                    color: primaryColor,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '重搜',
-                    style: TextStyle(
-                      fontFamily: theme.textTheme.labelSmall?.fontFamily,
-                      fontFamilyFallback: theme.textTheme.labelSmall?.fontFamilyFallback,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+                )
+              : const SizedBox.shrink(),
+        ),
       ],
     );
   }
