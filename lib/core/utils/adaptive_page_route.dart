@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:zakoway/core/utils/instant_page_route.dart';
 import 'package:zakoway/core/utils/responsive.dart';
 
-/// 按平台与窗口宽度选择页面转场（用于带视频画面的全屏页，如播放页）。
+/// 按平台与窗口宽度选择页面转场（用于全屏页，如播放页、搜索页）。
 ///
 /// 设计原则：全程不透明，不做淡入淡出、不做缩放。
-/// 带 Texture 视频的整页做透明度动画需要整页离屏合成，成本高，
-/// 而且视频是整屏黑底，淡出时会透出首页，观感像两张图叠化。
+/// 带 Texture 视频或复杂毛玻璃图层的整页做透明度动画需要整页离屏合成，成本高，
+/// 而且淡出时会透出首页，观感像两张图叠化。
 ///
 /// 选择规则（在 push 时按当时的窗口宽度决定，分屏 / 旋转后下一次 push 生效）：
 /// - iOS：系统默认转场（右侧滑入滑出，自带边缘滑动返回手势），手机与 iPad 一致；
