@@ -10,11 +10,16 @@ class BouncingScaleCard extends StatefulWidget {
   final VoidCallback? onTap;
   final double scaleDown;
 
+  /// 是否在松手（TapUp）时立即无延迟触发 [onTap]，回弹动效在后台异步并发播放。
+  /// 适用于页面跳转、功能按钮等需要 0ms 瞬间响应的场景。
+  final bool immediateTap;
+
   const BouncingScaleCard({
     super.key,
     required this.child,
     this.onTap,
     this.scaleDown = 0.95,
+    this.immediateTap = false,
   });
 
   @override
@@ -67,6 +72,17 @@ class _BouncingScaleCardState extends State<BouncingScaleCard>
 
   void _handleTapUp(TapUpDetails _) async {
     final currentAction = ++_actionId;
+
+    if (widget.immediateTap) {
+      // 0ms 瞬间响应：松手立刻触发触觉反馈与业务回调，回弹动画在后台非阻塞异步并发完成
+      HapticFeedback.lightImpact();
+      widget.onTap?.call();
+      if (mounted) {
+        _controller.reverse();
+      }
+      return;
+    }
+
     final now = DateTime.now().millisecondsSinceEpoch;
     final heldDuration = now - _lastTapDownTime;
 

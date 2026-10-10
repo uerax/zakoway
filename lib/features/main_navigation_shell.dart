@@ -160,10 +160,12 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
                     isSelected: isSelected,
                   ),
                 ),
-                // Tab 2: 系统设置 (保持原状)
-                const AppFloatingNavItem(
-                  unselectedIcon: Icons.settings_outlined,
-                  selectedIcon: Icons.settings_rounded,
+                // Tab 2: 个人中心 (专属吉祥物：萌系笑脸)
+                AppFloatingNavItem(
+                  builder: (context, color, isSelected) => UserNavIcon(
+                    color: color,
+                    isSelected: isSelected,
+                  ),
                 ),
               ],
             ),

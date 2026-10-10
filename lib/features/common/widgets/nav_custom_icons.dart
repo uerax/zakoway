@@ -270,3 +270,131 @@ class PenguinIconPainter extends CustomPainter {
   bool shouldRepaint(covariant PenguinIconPainter oldDelegate) =>
       oldDelegate.color != color || oldDelegate.isSelected != isSelected;
 }
+
+/// 用户/我的笑脸图标组件（User / Smile Icon）
+///
+/// 专为个人中心设计的极简萌系笑脸轮廓：
+/// - 未选中态：2.0 像素圆角线框外轮廓 + 实心圆点双眼 + 弧形微笑嘴；
+/// - 选中态：实心圆形主体 + 负空间镂空双眼与微笑嘴，呈现灵动可爱的萌系表情。
+class UserNavIcon extends StatelessWidget {
+  final Color color;
+  final bool isSelected;
+  final double size;
+
+  const UserNavIcon({
+    super.key,
+    required this.color,
+    required this.isSelected,
+    this.size = 24.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size(size, size),
+      painter: UserIconPainter(
+        color: color,
+        isSelected: isSelected,
+      ),
+    );
+  }
+}
+
+/// 用户笑脸图标 CustomPainter
+class UserIconPainter extends CustomPainter {
+  final Color color;
+  final bool isSelected;
+
+  const UserIconPainter({
+    required this.color,
+    required this.isSelected,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final sx = size.width / 24.0;
+    final sy = size.height / 24.0;
+
+    Offset p(double x, double y) => Offset(x * sx, y * sy);
+
+    final center = p(12.0, 12.0);
+    final radius = 8.5 * sx;
+
+    // 头部外轮廓
+    final facePath = Path()
+      ..addOval(Rect.fromCircle(center: center, radius: radius));
+
+    // 双眼与微笑嘴
+    final eyeRadius = 1.05 * sx;
+    final leftEyeCenter = p(8.8, 10.5);
+    final rightEyeCenter = p(15.2, 10.5);
+
+    final smilePath = Path()
+      ..moveTo(p(8.5, 13.8).dx, p(8.5, 13.8).dy)
+      ..quadraticBezierTo(
+        p(12.0, 17.2).dx,
+        p(12.0, 17.2).dy,
+        p(15.5, 13.8).dx,
+        p(15.5, 13.8).dy,
+      );
+
+    if (!isSelected) {
+      // 未选中态：外轮廓 2.0 描边，双眼实心，微笑线 1.8 描边
+      final strokePaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0 * sx
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+
+      canvas.drawPath(facePath, strokePaint);
+
+      final eyePaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(leftEyeCenter, eyeRadius, eyePaint);
+      canvas.drawCircle(rightEyeCenter, eyeRadius, eyePaint);
+
+      final smilePaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.8 * sx
+        ..strokeCap = StrokeCap.round;
+      canvas.drawPath(smilePath, smilePaint);
+    } else {
+      // 选中态：实心圆形面部，双眼与微笑弧线镂空
+      final smileCutout = Path()
+        ..moveTo(p(8.5, 13.8).dx, p(8.5, 13.8).dy)
+        ..quadraticBezierTo(
+          p(12.0, 17.5).dx,
+          p(12.0, 17.5).dy,
+          p(15.5, 13.8).dx,
+          p(15.5, 13.8).dy,
+        )
+        ..quadraticBezierTo(
+          p(12.0, 19.0).dx,
+          p(12.0, 19.0).dy,
+          p(8.5, 13.8).dx,
+          p(8.5, 13.8).dy,
+        )
+        ..close();
+
+      final facialFeatures = Path()
+        ..addOval(Rect.fromCircle(center: leftEyeCenter, radius: eyeRadius * 1.1))
+        ..addOval(Rect.fromCircle(center: rightEyeCenter, radius: eyeRadius * 1.1))
+        ..addPath(smileCutout, Offset.zero);
+
+      final filledUser = Path.combine(PathOperation.difference, facePath, facialFeatures);
+
+      final fillPaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.fill;
+
+      canvas.drawPath(filledUser, fillPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant UserIconPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.isSelected != isSelected;
+}

@@ -1,25 +1,34 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/m3_surface.dart';
+import '../../../core/utils/font_manager.dart';
 
-/// Telegram/iOS 风格设置分组标题（轻量克制、不特意加粗）
+/// 设置分组标题（支持轻量或强调字重，并显式注入安全字体）
 class M3SettingsSectionHeader extends StatelessWidget {
   final String title;
+  final FontWeight fontWeight;
 
-  const M3SettingsSectionHeader({super.key, required this.title});
+  const M3SettingsSectionHeader({
+    super.key,
+    required this.title,
+    this.fontWeight = FontWeight.w600,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final fontMgr = FontManager.instance;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
       child: Text(
         title,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
-          fontWeight: FontWeight.normal,
-          fontSize: 13,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.85),
+          fontWeight: fontWeight,
+          fontSize: 13.5,
           letterSpacing: -0.1,
+          fontFamily: fontMgr.activeFontFamily,
+          fontFamilyFallback: FontManager.fallbackFontFamilies,
         ),
       ),
     );
