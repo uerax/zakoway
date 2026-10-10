@@ -744,25 +744,52 @@ class XifanNextSource extends VideoSource {
 
     // 3. 若指定线路未单独匹配到，但接口给出了候选列表（通常为未传 source_id 的通用链接），严格按源返回提取直链
     if (playUrl.isEmpty && candidates.isNotEmpty) {
-      // 默认未指定线路时，按国内主线 > 国内 HLS 备用 > 国外保底 选择
-      final primary = candidates.firstWhere(
+      // 特殊处理说明：
+      // 默认未指定线路或指定线路降级时，挑选候选源的优先级规则：
+      // 1. 新番主线 xfxf1（国内沃云直链，当季新番最高清极速，必须保持第一优先级）；
+      // 2. 旧番主线 xfy2（海外直链，完结/老番主线；避免老番因无 xfxf1 而错误跌入可能宕机的切片源）；
+      // 3. 接口推荐根地址 res['url']（源站返回的默认推荐播放流，通常为主线可用 CDN）；
+      // 4. 首个非 CS 候选源（保障可用性，优先避开不稳定备用源）；
+      // 5. 最后兜底国内备用 HLS cs（dl.playxf.top 常发生宕机/SSL握手切断异常，绝不可在老番中盲目优先选用）。
+      final xfxf1 = candidates.firstWhere(
         (c) => (c['source_code']?.toString().toLowerCase() == 'xfxf1'),
         orElse: () => const {},
       );
-      if (primary.isNotEmpty && primary['url'] != null) {
-        playUrl = primary['url'].toString();
-        _log('未指定线路，默认采用国内主线: $playUrl');
+      if (xfxf1.isNotEmpty && xfxf1['url'] != null) {
+        playUrl = xfxf1['url'].toString();
+        _log('未指定线路，默认采用国内新番主线: $playUrl');
       } else {
-        final backup = candidates.firstWhere(
-          (c) => (c['source_code']?.toString().toLowerCase() == 'cs'),
+        final xfy2 = candidates.firstWhere(
+          (c) => (c['source_code']?.toString().toLowerCase() == 'xfy2'),
           orElse: () => const {},
         );
-        if (backup.isNotEmpty && backup['url'] != null) {
-          playUrl = backup['url'].toString();
-          _log('未指定线路，采用国内备用 HLS: $playUrl');
+        if (xfy2.isNotEmpty && xfy2['url'] != null) {
+          playUrl = xfy2['url'].toString();
+          _log('未指定线路，默认采用旧番主线: $playUrl');
+        } else if (res['url'] != null && res['url'].toString().trim().isNotEmpty) {
+          playUrl = res['url'].toString().trim();
+          _log('未指定线路，默认采用接口根推荐直链: $playUrl');
         } else {
-          playUrl = candidates.first['url']?.toString() ?? '';
-          _log('未指定线路，采用首个候选源: $playUrl');
+          final nonCs = candidates.firstWhere(
+            (c) => (c['source_code']?.toString().toLowerCase() != 'cs'),
+            orElse: () => const {},
+          );
+          if (nonCs.isNotEmpty && nonCs['url'] != null) {
+            playUrl = nonCs['url'].toString();
+            _log('未指定线路，采用非备用候选源: $playUrl');
+          } else {
+            final backup = candidates.firstWhere(
+              (c) => (c['source_code']?.toString().toLowerCase() == 'cs'),
+              orElse: () => const {},
+            );
+            if (backup.isNotEmpty && backup['url'] != null) {
+              playUrl = backup['url'].toString();
+              _log('未指定线路，采用国内备用 HLS: $playUrl');
+            } else {
+              playUrl = candidates.first['url']?.toString() ?? '';
+              _log('未指定线路，采用首个候选源: $playUrl');
+            }
+          }
         }
       }
     }

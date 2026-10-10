@@ -158,9 +158,13 @@ class Anime1Source extends VideoSource {
     }
     final apireq = apireqMatch.group(1)!;
 
+    // 特殊处理说明：
+    // Anime1 页面中的 data-apireq 本身已经是 URL 编码格式（形如 %7B%22c...%7D），
+    // 若在此处再次调用 Uri.encodeComponent 会导致字符被二次编码 (%257B)，触发服务端校验失败并报 403 Signature invalid。
+    // 因此此处直接按原始编码串进行表单拼接 (data: 'd=$apireq')，杜绝二次转义。
     final apiRes = await _dio.post<dynamic>(
       _api,
-      data: 'd=${Uri.encodeComponent(apireq)}',
+      data: 'd=$apireq',
       options: Options(
         headers: {
           'User-Agent': _kDefaultUserAgent,

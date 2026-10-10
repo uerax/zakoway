@@ -1,10 +1,17 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../models/source_models.dart';
 import 'video_source.dart';
 
 const String _kDefaultUserAgent =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+
+// 特殊处理说明：
+// Animoe 服务端对 M3U8 播放列表文件实行了私有循环异或加密，魔数头为 'enc!' (0x65 0x6e 0x63 0x21)。
+// 经逆向与重合指数分析，加密算法为 10 字节重复 XOR 流混淆，解密后还原出标准的网易云音乐对象存储切片列表。
+const List<int> _kAnimoeXorKey = [179, 233, 144, 144, 144, 144, 53, 122, 115, 2];
 
 /// Animoe 动漫 (animoe.org) 专有视频源
 /// 1:1 对齐 animaku (apps/server/src/lib/animoe.ts) 规范
@@ -79,9 +86,12 @@ class AnimoeSource extends VideoSource {
 
     final html = res.data ?? '';
 
-    // 1. 提取 Tab 标签
+    // 1. 提取 Tab 标签（兼容 <a> 或 <div> 容器）
     final tabLabels = <String>[];
-    final tabRegex = RegExp(r'''<a[^>]*class=["'][^"']*module-tab-item[^"']*["'][^>]*>(.*?)</a>''', caseSensitive: false);
+    final tabRegex = RegExp(
+      r'''<(?:a|div)[^>]*class=["'][^"']*module-tab-item[^"']*["'][^>]*>(?:<span>)?(.*?)(?:</span>)?</(?:a|div)>''',
+      caseSensitive: false,
+    );
     for (final m in tabRegex.allMatches(html)) {
       final label = m.group(1)!.replaceAll(RegExp(r'<[^>]+>'), '').trim();
       if (label.isNotEmpty && !RegExp(r'^(?:排序|正序|倒序)$').hasMatch(label)) {
@@ -150,8 +160,68 @@ class AnimoeSource extends VideoSource {
       throw Exception('Animoe 媒体地址无效: $directUrl');
     }
 
+    // 特殊处理说明：
+    // Animoe 返回的 m3u8 地址若携带私有 'enc!' 循环异或混淆，
+    // 原生播放内核（media_kit / mpv）无法识别该非标流，必须在应用层执行 10 字节 XOR 解密，
+    // 还原出标准 #EXTM3U 并落地为本地临时文件交付播放器。
+    // 同时网易云音乐对象存储 CDN (p1.music.126.net) 拦截了 Dart 默认 UA（报 403），
+    // 必须在请求头显式注入标准现代浏览器 User-Agent。
+    var resolvedUrl = directUrl;
+    if (directUrl.toLowerCase().contains('.m3u8')) {
+      try {
+        final cacheFile = File(
+          '${Directory.systemTemp.path}${Platform.pathSeparator}animoe_${directUrl.hashCode.abs()}.m3u8',
+        );
+
+        // 若本地已有 1 小时内解密就绪的文件，直接复用以实现 0ms 瞬间起播
+        final fileExists = await cacheFile.exists();
+        final isFresh = fileExists &&
+            DateTime.now().difference(await cacheFile.lastModified()).inMinutes < 60;
+
+        if (isFresh) {
+          resolvedUrl = cacheFile.uri.toString();
+        } else {
+          final m3u8Res = await _dio.get<List<int>>(
+            directUrl,
+            options: Options(
+              headers: _headers('$_baseUrl/'),
+              responseType: ResponseType.bytes,
+              sendTimeout: const Duration(seconds: 8),
+              receiveTimeout: const Duration(seconds: 8),
+            ),
+          );
+
+          final bytes = m3u8Res.data;
+          if (bytes != null && bytes.length > 4) {
+            final isEncrypted = bytes[0] == 0x65 &&
+                bytes[1] == 0x6e &&
+                bytes[2] == 0x63 &&
+                bytes[3] == 0x21; // 'enc!'
+
+            if (isEncrypted) {
+              final decryptedBytes = Uint8List(bytes.length - 4);
+              for (var i = 0; i < decryptedBytes.length; i++) {
+                decryptedBytes[i] = bytes[i + 4] ^ _kAnimoeXorKey[i % 10];
+              }
+
+              var decryptedText = utf8.decode(decryptedBytes, allowMalformed: true);
+              if (!decryptedText.startsWith('#')) {
+                decryptedText = '#$decryptedText';
+              }
+
+              await cacheFile.writeAsString(decryptedText);
+              resolvedUrl = cacheFile.uri.toString();
+            }
+          }
+        }
+      } catch (_) {
+        // 容错降级：若网络拉取解密过程出现偶发异常，平滑回退直接返回原始链接
+        resolvedUrl = directUrl;
+      }
+    }
+
     return SourceResolveResult(
-      url: directUrl,
+      url: resolvedUrl,
       headers: {
         'Referer': '$_baseUrl/',
         'User-Agent': _kDefaultUserAgent,

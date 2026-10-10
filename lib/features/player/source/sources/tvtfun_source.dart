@@ -24,14 +24,18 @@ class TvTFunSource extends VideoSource {
   String get version => '1.3.0';
 
   @override
-  String get description => '1080P · 国内直连线路 D 优先 (BytePlus/Akamai 高清)';
+  String get description => '1080P · 官方 BytePlus/Akamai 全球 CDN 极速主线';
 
   int _getSourcePriority(String name) {
     final n = name.trim();
-    if (RegExp(r'线路\s*D\b', caseSensitive: false).hasMatch(n) || n.contains('线路D')) return 100;
+    // 特殊处理说明：
+    // 线路 A 指向字节跳动 BytePlus / Akamai CDN 全球直连节点，全球无地域限制且带宽高；
+    // 线路 D 指向第三方切片源，对境外或代理 IP 存在严格的地域白名单封锁（返回 403 The region has been denied）；
+    // 因此调整优先级：线路 A 设为最高优，规避播放器在非大陆特定网络下遭遇 403 阻断。
+    if (RegExp(r'线路\s*A\b', caseSensitive: false).hasMatch(n) || n.contains('线路A')) return 100;
     if (RegExp(r'线路\s*B\b', caseSensitive: false).hasMatch(n) || n.contains('线路B')) return 80;
     if (RegExp(r'线路\s*C\b', caseSensitive: false).hasMatch(n) || n.contains('线路C')) return 70;
-    if (RegExp(r'线路\s*A\b', caseSensitive: false).hasMatch(n) || n.contains('线路A')) return 60;
+    if (RegExp(r'线路\s*D\b', caseSensitive: false).hasMatch(n) || n.contains('线路D')) return 60;
     return 50;
   }
 
@@ -71,6 +75,7 @@ class TvTFunSource extends VideoSource {
 
   @override
   Future<List<SourceChapterRoad>> chapters(String animeUrl) async {
+    final animeUri = Uri.tryParse(animeUrl);
     final match = RegExp(r'/video/([^/?#]+)').firstMatch(animeUrl);
     if (match == null) throw Exception('无法解析 TvTFun 视频 ID: $animeUrl');
     final videoId = match.group(1)!;
@@ -89,10 +94,18 @@ class TvTFunSource extends VideoSource {
     );
 
     final resData = parseJsonMap(res.data);
-    final playSources = (resData?['data']?['playSources'] as List?) ?? [];
+    final videoData = resData?['data'] as Map<String, dynamic>?;
+    final playSources = (videoData?['playSources'] as List?) ?? [];
     if (playSources.isEmpty) return [];
 
-    // 保留原始 source 索引并置顶国内高优线路 D (对齐 animaku 规范)
+    // 特殊处理说明：
+    // TvTFun 网页前端 Next.js 路由规范为 /video/[slug]/play（其中 [slug] 为 Bangumi ID 等业务别名），
+    // 若路由传入后端数据库内部 CUID（形如 cmp2wp...）会触发 Next.js 动态路由 404 错误。
+    // 在此提取真实 slug 并透传给分集 URL 参数，以便 resolve 阶段顺畅加载鉴权播放页。
+    final rawSlug = animeUri?.queryParameters['slug'] ?? videoData?['slug']?.toString() ?? videoId;
+    final slug = rawSlug.trim().isNotEmpty ? rawSlug.trim() : videoId;
+
+    // 保留原始 source 索引并置顶国内高优线路 A (BytePlus/Akamai 全球 CDN)
     final indexed = playSources.asMap().entries.map((e) => (src: e.value as Map<String, dynamic>, originalIdx: e.key)).toList();
 
     indexed.sort((a, b) {
@@ -120,7 +133,7 @@ class TvTFunSource extends VideoSource {
         final epName = ep['name']?.toString().trim();
         return SourceEpisode(
           name: (epName != null && epName.isNotEmpty) ? epName : '第 ${epSort + 1} 话',
-          url: '$_baseUrl/video/$videoId/play?episodeId=$epId&videoId=$videoId&source=${item.originalIdx}&epSort=$epSort',
+          url: '$_baseUrl/video/$videoId/play?episodeId=$epId&videoId=$videoId&slug=${Uri.encodeComponent(slug)}&source=${item.originalIdx}&epSort=$epSort',
         );
       }).toList();
 
@@ -137,7 +150,11 @@ class TvTFunSource extends VideoSource {
     final sourceIndex = uri.queryParameters['source'] ?? '0';
     final epSort = uri.queryParameters['epSort'] ?? '0';
     final videoIdMatch = RegExp(r'/video/([^/?#]+)').firstMatch(episodeUrl);
-    final slug = videoIdMatch?.group(1) ?? '';
+
+    // 特殊处理说明：
+    // 优先采用 query 中的真实 slug（业务别名/Bangumi ID），若缺失再回退到路径提取，
+    // 保证请求的前端播放页路由能正确命中 Next.js 页面并返回 200 与 tvt-pt 会话 cookie。
+    final slug = uri.queryParameters['slug'] ?? videoIdMatch?.group(1) ?? '';
 
     if (episodeId == null || episodeId.isEmpty) {
       throw Exception('TvTFun 缺少 episodeId: $episodeUrl');
