@@ -25,6 +25,9 @@ const int _kMobileBufferSize = 16 * 1024 * 1024; // 16MB
 const int _kMobileMaxBytes = 16 * 1024 * 1024; // 16MB
 const int _kMobileMaxBackBytes = 4 * 1024 * 1024; // 4MB
 
+/// 首帧黑屏防闪遮罩最长保持时间（硬上限超时兜底，防止纯音频、无视频轨或尺寸事件缺失导致死等遮罩）
+const Duration kFirstFrameCoverMaxWait = Duration(milliseconds: 1800);
+
 /// zakoway 视频播放引擎控制器
 /// 封装 media_kit (libmpv) 底层驱动，支持 250ms 节流解耦、倍速变调修正与切片断流自动重试
 class ZakowayPlaybackController {
@@ -56,7 +59,7 @@ class ZakowayPlaybackController {
   Duration _lastBuffer = Duration.zero;
 
   Timer? _firstFrameFallbackTimer;
-  bool _hasReceivedPositionSinceOpen = false;
+  bool _hasReceivedVideoDimensionsSinceOpen = false;
 
   Duration _pendingStart = Duration.zero;
   bool _disposed = false;
@@ -101,6 +104,8 @@ class ZakowayPlaybackController {
       player.stream.buffer.listen(_onBufferChanged),
       player.stream.rate.listen(_onRateChanged),
       player.stream.error.listen(_onErrorChanged),
+      player.stream.width.listen(_onWidthChanged),
+      player.stream.height.listen(_onHeightChanged),
       NetworkConnectivityService.instance.onMeteredChanged.listen(_onNetworkMeteredChanged),
     ]);
 
@@ -259,18 +264,15 @@ class ZakowayPlaybackController {
     _lastPositionAt = _positionClock.elapsed;
     _lastDuration = Duration.zero;
     _lastBuffer = Duration.zero;
-    _hasReceivedPositionSinceOpen = false;
+    _hasReceivedVideoDimensionsSinceOpen = false;
 
     _firstFrameFallbackTimer?.cancel();
-    _firstFrameFallbackTimer = Timer(
-      Duration(milliseconds: autoplay ? 3000 : 1500),
-      () {
-        if (_disposed) return;
-        if (!core.value.firstFrameRendered) {
-          _checkFirstFrameRendered(force: true);
-        }
-      },
-    );
+    _firstFrameFallbackTimer = Timer(kFirstFrameCoverMaxWait, () {
+      if (_disposed) return;
+      if (!core.value.firstFrameRendered) {
+        _checkFirstFrameRendered(force: true);
+      }
+    });
 
     // 特殊处理说明：
     // 切集或初次打开媒体流时，必须将 firstFrameRendered 立即置为 false 并保持 loading=true。
@@ -572,8 +574,6 @@ class ZakowayPlaybackController {
       _pendingStart = Duration.zero;
     }
 
-    _hasReceivedPositionSinceOpen = true;
-
     // 当播放进度正常前进时，说明媒体解码通畅，自动抹除瞬态错误
     if (core.value.hasError && pos > Duration.zero) {
       core.value = core.value.copyWith(clearError: true);
@@ -581,33 +581,42 @@ class ZakowayPlaybackController {
 
     _lastPosition = pos;
     _lastPositionAt = _positionClock.elapsed;
-    _checkFirstFrameRendered();
     _scheduleTimelineEmit();
   }
 
   void _onDurationChanged(Duration dur) {
     if (_disposed) return;
     _lastDuration = dur;
-    _checkFirstFrameRendered();
     _scheduleTimelineEmit();
+  }
+
+  void _onWidthChanged(int? width) {
+    if (_disposed) return;
+    if ((width ?? 0) > 0) {
+      _hasReceivedVideoDimensionsSinceOpen = true;
+      _checkFirstFrameRendered();
+    }
+  }
+
+  void _onHeightChanged(int? height) {
+    if (_disposed) return;
+    if ((height ?? 0) > 0) {
+      _hasReceivedVideoDimensionsSinceOpen = true;
+      _checkFirstFrameRendered();
+    }
   }
 
   /// 检查新视频首帧是否已经真正解码渲染上屏
   /// 特殊处理说明：
-  /// 首帧就绪门禁必须同时满足：
-  /// 1. 已获取媒体时长元数据 (_lastDuration > Duration.zero)；
-  /// 2. 自当前媒体 open() 以来已收到过底层位置采样事件 (_hasReceivedPositionSinceOpen)，
-  ///    以此作为底层真正开始解码推流的可靠物理信号；
-  /// 3. 当前正处于播放中或非缓冲卡顿态。
-  /// 对于非自动起播（暂停态）或极端异常流，依赖超时兜底 (force: true) 放行，防止死等转圈。
+  /// 首帧就绪门禁：
+  /// 1. open() 之后收到 player.stream.width / height 非空且大于 0 的事件，
+  ///    作为解码器真正出画（mpv 报出 video-params）的可靠物理信号；
+  /// 2. 具备硬上限超时兜底 (kFirstFrameCoverMaxWait / force: true)，
+  ///    防止纯音频、无视频轨或尺寸事件缺失导致遮罩永久卡死。
   void _checkFirstFrameRendered({bool force = false}) {
     if (_disposed) return;
     if (!core.value.firstFrameRendered) {
-      final hasDur = _lastDuration > Duration.zero;
-      final isPlaying = core.value.playing;
-      final notBuffering = !core.value.buffering;
-      final canRender = force ||
-          (hasDur && _hasReceivedPositionSinceOpen && (isPlaying || notBuffering));
+      final canRender = force || _hasReceivedVideoDimensionsSinceOpen;
       if (canRender) {
         _firstFrameFallbackTimer?.cancel();
         _firstFrameFallbackTimer = null;

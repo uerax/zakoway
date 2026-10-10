@@ -64,7 +64,7 @@ class VideoSurface extends StatelessWidget {
           // 特殊处理说明：
           // 切集时底层 GPU Texture 仍保留前一集最后一帧，若无遮罩会在新视频加载中暴露旧画面；
           // 当 firstFrameRendered 为 false 时瞬间以 0 延迟纯黑覆盖并在中央显示加载转圈；
-          // 首帧解码出画后两者同步在 150ms 内平滑淡出，彻底杜绝“转圈停了却莫名黑屏冷场一小会”的视觉割裂。
+          // 首帧判据已严格对齐底层 video-params 真实出画事件，首帧就绪后遮罩以 0 延迟瞬间撤去，彻底消除黑屏拖泥带水。
           ValueListenableBuilder<PlaybackCoreState>(
             valueListenable: controller.core,
             builder: (context, coreState, _) {
@@ -72,7 +72,7 @@ class VideoSurface extends StatelessWidget {
               return IgnorePointer(
                 child: AnimatedOpacity(
                   opacity: showCover ? 1.0 : 0.0,
-                  duration: showCover ? Duration.zero : const Duration(milliseconds: 150),
+                  duration: Duration.zero,
                   child: const ColoredBox(
                     color: Colors.black,
                     child: Center(
