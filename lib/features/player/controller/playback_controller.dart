@@ -55,6 +55,9 @@ class ZakowayPlaybackController {
   Duration _lastDuration = Duration.zero;
   Duration _lastBuffer = Duration.zero;
 
+  Timer? _firstFrameFallbackTimer;
+  bool _hasReceivedPositionSinceOpen = false;
+
   Duration _pendingStart = Duration.zero;
   bool _disposed = false;
   String? _currentUri;
@@ -254,6 +257,20 @@ class ZakowayPlaybackController {
     _pendingStart = start ?? Duration.zero;
     _lastPosition = _pendingStart;
     _lastPositionAt = _positionClock.elapsed;
+    _lastDuration = Duration.zero;
+    _lastBuffer = Duration.zero;
+    _hasReceivedPositionSinceOpen = false;
+
+    _firstFrameFallbackTimer?.cancel();
+    _firstFrameFallbackTimer = Timer(
+      Duration(milliseconds: autoplay ? 3000 : 1500),
+      () {
+        if (_disposed) return;
+        if (!core.value.firstFrameRendered) {
+          _checkFirstFrameRendered(force: true);
+        }
+      },
+    );
 
     // 特殊处理说明：
     // 切集或初次打开媒体流时，必须将 firstFrameRendered 立即置为 false 并保持 loading=true。
@@ -283,6 +300,8 @@ class ZakowayPlaybackController {
         play: autoplay,
       );
     } catch (e) {
+      _firstFrameFallbackTimer?.cancel();
+      _firstFrameFallbackTimer = null;
       core.value = core.value.copyWith(
         loading: false,
         firstFrameRendered: true,
@@ -534,6 +553,8 @@ class ZakowayPlaybackController {
       return;
     }
 
+    _firstFrameFallbackTimer?.cancel();
+    _firstFrameFallbackTimer = null;
     core.value = core.value.copyWith(
       errorMessage: error,
       loading: false,
@@ -550,6 +571,8 @@ class ZakowayPlaybackController {
       }
       _pendingStart = Duration.zero;
     }
+
+    _hasReceivedPositionSinceOpen = true;
 
     // 当播放进度正常前进时，说明媒体解码通畅，自动抹除瞬态错误
     if (core.value.hasError && pos > Duration.zero) {
@@ -571,16 +594,23 @@ class ZakowayPlaybackController {
 
   /// 检查新视频首帧是否已经真正解码渲染上屏
   /// 特殊处理说明：
-  /// 严禁要求 `_lastPosition > Duration.zero`！视频起播首帧必然处于 00:00，
-  /// 若等待 position 前进大于 0 秒会白白多出 500~1000ms 的无谓黑屏等待。
-  /// 只要新流时长元数据就绪且缓冲完成（!buffering）或已处于播放中，立即判定首帧就绪，0 延迟解除黑屏。
-  void _checkFirstFrameRendered() {
+  /// 首帧就绪门禁必须同时满足：
+  /// 1. 已获取媒体时长元数据 (_lastDuration > Duration.zero)；
+  /// 2. 自当前媒体 open() 以来已收到过底层位置采样事件 (_hasReceivedPositionSinceOpen)，
+  ///    以此作为底层真正开始解码推流的可靠物理信号；
+  /// 3. 当前正处于播放中或非缓冲卡顿态。
+  /// 对于非自动起播（暂停态）或极端异常流，依赖超时兜底 (force: true) 放行，防止死等转圈。
+  void _checkFirstFrameRendered({bool force = false}) {
     if (_disposed) return;
     if (!core.value.firstFrameRendered) {
       final hasDur = _lastDuration > Duration.zero;
       final isPlaying = core.value.playing;
       final notBuffering = !core.value.buffering;
-      if (hasDur && (isPlaying || notBuffering)) {
+      final canRender = force ||
+          (hasDur && _hasReceivedPositionSinceOpen && (isPlaying || notBuffering));
+      if (canRender) {
+        _firstFrameFallbackTimer?.cancel();
+        _firstFrameFallbackTimer = null;
         core.value = core.value.copyWith(
           firstFrameRendered: true,
           loading: false,
@@ -630,6 +660,8 @@ class ZakowayPlaybackController {
     if (_disposed) return;
     _disposed = true;
 
+    _firstFrameFallbackTimer?.cancel();
+    _firstFrameFallbackTimer = null;
     _timelineThrottleTimer?.cancel();
     for (final sub in _subscriptions) {
       unawaited(sub.cancel());

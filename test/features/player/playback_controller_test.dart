@@ -137,5 +137,10 @@ void main() {
       expect(controller.core.value.firstFrameRendered, isFalse);
       expect(controller.core.value.loading, isTrue);
     });
+
+    test('控制器 dispose 后资源与定时器安全销毁', () async {
+      await controller.dispose();
+      expect(controller.isDisposed, isTrue);
+    });
   });
 }
