@@ -14,8 +14,9 @@ void main() {
     expect(runtime.bundleMeta.version, contains('native'));
 
     final sources = runtime.availableSources;
-    expect(sources.length, 13);
-    expect(sources.first.id, 'sorani');
+    expect(sources.length, 14);
+    expect(sources.first.id, 'xifan-next');
+    expect(sources.any((s) => s.id == 'gugu'), isTrue);
     expect(sources.any((s) => s.id == 'sorani'), isTrue);
     expect(sources.any((s) => s.id == 'xifan-next'), isTrue);
     expect(sources.any((s) => s.id == 'girigiri'), isTrue);
@@ -29,6 +30,12 @@ void main() {
     expect(sources.any((s) => s.id == 'omofun'), isTrue);
     expect(sources.any((s) => s.id == 'anime1'), isTrue);
     expect(sources.any((s) => s.id == 'libvio'), isTrue);
+
+    // 验证权重顺序：xifan-next (首选) -> moonci -> cycani -> mifun/sorani (同级) ... animoe/gugu (同级)
+    final ids = sources.map((s) => s.id).toList();
+    expect(ids.indexOf('xifan-next'), 0);
+    expect(ids.indexOf('sorani'), ids.indexOf('mifun') + 1);
+    expect(ids.indexOf('gugu'), ids.indexOf('animoe') + 1);
 
     runtime.dispose();
   });
@@ -98,6 +105,19 @@ void main() {
     // 6. 验证月之祠 %uXXXX Unicode escape 解密 (解决用户报障 URL)
     final userReportedMedia = await runtime.resolve('moonci', 'https://www.moonci.com/anime/41/play/3-1.html');
     expect(userReportedMedia.url, anyOf(startsWith('https://dl.playxf.top/'), startsWith('https://next.xifanacg.com/'), startsWith('http')));
+
+    // 7. 验证咕咕番原生搜索、分集与米芝网关字节直链解析
+    final guguHits = await runtime.search('gugu', '葬送的芙莉莲');
+    expect(guguHits, isNotEmpty);
+    expect(guguHits.first.name, contains('芙莉莲'));
+
+    final guguRoads = await runtime.chapters('gugu', guguHits.first.url);
+    expect(guguRoads, isNotEmpty);
+    expect(guguRoads.first.episodes, isNotEmpty);
+
+    final guguMedia = await runtime.resolve('gugu', guguRoads.first.episodes.first.url);
+    expect(guguMedia.url, startsWith('http'));
+    expect(guguMedia.url, contains('byteimg.com'));
 
     runtime.dispose();
   });

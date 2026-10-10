@@ -27,34 +27,36 @@ class VideoSourceItem {
 /// 默认从 SourceBundleManager 生成的标准视频源列表
 List<VideoSourceItem> getDefaultSourceItems() {
   const descriptions = {
-    'sorani': '1080P · 官方原生 API 直出 (最高画质)',
     'xifan-next': '1080P · 官方推荐综合主线',
     'moonci': '1080P · 零 Referer 防盗链直连',
     'cycani': '1080P · 纯净 REST API 多线路',
     'mifun': '1080P · 字节/百度 CDN 高速切片',
+    'sorani': '1080P · 官方原生 API 直出 (最高画质)',
     'girigiri': '1080P · Cloudflare CDN 原画直连',
     'lzizy': 'HLS · 全品类影视 0ms 纯直链',
     'animoe': 'HLS · 网易云音乐 CDN 节点',
+    'gugu': '1080P · 字节 TOS 国内极速直链 (咕咕新线/A线)',
     'mxdm': 'HLS · 备用多线路模板解析',
-    'tvtfun': '1080P · 国内直连线路 D 优先',
-    'omofun': '1080P · 备用解析线路',
+    'tvtfun': '1080P · 官方 BytePlus/Akamai 全球 CDN 极速主线',
     'anime1': 'MP4 · 动画全集带鉴权直连',
+    'omofun': '1080P · 备用解析线路',
     'libvio': '1080P · 动态发布页实时探活镜像',
   };
 
   const sourceNames = {
-    'sorani': '青空次元',
     'xifan-next': '稀饭Next',
     'moonci': '月之祠',
     'cycani': '次元城',
     'mifun': 'MiFun',
+    'sorani': '青空次元',
     'girigiri': 'girigiri',
     'lzizy': '量子资源',
     'animoe': 'Animoe',
+    'gugu': '咕咕番',
     'mxdm': 'MX动漫',
     'tvtfun': 'TvTFun',
-    'omofun': 'OmoFun',
     'anime1': 'Anime1',
+    'omofun': 'OmoFun',
     'libvio': 'LIBVIO',
   };
 
@@ -65,7 +67,7 @@ List<VideoSourceItem> getDefaultSourceItems() {
         id: e.key,
         name: sourceNames[e.key] ?? e.key,
         description: e.value,
-        isDefault: e.key == 'sorani',
+        isDefault: e.key == 'xifan-next',
       );
     }).toList();
   }
@@ -75,7 +77,7 @@ List<VideoSourceItem> getDefaultSourceItems() {
       id: s.id,
       name: s.name,
       description: descriptions[s.id] ?? 'v${s.version} · 动态解析',
-      isDefault: s.id == 'sorani',
+      isDefault: s.id == 'xifan-next',
     );
   }).toList();
 }

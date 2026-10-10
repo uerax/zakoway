@@ -8,6 +8,7 @@ import 'package:zakoway/features/player/source/sources/anime1_source.dart';
 import 'package:zakoway/features/player/source/sources/animoe_source.dart';
 import 'package:zakoway/features/player/source/sources/cycani_source.dart';
 import 'package:zakoway/features/player/source/sources/girigiri_source.dart';
+import 'package:zakoway/features/player/source/sources/gugu_source.dart';
 import 'package:zakoway/features/player/source/sources/libvio_source.dart';
 import 'package:zakoway/features/player/source/sources/lzizy_source.dart';
 import 'package:zakoway/features/player/source/sources/mifun_source.dart';
@@ -57,18 +58,27 @@ class NativeSourceRuntime {
   final Map<String, Future<SourceResolveResult>> _inflightResolve = {};
 
   void _registerDefaultSources() {
-    registerSource(SoraniSource(dio: _dio));
+    // 特殊处理说明：
+    // 视频源默认注册位序直接决定了 UI 排序与自动选源的优先级：
+    // 1. xifan-next（综合主线首选）
+    // 2. moonci（月之祠，零防盗链极速直连）
+    // 3. cycani（次元城，多线路原画）
+    // 4. mifun / sorani（青空次元权重下调至与 mifun 同级第二梯队）
+    // 5. girigiri / lzizy（主流采集与原画老番）
+    // 6. animoe / gugu（咕咕番与 Animoe 同级，作为备选多线路源）
     registerSource(XifanNextSource(dio: _dio));
     registerSource(MoonciSource(dio: _dio));
     registerSource(CycaniSource(dio: _dio));
     registerSource(MifunSource(dio: _dio));
+    registerSource(SoraniSource(dio: _dio));
     registerSource(GirigiriSource(dio: _dio));
     registerSource(LzizySource(dio: _dio));
     registerSource(AnimoeSource(dio: _dio));
+    registerSource(GuguSource(dio: _dio));
     registerSource(MxdmSource(dio: _dio));
     registerSource(TvTFunSource(dio: _dio));
-    registerSource(OmofunSource(dio: _dio));
     registerSource(Anime1Source(dio: _dio));
+    registerSource(OmofunSource(dio: _dio));
     registerSource(LibvioSource(dio: _dio));
   }
 
