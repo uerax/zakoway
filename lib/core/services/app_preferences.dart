@@ -270,4 +270,12 @@ class AppPreferences {
     }
     return id;
   }
+
+  /// 获取当前设备的游客专属短机器码（例如 6 位大写 Hex：8F3A19）
+  static String getGuestMachineCode() {
+    final rawId = getOrCreateDeviceInstallId();
+    final hash = rawId.hashCode.abs();
+    final hex = hash.toRadixString(16).toUpperCase().padLeft(6, '0');
+    return hex.length > 6 ? hex.substring(hex.length - 6) : hex;
+  }
 }

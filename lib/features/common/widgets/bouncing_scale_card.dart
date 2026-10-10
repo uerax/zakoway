@@ -41,8 +41,8 @@ class _BouncingScaleCardState extends State<BouncingScaleCard>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 90), // 下压 90ms，紧凑干脆
-      reverseDuration: const Duration(milliseconds: 200), // 回弹 200ms，物理弹性
+      duration: const Duration(milliseconds: 70), // 紧凑下压 70ms，快速见效
+      reverseDuration: const Duration(milliseconds: 140), // 物理弹性回弹 140ms
     );
 
     _scaleAnimation = Tween<double>(
@@ -55,6 +55,15 @@ class _BouncingScaleCardState extends State<BouncingScaleCard>
         reverseCurve: Curves.easeOutBack, // 松手回弹时带 Q 弹过冲
       ),
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 路由安全保护：当从子页面返回激活本页面时，若控制器此前被挂起处于非 0 状态，强制重置归零，防止二次补播
+    if (_controller.value != 0.0) {
+      _controller.reset();
+    }
   }
 
   @override
@@ -74,11 +83,33 @@ class _BouncingScaleCardState extends State<BouncingScaleCard>
     final currentAction = ++_actionId;
 
     if (widget.immediateTap) {
-      // 0ms 瞬间响应：松手立刻触发触觉反馈与业务回调，回弹动画在后台非阻塞异步并发完成
+      // 1. 0ms 瞬间响应：立刻触发触觉反馈与业务回调
       HapticFeedback.lightImpact();
       widget.onTap?.call();
-      if (mounted) {
+
+      if (!mounted) return;
+
+      // 2. 路由感知检查：若点击触发了页面跳转（当前路由已被新页面覆盖），立即静默重置控制器
+      final route = ModalRoute.of(context);
+      if (route != null && !route.isCurrent) {
+        _controller.reset();
+        return;
+      }
+
+      // 3. 脉冲完整性保障：若未切换页面（如点击展示弹窗/提示），保证走完下压到底再弹性回弹
+      if (_controller.status == AnimationStatus.completed) {
         _controller.reverse();
+      } else {
+        _controller.forward().then((_) {
+          if (mounted && currentAction == _actionId) {
+            final activeRoute = ModalRoute.of(context);
+            if (activeRoute != null && !activeRoute.isCurrent) {
+              _controller.reset();
+            } else {
+              _controller.reverse();
+            }
+          }
+        });
       }
       return;
     }

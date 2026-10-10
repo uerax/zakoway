@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/services/app_preferences.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
 
-/// 个人中心顶部用户身份卡片（垂直居中对称排版规范）：
-/// 1. 顶部 64dp 圆形用户头像居中呈现（适中体量 + 双层立体高斯漫反射阴影）；
-/// 2. 下方文字全部水平居中对齐，彻底消除右侧空白不对称感；
-/// 3. 严防 Windows DirectWrite 跌入中易宋体，显式注入系统安全字体回退链。
+/// 个人中心顶部用户身份卡片（单行水平并排居中规范）：
+/// 1. 头像与 ID 同行横向排布（Row 布局），整体水平居中对称；
+/// 2. 展示格式：“杂鱼<设备专属机器code>”，标识游客的唯一本地机器码；
+/// 3. 配备精致多层立体高斯漫反射阴影，严防 Windows DirectWrite 跌入中易宋体。
 class UserProfileHeaderCard extends StatelessWidget {
   final VoidCallback? onProfileTap;
 
@@ -28,6 +29,9 @@ class UserProfileHeaderCard extends StatelessWidget {
     final avatarBg = isDark
         ? theme.colorScheme.surfaceContainerHigh
         : Colors.white;
+
+    // 获取当前设备唯一游客机器码
+    final guestCode = AppPreferences.getGuestMachineCode();
 
     return BouncingScaleCard(
       scaleDown: 0.98,
@@ -56,14 +60,14 @@ class UserProfileHeaderCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Center(
-          child: Column(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // 1. 居中：64x64 圆形用户头像（双层高漫反射立体阴影）
+              // 1. 头像（58x58dp 适中体量 + 双层立体高斯漫反射阴影）
               Container(
-                width: 64,
-                height: 64,
+                width: 58,
+                height: 58,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: avatarBg,
@@ -76,15 +80,15 @@ class UserProfileHeaderCard extends StatelessWidget {
                   boxShadow: [
                     // 主环境漫反射柔光阴影
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.38 : 0.08),
-                      blurRadius: 20,
-                      offset: const Offset(0, 6),
+                      color: Colors.black.withValues(alpha: isDark ? 0.36 : 0.08),
+                      blurRadius: 18,
+                      offset: const Offset(0, 5),
                       spreadRadius: 1,
                     ),
                     // 近场发丝微景深阴影
                     BoxShadow(
                       color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.04),
-                      blurRadius: 5,
+                      blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
                   ],
@@ -92,17 +96,16 @@ class UserProfileHeaderCard extends StatelessWidget {
                 child: Center(
                   child: Icon(
                     Icons.person_outline_rounded,
-                    size: 34,
+                    size: 30,
                     color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.85),
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(width: 16),
 
-              // 2. 居中大字昵称
+              // 2. 单行大字 ID（杂鱼<机器code>）
               Text(
-                '杂口杂口',
-                textAlign: TextAlign.center,
+                '杂鱼$guestCode',
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                   fontSize: 22,

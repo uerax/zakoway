@@ -173,7 +173,7 @@ class _ActionItem extends StatelessWidget {
     final fontMgr = FontManager.instance;
 
     return BouncingScaleCard(
-      scaleDown: 0.92,
+      scaleDown: 0.88,
       immediateTap: true,
       onTap: () {
         HapticFeedback.selectionClick();
