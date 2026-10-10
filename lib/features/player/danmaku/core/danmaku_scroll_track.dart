@@ -32,8 +32,10 @@ class DanmakuScrollTrack {
     }
 
     // 3. 终点反超预判校验：新弹幕速度比前一条快，计算新弹幕到达左边缘的时刻，
-    //    必须在上一条弹幕离开左边缘时刻之后，否则会在中途发生超车穿模碰撞
-    final newArriveEndMs = nowMs + (viewWidth + safetyGapPx) / speed;
+    //    必须在上一条弹幕离开左边缘时刻之后，否则会在中途发生超车穿模碰撞。
+    //    特殊处理说明：此处必须减去 safetyGapPx，以确保新弹幕头部在到达终点前提前拉开安全间距，
+    //    若误写为加号会导致判定时间偏大，误放行本会追尾的弹幕。
+    final newArriveEndMs = nowMs + (viewWidth - safetyGapPx) / speed;
     return newArriveEndMs >= _lastEndMs;
   }
 

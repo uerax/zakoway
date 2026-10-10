@@ -20,6 +20,9 @@ const double _kBottomDurationMs = 5000.0;
 const double _kScrollBaseDurationMs = 7500.0;
 const double _kSeekThresholdMs = 1200.0;
 
+/// 时间同步死区阈值 (ms)：低于该幅度的离散采样抖动视为正常噪声不予纠偏，保持时钟匀速自增
+const double _kSyncDeadbandMs = 35.0;
+
 /// 小漂移纠偏的时间常数 (ms)：采样噪声被平滑掉，不再在单帧内跳变
 const double _kCorrectionTauMs = 300.0;
 
@@ -477,9 +480,20 @@ class _DanmakuViewState extends State<DanmakuView>
     final h = constraints.maxHeight;
     if (w == _viewWidth && h == _viewHeight) return;
 
+    final hadViewport = _hasViewport;
     _viewWidth = w;
     _viewHeight = h;
     if (!_hasViewport) return;
+
+    // 特殊处理说明：
+    // 若视口尺寸发生有效变更（如窗口缩放、进入/退出全屏）：
+    // 现有在屏弹幕的速度和坐标基于旧视口宽度计算，若继续绘制会导致全部在屏弹幕瞬移；
+    // 立即清空在屏弹幕并重置游标至当前时钟，让新弹幕按新视口平滑入场，彻底消除跳帧。
+    if (hadViewport && _activeEntries.isNotEmpty) {
+      _clearActive();
+      _cursor = _lowerBound(_controller.items, _clockMs);
+      _repaintNotifier.value++;
+    }
 
     _rebuildTracks();
     _scheduleWork();
@@ -566,6 +580,9 @@ class _DanmakuViewState extends State<DanmakuView>
   void onDanmakuTimeSync(Duration position) {
     final positionMs = position.inMilliseconds.toDouble();
     final drift = positionMs - _clockMs;
+
+    // 0. 死区过滤：微小离散采样噪声（< 35ms）不触发纠偏，让内部 Ticker 单调匀速平滑自增
+    if (drift.abs() < _kSyncDeadbandMs) return;
 
     // Seek 阈值超过 1.2 秒：认定为用户拖动进度条，执行重置与二分查找重定位
     if (drift.abs() > _kSeekThresholdMs) {
