@@ -945,6 +945,48 @@ class BangumiClient {
     }
   }
 
+  /// 获取用户收藏列表 (遵循 Bangumi v0 API 规范: /v0/users/{username}/collections)
+  Future<List<Map<String, dynamic>>> getUserCollections(
+    String username, {
+    String? token,
+    int subjectType = 2, // 2 = 动画
+    CollectType? type,
+    int limit = 30,
+    int offset = 0,
+  }) async {
+    try {
+      final query = <String, dynamic>{
+        'subject_type': subjectType,
+        'limit': limit,
+        'offset': offset,
+      };
+      final bangumiType = type?.toBangumiType();
+      if (bangumiType != null) {
+        query['type'] = bangumiType;
+      }
+
+      final res = await _dio.get(
+        '/v0/users/$username/collections',
+        queryParameters: query,
+        options: Options(
+          headers: token != null && token.isNotEmpty
+              ? {'Authorization': 'Bearer $token'}
+              : null,
+        ),
+      );
+
+      if (res.data is Map<String, dynamic>) {
+        final data = res.data['data'];
+        if (data is List) {
+          return data.whereType<Map<String, dynamic>>().toList();
+        }
+      }
+      return [];
+    } on DioException catch (e) {
+      throw _handleDioError('获取用户收藏列表失败', e);
+    }
+  }
+
   BangumiApiException _handleDioError(String prefix, DioException e) =>
       BangumiApiException.fromDio(prefix, e);
 }

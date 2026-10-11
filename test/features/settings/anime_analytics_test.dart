@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zakoway/core/collection/models/anime_collection_item.dart';
+import 'package:zakoway/core/models/bangumi/bangumi_collection.dart';
 import 'package:zakoway/core/models/history/watch_history_item.dart';
 import 'package:zakoway/core/services/watch_history_service.dart';
 import 'package:zakoway/features/settings/pages/data_analysis_page.dart';
@@ -105,6 +107,66 @@ void main() {
 
       final report = AnimeAnalyticsService.analyze(history);
       expect(report.personaTitle, contains('治愈系养老仙人'));
+    });
+
+    test('Computes accurate report with collections data even when history is empty', () {
+      final collections = [
+        AnimeCollectionItem(
+          subjectId: 101,
+          type: CollectType.watching,
+          title: '孤独摇滚',
+          tags: const ['音乐', '日常', '百合', '喜剧'],
+          updatedAt: DateTime.now(),
+        ),
+        AnimeCollectionItem(
+          subjectId: 102,
+          type: CollectType.watched,
+          title: '轻音少女',
+          tags: const ['音乐', '日常', '校园'],
+          updatedAt: DateTime.now(),
+        ),
+      ];
+
+      final report = AnimeAnalyticsService.analyze([], collections: collections);
+      expect(report.isEmpty, isFalse);
+      expect(report.totalAnimeCount, equals(2));
+      expect(report.totalCollectionCount, equals(2));
+      expect(report.collectionCounts[CollectType.watching], equals(1));
+      expect(report.collectionCounts[CollectType.watched], equals(1));
+      expect(report.completionRate, equals(0.5));
+      expect(report.topGenres.map((g) => g.genre), contains('日常'));
+    });
+
+    test('Excludes planToWatch and onHold collections from watched totalAnimeCount', () {
+      final collections = [
+        AnimeCollectionItem(
+          subjectId: 201,
+          type: CollectType.watched,
+          title: '轻音少女',
+          tags: const ['音乐', '日常'],
+          updatedAt: DateTime.now(),
+        ),
+        AnimeCollectionItem(
+          subjectId: 202,
+          type: CollectType.planToWatch,
+          title: '想看但不计入已看的番剧A',
+          tags: const ['科幻'],
+          updatedAt: DateTime.now(),
+        ),
+        AnimeCollectionItem(
+          subjectId: 203,
+          type: CollectType.onHold,
+          title: '搁置番剧B',
+          tags: const ['机战'],
+          updatedAt: DateTime.now(),
+        ),
+      ];
+
+      final report = AnimeAnalyticsService.analyze([], collections: collections);
+      expect(report.totalAnimeCount, equals(1)); // 仅 1 部真正「看过」
+      expect(report.totalCollectionCount, equals(3)); // 收藏总数依然为 3
+      expect(report.topGenres.map((g) => g.genre), contains('日常'));
+      expect(report.topGenres.map((g) => g.genre), isNot(contains('科幻'))); // 想看的标签不污染观影画像
     });
   });
 

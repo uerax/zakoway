@@ -1,19 +1,25 @@
 import 'dart:math';
+import '../../../core/collection/models/anime_collection_item.dart';
+import '../../../core/models/bangumi/bangumi_collection.dart';
 import '../../../core/models/history/watch_history_item.dart';
 import '../../../core/utils/anime_tag_filter.dart';
 import '../models/anime_analytics_report.dart';
 
 /// 追番数据深度算法解析服务：
-/// 1. 题材画像提取：从用户观看历史中清洗提取有效二次元题材，统计各题材在用户看过的作品中的频次与权重；
+/// 1. 题材画像提取：综合清洗用户的观看历史与“我的追番”收藏，统计各题材在用户看过的作品中的频次与权重；
 /// 2. 杂食度指数 (Diversity Score)：采用信息熵（香农熵 Shannon Entropy）算法量化用户的题材多样性；
 /// 3. 二次元属性判定引擎：依据核心题材组合与杂食度，智能推导趣味二次元称号与专属解读；
-/// 4. 作息时间分析：分析历史播放时间戳的小时段分布，推导用户的活跃追番时段。
+/// 4. 作息时间分析：分析历史播放时间戳的小时段分布，推导用户的活跃追番时段；
+/// 5. 追番完结率与状态透视：结合追番在看/看过/搁置等状态计算完成度与偏好画像。
 class AnimeAnalyticsService {
   AnimeAnalyticsService._();
 
-  /// 核心分析入口：传入历史记录列表，计算生成完整分析报告
-  static AnimeAnalyticsReport analyze(List<WatchHistoryItem> history) {
-    if (history.isEmpty) {
+  /// 核心分析入口：传入历史记录与追番收藏列表，计算生成完整分析报告
+  static AnimeAnalyticsReport analyze(
+    List<WatchHistoryItem> history, {
+    List<AnimeCollectionItem> collections = const [],
+  }) {
+    if (history.isEmpty && collections.isEmpty) {
       return AnimeAnalyticsReport.empty();
     }
 
@@ -29,14 +35,28 @@ class AnimeAnalyticsService {
       }
     }
 
-    final totalAnimeCount = animeMap.length;
+    // 过滤出实际观看/正在观看的追番条目（排除「想看」待看囤积、「搁置」及「抛弃」）
+    final watchedOrWatchingCollections = collections
+        .where((c) =>
+            c.type == CollectType.watched || c.type == CollectType.watching)
+        .toList();
+
+    // 真正看过的番剧 ID 集合：播放历史 + 标记为「在看」/「看过」
+    final watchedSubjectIds = <int>{
+      ...animeMap.keys,
+      ...watchedOrWatchingCollections
+          .map((e) => e.subjectId)
+          .where((id) => id > 0),
+    };
+    final totalAnimeCount = watchedSubjectIds.length;
     final totalEpisodesCount = history.length;
     final totalWatchHours = totalSeconds / 3600.0;
 
-    // 2. 统计题材词频并记录代表作样本
+    // 2. 统计题材词频并记录代表作样本（结合观看历史与真正看过的收藏数据）
     final genreCounts = <String, int>{};
     final genreSamples = <String, List<String>>{};
 
+    // (1) 观看历史中的题材
     for (final entry in animeMap.values) {
       final cleanGenres = entry.genres
           .map((g) => g.trim())
@@ -48,6 +68,26 @@ class AnimeAnalyticsService {
         final list = genreSamples.putIfAbsent(g, () => <String>[]);
         if (list.length < 3 && !list.contains(entry.title) && entry.title.isNotEmpty) {
           list.add(entry.title);
+        }
+      }
+    }
+
+    // (2) 追番收藏列表中的题材与画像融合（仅统计「在看」和「看过」的作品，不被「想看」待看列表带偏）
+    for (final col in watchedOrWatchingCollections) {
+      if (col.tags.isEmpty) continue;
+      final cleanGenres = col.tags
+          .map((g) => g.trim())
+          .where((g) => AnimeTagFilter.isAllowedGenre(g))
+          .toSet();
+
+      for (final g in cleanGenres) {
+        // 如果观看历史中未统计过该番剧，累加进题材偏好池
+        if (!animeMap.containsKey(col.subjectId)) {
+          genreCounts[g] = (genreCounts[g] ?? 0) + 1;
+        }
+        final list = genreSamples.putIfAbsent(g, () => <String>[]);
+        if (list.length < 3 && !list.contains(col.title) && col.title.isNotEmpty) {
+          list.add(col.title);
         }
       }
     }
@@ -93,6 +133,25 @@ class AnimeAnalyticsService {
       totalAnimeCount: totalAnimeCount,
     );
 
+    // 7. 计算追番状态透视指标与完成率
+    final colStats = <CollectType, int>{
+      CollectType.watching: 0,
+      CollectType.planToWatch: 0,
+      CollectType.watched: 0,
+      CollectType.onHold: 0,
+      CollectType.abandoned: 0,
+    };
+    for (final col in collections) {
+      if (colStats.containsKey(col.type)) {
+        colStats[col.type] = (colStats[col.type] ?? 0) + 1;
+      }
+    }
+    final watched = colStats[CollectType.watched] ?? 0;
+    final watching = colStats[CollectType.watching] ?? 0;
+    final abandoned = colStats[CollectType.abandoned] ?? 0;
+    final nonDropTotal = watched + watching + abandoned;
+    final completionRate = nonDropTotal > 0 ? (watched / nonDropTotal) : 0.0;
+
     return AnimeAnalyticsReport(
       totalAnimeCount: totalAnimeCount,
       totalEpisodesCount: totalEpisodesCount,
@@ -106,6 +165,9 @@ class AnimeAnalyticsService {
       activeTimeSlotLabel: activeSlotLabel,
       activeTimeSlotDesc: activeSlotDesc,
       genreAnimeSamples: genreSamples,
+      totalCollectionCount: collections.length,
+      collectionCounts: colStats,
+      completionRate: completionRate,
     );
   }
 

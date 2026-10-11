@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/auth/providers/auth_providers.dart';
+import '../../../core/collection/providers/collection_providers.dart';
+import '../../../core/models/bangumi/bangumi_collection.dart';
 import '../../../core/models/bangumi/bangumi_item.dart';
 import '../../../core/theme/m3_surface.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../common/widgets/cached_anime_image.dart';
 
 /// iOS 现代风格番剧详情 Tab 组件 (Apple Card & Typography Style)
-class WatchMetaView extends StatefulWidget {
+class WatchMetaView extends ConsumerStatefulWidget {
   const WatchMetaView({
     super.key,
     required this.title,
@@ -23,15 +27,85 @@ class WatchMetaView extends StatefulWidget {
   final bool isLoadingDetails;
 
   @override
-  State<WatchMetaView> createState() => _WatchMetaViewState();
+  ConsumerState<WatchMetaView> createState() => _WatchMetaViewState();
 }
 
-class _WatchMetaViewState extends State<WatchMetaView> {
+class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
   bool _isSummaryExpanded = false;
-  String? _collectStatus;
   int _lastCollectIndex = 0;
 
-  static const List<String> _collectOptions = ['想看', '在看', '看过', '搁置', '抛弃'];
+  static const List<CollectType> _collectTypes = [
+    CollectType.planToWatch,
+    CollectType.watching,
+    CollectType.watched,
+    CollectType.onHold,
+    CollectType.abandoned,
+  ];
+
+  BangumiItem get _effectiveItem =>
+      widget.bangumiItem ??
+      BangumiItem(
+        id: widget.title.hashCode.abs(),
+        type: 2,
+        name: widget.title,
+        nameCn: widget.title,
+        summary: '',
+        airDate: '',
+        airWeekday: 0,
+        rank: 0,
+        images: widget.coverUrl != null && widget.coverUrl!.isNotEmpty
+            ? {'large': widget.coverUrl!, 'common': widget.coverUrl!}
+            : const {},
+        tags: const [],
+        alias: const [],
+        ratingScore: 0.0,
+        votes: 0,
+        eps: widget.episodeCount,
+        totalEpisodes: widget.episodeCount,
+      );
+
+  void _showTip(String message) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: TextStyle(
+            fontFamily: FontManager.instance.activeFontFamily,
+            fontFamilyFallback: FontManager.fallbackFontFamilies,
+            fontSize: 13,
+            color: Colors.white,
+          ),
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _handleCollectTap(CollectType type) {
+    final item = _effectiveItem;
+
+    HapticFeedback.selectionClick();
+    final currentType = ref.read(collectionTypeForSubjectProvider(item.id));
+    final notifier = ref.read(collectionControllerProvider.notifier);
+    final isLoggedIn = ref.read(isLoggedInProvider);
+
+    if (currentType == type) {
+      // 再次点击同一项：取消追番状态
+      notifier.removeStatus(item.id);
+      _showTip('已取消追番');
+    } else {
+      // 设为新追番状态
+      _lastCollectIndex = _collectTypes.indexOf(type);
+      notifier.updateStatus(
+        bangumiItem: item,
+        type: type,
+      );
+      final syncSuffix = isLoggedIn ? ' · 已同步至 Bangumi' : ' · 本地已保存';
+      _showTip('已标记为【${type.label}】$syncSuffix');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +113,7 @@ class _WatchMetaViewState extends State<WatchMetaView> {
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
     final item = widget.bangumiItem;
+    final effectiveItem = _effectiveItem;
 
     final displayName = item?.preferredName ?? widget.title;
     final subName = (item != null && item.name != item.nameCn && item.name.isNotEmpty)
@@ -53,14 +128,17 @@ class _WatchMetaViewState extends State<WatchMetaView> {
         ? item.summary.trim()
         : '暂无番剧详细剧情简介。';
 
-    final selectedCollectIndex = _collectStatus != null
-        ? _collectOptions.indexOf(_collectStatus!)
+    final currentCollectType =
+        ref.watch(collectionTypeForSubjectProvider(effectiveItem.id));
+
+    final selectedCollectIndex = currentCollectType != CollectType.none
+        ? _collectTypes.indexOf(currentCollectType)
         : -1;
     final activeCollectSliderIndex = selectedCollectIndex != -1
         ? selectedCollectIndex
         : _lastCollectIndex;
-    final collectAlignX = _collectOptions.length > 1
-        ? -1.0 + (activeCollectSliderIndex * (2.0 / (_collectOptions.length - 1)))
+    final collectAlignX = _collectTypes.length > 1
+        ? -1.0 + (activeCollectSliderIndex * (2.0 / (_collectTypes.length - 1)))
         : 0.0;
 
     return ListView(
@@ -260,7 +338,7 @@ class _WatchMetaViewState extends State<WatchMetaView> {
                   curve: Curves.easeOutCubic,
                   alignment: Alignment(collectAlignX, 0.0),
                   child: FractionallySizedBox(
-                    widthFactor: 1.0 / _collectOptions.length,
+                    widthFactor: 1.0 / _collectTypes.length,
                     child: Container(
                       height: 32,
                       decoration: BoxDecoration(
@@ -281,29 +359,19 @@ class _WatchMetaViewState extends State<WatchMetaView> {
 
               // (2) 5 个等分热区按钮项 (平滑颜色渐变，消除跳动闪烁)
               Row(
-                children: _collectOptions.map((opt) {
-                  final isSelected = _collectStatus == opt;
+                children: _collectTypes.map((type) {
+                  final isSelected = currentCollectType == type;
                   return Expanded(
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() {
-                          if (_collectStatus == opt) {
-                            _collectStatus = null;
-                          } else {
-                            _collectStatus = opt;
-                            _lastCollectIndex = _collectOptions.indexOf(opt);
-                          }
-                        });
-                      },
+                      onTap: () => _handleCollectTap(type),
                       child: Container(
                         height: 32,
                         alignment: Alignment.center,
                         child: Text(
-                          opt,
+                          type.label,
                           style: TextStyle(
-                            fontFamily: 'MiSans',
+                            fontFamily: FontManager.instance.activeFontFamily,
                             fontFamilyFallback: FontManager.fallbackFontFamilies,
                             fontSize: 12.5,
                             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,

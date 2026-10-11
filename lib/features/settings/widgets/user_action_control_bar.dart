@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/auth/providers/auth_providers.dart';
 import '../../../core/theme/m3_surface.dart';
 import '../../../core/utils/adaptive_page_route.dart';
 import '../../../core/utils/font_manager.dart';
-import '../../auth/widgets/auth_login_sheet.dart';
+import '../../collection/pages/my_collection_page.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
 import '../../history/pages/history_page.dart';
 import '../pages/data_analysis_page.dart';
@@ -116,12 +115,12 @@ class UserActionControlBar extends ConsumerWidget {
                   : const Color(0xFFE91E63),
               onTap: onCollectionTap ??
                   () {
-                    final isLoggedIn = ref.read(isLoggedInProvider);
-                    if (!isLoggedIn) {
-                      AuthLoginSheet.show(context);
-                    } else {
-                      _showTip(context, '追番云端同步服务正常活跃 ( ╹▽╹ )');
-                    }
+                    Navigator.of(context).push(
+                      AdaptivePageRoute.build<void>(
+                        context,
+                        builder: (_) => const MyCollectionPage(),
+                      ),
+                    );
                   },
             ),
           ),

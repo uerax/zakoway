@@ -1,3 +1,5 @@
+import '../../../core/models/bangumi/bangumi_collection.dart';
+
 /// 单个题材的统计指标实体
 class GenreStatItem {
   final String genre;
@@ -27,6 +29,9 @@ class AnimeAnalyticsReport {
   final String activeTimeSlotLabel; // 追番活跃时段标签
   final String activeTimeSlotDesc; // 追番活跃时段描述
   final Map<String, List<String>> genreAnimeSamples; // 题材代表作归属溯源
+  final int totalCollectionCount; // 收藏总数
+  final Map<CollectType, int> collectionCounts; // 各分类数量统计
+  final double completionRate; // 追番完结率: watched / (watched + watching + abandoned)
 
   const AnimeAnalyticsReport({
     required this.totalAnimeCount,
@@ -41,10 +46,17 @@ class AnimeAnalyticsReport {
     required this.activeTimeSlotLabel,
     required this.activeTimeSlotDesc,
     required this.genreAnimeSamples,
+    this.totalCollectionCount = 0,
+    this.collectionCounts = const {},
+    this.completionRate = 0.0,
   });
 
-  /// 是否为空数据（未看过任何番剧）
-  bool get isEmpty => totalAnimeCount == 0;
+  /// 完结率格式化文本
+  String get completionRateText =>
+      '${(completionRate * 100).toStringAsFixed(1)}%';
+
+  /// 是否为空数据（未看过任何番剧且无追番）
+  bool get isEmpty => totalAnimeCount == 0 && totalCollectionCount == 0;
 
   /// 空数据时的默认兜底报告
   factory AnimeAnalyticsReport.empty() {
@@ -55,12 +67,15 @@ class AnimeAnalyticsReport {
       topGenres: [],
       allGenreCounts: {},
       personaTitle: '初入次元的萌新',
-      personaDescription: '暂无播放记录，去看几部喜欢的番剧即可解锁你的专属算法基因画像 ( ╹▽╹ )',
+      personaDescription: '暂无播放与追番记录，去看几部喜欢的番剧或添加追番即可解锁你的专属算法画像 ( ╹▽╹ )',
       diversityScore: 0,
       diversityLabel: '尚待探索',
       activeTimeSlotLabel: '暂无时段',
       activeTimeSlotDesc: '等待首次播放记录...',
       genreAnimeSamples: {},
+      totalCollectionCount: 0,
+      collectionCounts: {},
+      completionRate: 0.0,
     );
   }
 }

@@ -1,14 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:zakoway/core/services/app_preferences.dart';
 import 'package:zakoway/features/player/widgets/watch_meta_view.dart';
 
 void main() {
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    await AppPreferences.init();
+  });
+
   testWidgets('WatchMetaView 默认无选中追番状态，且支持选中与反选', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: WatchMetaView(
-            title: '测试番剧',
+      const ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: WatchMetaView(
+              title: '测试番剧',
+            ),
           ),
         ),
       ),

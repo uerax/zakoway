@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/collection/services/anime_collection_service.dart';
+import '../../../core/models/bangumi/bangumi_collection.dart';
 import '../../../core/services/watch_history_service.dart';
 import '../../../core/theme/m3_surface.dart';
 import '../../../core/utils/font_manager.dart';
@@ -29,8 +31,9 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
 
   void _computeReport() {
     final history = WatchHistoryService.instance.items;
+    final collections = AnimeCollectionService.instance.allItems;
     setState(() {
-      _report = AnimeAnalyticsService.analyze(history);
+      _report = AnimeAnalyticsService.analyze(history, collections: collections);
     });
   }
 
@@ -74,6 +77,12 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
                     // 1. 核心二次元人格与称号卡片
                     _buildPersonaHeroCard(context),
                     const SizedBox(height: 16),
+
+                    // 1.5 追番状态与完成率透视卡片 (由我的追番驱动)
+                    if (_report.totalCollectionCount > 0) ...[
+                      _buildCollectionInsightCard(context),
+                      const SizedBox(height: 16),
+                    ],
 
                     // 2. 题材偏好分布雷达/条形图卡片
                     _buildGenreDistributionCard(context),
@@ -511,6 +520,150 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
                   ),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 1.5 追番状态与完成率透视卡片 (由我的追番驱动)
+  Widget _buildCollectionInsightCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final fontMgr = FontManager.instance;
+
+    final containerColor = M3Surface.container(
+      context,
+      level: M3ContainerLevel.low,
+      pageKey: 'settings',
+    );
+    final border = M3Surface.border(
+      context,
+      pageKey: 'settings',
+      forceBorder: true,
+    );
+
+    final stats = _report.collectionCounts;
+    final watching = stats[CollectType.watching] ?? 0;
+    final plan = stats[CollectType.planToWatch] ?? 0;
+    final watched = stats[CollectType.watched] ?? 0;
+    final onHold = stats[CollectType.onHold] ?? 0;
+    final abandoned = stats[CollectType.abandoned] ?? 0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: containerColor,
+        borderRadius: BorderRadius.circular(24),
+        border: border,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.favorite_rounded, size: 18, color: Color(0xFFE91E63)),
+              const SizedBox(width: 8),
+              Text(
+                '追番状态透视',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  fontFamily: fontMgr.activeFontFamily,
+                  fontFamilyFallback: FontManager.fallbackFontFamilies,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE91E63).withValues(alpha: isDark ? 0.22 : 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '完结率 ${_report.completionRateText}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: fontMgr.activeFontFamily,
+                    fontFamilyFallback: FontManager.fallbackFontFamilies,
+                    color: const Color(0xFFE91E63),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _buildCollectionStatCell(context, '在看', '$watching', const Color(0xFF1976D2)),
+              const SizedBox(width: 8),
+              _buildCollectionStatCell(context, '想看', '$plan', const Color(0xFF7B1FA2)),
+              const SizedBox(width: 8),
+              _buildCollectionStatCell(context, '看过', '$watched', const Color(0xFF388E3C)),
+              const SizedBox(width: 8),
+              _buildCollectionStatCell(context, '搁置/抛弃', '${onHold + abandoned}', const Color(0xFFE65100)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCollectionStatCell(
+    BuildContext context,
+    String label,
+    String count,
+    Color accentColor,
+  ) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final fontMgr = FontManager.instance;
+
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isDark
+              ? accentColor.withValues(alpha: 0.14)
+              : accentColor.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: accentColor.withValues(alpha: 0.25),
+            width: 0.8,
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(
+              count,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                fontFamily: fontMgr.activeFontFamily,
+                fontFamilyFallback: FontManager.fallbackFontFamilies,
+                color: accentColor,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                fontFamily: fontMgr.activeFontFamily,
+                fontFamilyFallback: FontManager.fallbackFontFamilies,
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+              ),
             ),
           ],
         ),

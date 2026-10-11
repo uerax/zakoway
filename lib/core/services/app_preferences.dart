@@ -34,6 +34,7 @@ class AppPreferences {
   static const _kAuthToken = 'pref_auth_token';
   static const _kAuthUserJson = 'pref_auth_user_json';
   static const _kAuthSessionJson = 'pref_auth_session_json';
+  static const _kAnimeCollections = 'pref_anime_collections';
 
   static SharedPreferences? _prefs;
 
@@ -318,5 +319,19 @@ class AppPreferences {
       prefs.remove(_kAuthUserJson),
       prefs.remove(_kAuthSessionJson),
     ]);
+  }
+
+  // --- 我的追番本地持久化 ---
+
+  static String? getAnimeCollectionsJson() {
+    return _prefs?.getString(_kAnimeCollections);
+  }
+
+  static Future<void> saveAnimeCollectionsJson(String jsonStr) async {
+    await _prefs?.setString(_kAnimeCollections, jsonStr);
+  }
+
+  static Future<void> clearAnimeCollections() async {
+    await _prefs?.remove(_kAnimeCollections);
   }
 }
