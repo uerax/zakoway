@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import '../../../core/models/bangumi/bangumi_item.dart';
+import '../../../core/utils/font_manager.dart';
 import '../../common/widgets/anime_card.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
 import '../../common/widgets/cached_anime_image.dart';
@@ -147,6 +148,7 @@ class _AnimeHorizontalShelfState extends State<AnimeHorizontalShelf> {
   /// 规范排印的原生大标题 + 矢量图标与直达“全部”入口
   Widget _buildHeader(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
@@ -175,28 +177,31 @@ class _AnimeHorizontalShelfState extends State<AnimeHorizontalShelf> {
           ),
           if (widget.onViewAllTap != null)
             Material(
-              color: Colors.transparent,
+              color: theme.colorScheme.primary.withAlpha(isDark ? 36 : 20),
+              borderRadius: BorderRadius.circular(6),
               child: InkWell(
                 onTap: widget.onViewAllTap,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      Icon(
+                        Icons.grid_view_rounded,
+                        size: 13,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 3),
                       Text(
                         '全部',
                         style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w500,
-                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: FontManager.instance.activeFontFamily,
+                          fontFamilyFallback: FontManager.fallbackFontFamilies,
+                          color: theme.colorScheme.primary,
                         ),
-                      ),
-                      const SizedBox(width: 1),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        size: 16,
-                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ],
                   ),

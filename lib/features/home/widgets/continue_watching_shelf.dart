@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/models/bangumi/bangumi_item.dart';
 import '../../../core/models/history/watch_history_item.dart';
 import '../../../core/theme/m3_surface.dart';
+import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
 import '../../common/widgets/cached_anime_image.dart';
@@ -116,27 +117,35 @@ class ContinueWatchingShelf extends StatelessWidget {
                     ),
                     const Spacer(),
                     if (onViewAllHistory != null)
-                      InkWell(
-                        onTap: onViewAllHistory,
+                      Material(
+                        color: theme.colorScheme.primary.withAlpha(isDark ? 36 : 20),
                         borderRadius: BorderRadius.circular(6),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '历史记录',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: theme.colorScheme.onSurfaceVariant,
+                        child: InkWell(
+                          onTap: onViewAllHistory,
+                          borderRadius: BorderRadius.circular(6),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.history_rounded,
+                                  size: 13,
+                                  color: theme.colorScheme.primary,
                                 ),
-                              ),
-                              Icon(
-                                Icons.chevron_right_rounded,
-                                size: 16,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ],
+                                const SizedBox(width: 3),
+                                Text(
+                                  '历史记录',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    fontFamily: FontManager.instance.activeFontFamily,
+                                    fontFamilyFallback: FontManager.fallbackFontFamilies,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
