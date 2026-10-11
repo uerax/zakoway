@@ -31,6 +31,9 @@ class AppPreferences {
   static const _kWatchHistory = 'pref_watch_history';
   static const _kWatchedEpisodes = 'pref_watched_episodes';
   static const _kDeviceInstallId = 'pref_device_install_id';
+  static const _kAuthToken = 'pref_auth_token';
+  static const _kAuthUserJson = 'pref_auth_user_json';
+  static const _kAuthSessionJson = 'pref_auth_session_json';
 
   static SharedPreferences? _prefs;
 
@@ -277,5 +280,43 @@ class AppPreferences {
     final hash = rawId.hashCode.abs();
     final hex = hash.toRadixString(16).toUpperCase().padLeft(6, '0');
     return hex.length > 6 ? hex.substring(hex.length - 6) : hex;
+  }
+
+  // --- 登录会话与用户认证持久化 ---
+
+  static String? getAuthToken() {
+    return _prefs?.getString(_kAuthToken);
+  }
+
+  static String? getAuthUserJson() {
+    return _prefs?.getString(_kAuthUserJson);
+  }
+
+  static String? getAuthSessionJson() {
+    return _prefs?.getString(_kAuthSessionJson);
+  }
+
+  static Future<void> saveAuthData({
+    required String token,
+    required String userJson,
+    required String sessionJson,
+  }) async {
+    final prefs = _prefs;
+    if (prefs == null) return;
+    await Future.wait([
+      prefs.setString(_kAuthToken, token),
+      prefs.setString(_kAuthUserJson, userJson),
+      prefs.setString(_kAuthSessionJson, sessionJson),
+    ]);
+  }
+
+  static Future<void> clearAuthData() async {
+    final prefs = _prefs;
+    if (prefs == null) return;
+    await Future.wait([
+      prefs.remove(_kAuthToken),
+      prefs.remove(_kAuthUserJson),
+      prefs.remove(_kAuthSessionJson),
+    ]);
   }
 }

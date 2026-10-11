@@ -117,10 +117,10 @@ class M3ExpressiveTheme {
         ),
       ),
 
-      // 3. 底部抽屉规范：28dp 顶部圆角，带拖拽指示把手
+      // 3. 底部抽屉规范：28dp 顶部圆角；关闭原生浮空把手，统一由各定制抽屉在卡片内部自绘把手
       bottomSheetTheme: BottomSheetThemeData(
         elevation: 2,
-        showDragHandle: true,
+        showDragHandle: false,
         dragHandleColor: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
         backgroundColor: isDark ? colorScheme.surfaceContainerLow : colorScheme.surfaceContainerLowest,
         shape: const RoundedRectangleBorder(

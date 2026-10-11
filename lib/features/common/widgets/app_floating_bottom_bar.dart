@@ -91,7 +91,7 @@ class AppFloatingBottomBar extends StatelessWidget {
 
     const double barHeight = 54.0;
     const double dockRadius = 27.0;
-    const double dockWidth = 220.0;
+    const double standardDockWidth = 220.0;
 
     return SafeArea(
       top: false,
@@ -105,25 +105,35 @@ class AppFloatingBottomBar extends StatelessWidget {
           16,
           safeBottom < 10 ? 12 : safeBottom + 2,
         ),
-        child: Center(
-          heightFactor: 1,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // 1. 主导航胶囊（包含首页、分类、设置三大核心功能）
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(dockRadius),
-                  boxShadow: compoundShadow,
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(dockRadius),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
-                    child: Container(
-                      width: dockWidth,
-                      height: barHeight,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final hasSearch = onSearchTap != null;
+            final double searchExtra = hasSearch ? (10.0 + barHeight) : 0.0;
+            // 响应式动态胶囊宽度：当小屏/窄分屏可用宽度不足以容纳原尺寸时平滑收缩，配合 FittedBox 彻底杜绝 RenderFlex 溢出
+            final double effectiveDockWidth = (constraints.maxWidth - searchExtra)
+                .clamp(160.0, standardDockWidth);
+
+            return Center(
+              heightFactor: 1,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // 1. 主导航胶囊（包含首页、分类、设置三大核心功能）
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(dockRadius),
+                        boxShadow: compoundShadow,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(dockRadius),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+                          child: Container(
+                            width: effectiveDockWidth,
+                            height: barHeight,
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                       decoration: BoxDecoration(
                         color: dockBg,
@@ -235,7 +245,10 @@ class AppFloatingBottomBar extends StatelessWidget {
             ],
           ),
         ),
-      ),
+      );
+    },
+  ),
+),
     );
   }
 }

@@ -76,5 +76,46 @@ void main() {
       await tester.pump();
       expect(tappedIndex, 1);
     });
+
+    testWidgets(
+        'AppFloatingBottomBar fits in narrow viewport without RenderFlex overflow',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(300, 600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            bottomNavigationBar: AppFloatingBottomBar(
+              currentIndex: 0,
+              onTap: (_) {},
+              onSearchTap: () {},
+              items: const [
+                AppFloatingNavItem(
+                  unselectedIcon: Icons.home_outlined,
+                  selectedIcon: Icons.home_rounded,
+                ),
+                AppFloatingNavItem(
+                  unselectedIcon: Icons.explore_outlined,
+                  selectedIcon: Icons.explore_rounded,
+                ),
+                AppFloatingNavItem(
+                  unselectedIcon: Icons.settings_outlined,
+                  selectedIcon: Icons.settings_rounded,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(AppFloatingBottomBar), findsOneWidget);
+    });
   });
 }

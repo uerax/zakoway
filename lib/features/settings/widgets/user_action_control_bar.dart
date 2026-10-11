@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/auth/providers/auth_providers.dart';
 import '../../../core/theme/m3_surface.dart';
 import '../../../core/utils/adaptive_page_route.dart';
 import '../../../core/utils/font_manager.dart';
+import '../../auth/widgets/auth_login_sheet.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
 import '../../history/pages/history_page.dart';
 import '../pages/data_analysis_page.dart';
@@ -13,7 +16,7 @@ import '../pages/data_analysis_page.dart';
 /// 2. 我的追番 (浅粉) - 追番进度与收藏入口
 /// 3. 数据分析 (浅青) - 用户看过番剧的题材算法解析与画像
 /// 4. 离线缓存 (浅绿) - 离线下载与本地缓存管理
-class UserActionControlBar extends StatelessWidget {
+class UserActionControlBar extends ConsumerWidget {
   final VoidCallback? onHistoryTap;
   final VoidCallback? onCollectionTap;
   final VoidCallback? onAnalyticsTap;
@@ -46,7 +49,7 @@ class UserActionControlBar extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -112,7 +115,14 @@ class UserActionControlBar extends StatelessWidget {
                   ? const Color(0xFFF48FB1)
                   : const Color(0xFFE91E63),
               onTap: onCollectionTap ??
-                  () => _showTip(context, '登录后即可同步追番进度 ( ╹▽╹ )'),
+                  () {
+                    final isLoggedIn = ref.read(isLoggedInProvider);
+                    if (!isLoggedIn) {
+                      AuthLoginSheet.show(context);
+                    } else {
+                      _showTip(context, '追番云端同步服务正常活跃 ( ╹▽╹ )');
+                    }
+                  },
             ),
           ),
 
