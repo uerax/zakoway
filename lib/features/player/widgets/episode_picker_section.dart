@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/font_manager.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
 import '../source/utils/playable_slot_engine.dart';
 
-/// 律动音波小动画（iOS 风格播放中音波指示器）
+/// 律动音波小动画（iOS / M3 风格圆润微光音波指示器）
 class _PlayingBarsAnimation extends StatefulWidget {
   const _PlayingBarsAnimation();
 
@@ -19,7 +20,7 @@ class _PlayingBarsAnimationState extends State<_PlayingBarsAnimation>
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 700),
     )..repeat(reverse: true);
   }
 
@@ -34,16 +35,19 @@ class _PlayingBarsAnimationState extends State<_PlayingBarsAnimation>
     return AnimatedBuilder(
       animation: _animController,
       builder: (context, _) {
-        final val = _animController.value;
+        final val = CurvedAnimation(
+          parent: _animController,
+          curve: Curves.easeInOut,
+        ).value;
         return Row(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            _buildBar(2.5 + 4.5 * val),
-            const SizedBox(width: 1.5),
-            _buildBar(7.5 - 4.0 * val),
-            const SizedBox(width: 1.5),
-            _buildBar(3.5 + 4.0 * (1.0 - val)),
+            _buildBar(3.0 + 5.0 * val),
+            const SizedBox(width: 1.8),
+            _buildBar(8.0 - 5.0 * val),
+            const SizedBox(width: 1.8),
+            _buildBar(4.0 + 4.5 * (1.0 - val)),
           ],
         );
       },
@@ -52,11 +56,11 @@ class _PlayingBarsAnimationState extends State<_PlayingBarsAnimation>
 
   Widget _buildBar(double height) {
     return Container(
-      width: 1.8,
+      width: 2.0,
       height: height,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(1.0),
+        borderRadius: BorderRadius.circular(1.2),
       ),
     );
   }
@@ -203,6 +207,8 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.3,
                   color: theme.colorScheme.onSurface,
+                  fontFamily: 'MiSans',
+                  fontFamilyFallback: FontManager.fallbackFontFamilies,
                 ),
               ),
               const SizedBox(width: 8),
@@ -223,6 +229,8 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                     color: theme.textTheme.bodySmall?.color,
                     fontWeight: FontWeight.w600,
                     letterSpacing: -0.1,
+                    fontFamily: 'MiSans',
+                    fontFamilyFallback: FontManager.fallbackFontFamilies,
                   ),
                 ),
               ),
@@ -269,6 +277,8 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                           color: _isDescOrder
                               ? primaryColor
                               : theme.textTheme.bodyMedium?.color,
+                          fontFamily: 'MiSans',
+                          fontFamilyFallback: FontManager.fallbackFontFamilies,
                         ),
                       ),
                     ],
@@ -331,6 +341,8 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                               fontSize: 11.5,
                               fontWeight: isRoadActive ? FontWeight.w600 : FontWeight.normal,
                               color: isRoadActive ? primaryColor : theme.textTheme.bodyMedium?.color,
+                              fontFamily: 'MiSans',
+                              fontFamilyFallback: FontManager.fallbackFontFamilies,
                             ),
                           ),
                         ],
@@ -387,6 +399,8 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                               fontSize: 11,
                               fontWeight: isRangeActive ? FontWeight.w600 : FontWeight.normal,
                               color: isRangeActive ? primaryColor : theme.textTheme.bodySmall?.color,
+                              fontFamily: 'MiSans',
+                              fontFamilyFallback: FontManager.fallbackFontFamilies,
                             ),
                           ),
                           if (containsPlaying && !isRangeActive) ...[
@@ -411,7 +425,7 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
 
         const SizedBox(height: 4),
 
-        // 4. 选集网格 (iOS 精致轻量卡片)
+        // 4. 选集网格 (iOS / M3 精致轻量卡片，舒适 40px 高度与超椭圆圆角)
         Expanded(
           child: epList.isEmpty
               ? Center(
@@ -420,6 +434,8 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                     style: TextStyle(
                       fontSize: 13,
                       color: theme.textTheme.bodySmall?.color,
+                      fontFamily: 'MiSans',
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                     ),
                   ),
                 )
@@ -435,8 +451,8 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                             horizontalPadding -
                             (crossAxisCount - 1) * spacing) /
                         crossAxisCount;
-                    // 保持高度在精致小巧的 34px
-                    final childAspectRatio = (itemWidth / 34.0).clamp(1.5, 3.2);
+                    // 保持高度在舒适开阔的 40px
+                    final childAspectRatio = (itemWidth / 40.0).clamp(1.3, 3.2);
 
                     return GridView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
@@ -481,26 +497,37 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                           child: Container(
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
+                              gradient: isPlaying
+                                  ? LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        primaryColor,
+                                        primaryColor.withValues(alpha: 0.85),
+                                      ],
+                                    )
+                                  : null,
                               color: isPlaying
-                                  ? primaryColor
+                                  ? null
                                   : (isDark
                                       ? Colors.white.withAlpha(14)
                                       : Colors.black.withAlpha(7)),
-                              borderRadius: BorderRadius.circular(9),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: isPlaying
-                                    ? primaryColor
+                                    ? primaryColor.withValues(alpha: 0.8)
                                     : (isDark
                                         ? Colors.white.withAlpha(18)
                                         : Colors.black.withAlpha(12)),
-                                width: isPlaying ? 1.2 : 0.5,
+                                width: isPlaying ? 1.0 : 0.5,
                               ),
                               boxShadow: isPlaying
                                   ? [
                                       BoxShadow(
-                                        color: primaryColor.withValues(alpha: 0.28),
-                                        blurRadius: 6,
-                                        offset: const Offset(0, 2),
+                                        color: primaryColor.withValues(alpha: 0.36),
+                                        blurRadius: 10,
+                                        spreadRadius: 0.5,
+                                        offset: const Offset(0, 3),
                                       )
                                     ]
                                   : null,
@@ -514,7 +541,7 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                                   children: [
                                     if (isPlaying) ...[
                                       const _PlayingBarsAnimation(),
-                                      const SizedBox(width: 4),
+                                      const SizedBox(width: 5),
                                     ],
                                     Text(
                                       cardTitle,
@@ -527,8 +554,10 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                                         fontWeight: isPlaying
                                             ? FontWeight.w700
                                             : FontWeight.w500,
-                                        fontSize: 12.0,
+                                        fontSize: 12.5,
                                         letterSpacing: -0.2,
+                                        fontFamily: 'MiSans',
+                                        fontFamilyFallback: FontManager.fallbackFontFamilies,
                                       ),
                                     ),
                                   ],

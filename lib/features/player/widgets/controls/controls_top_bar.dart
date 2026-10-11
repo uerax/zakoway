@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:zakoway/core/utils/font_manager.dart';
 import 'package:zakoway/features/player/danmaku/danmaku.dart';
 import 'package:zakoway/features/player/widgets/player_side_panel.dart';
 
@@ -59,6 +60,8 @@ class PlayerPillButton extends StatelessWidget {
                         color: Colors.white,
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
+                        fontFamily: 'MiSans',
+                        fontFamilyFallback: FontManager.fallbackFontFamilies,
                       ),
                     ),
                   ],
@@ -78,6 +81,7 @@ class PlayerControlsTopBar extends StatelessWidget {
     super.key,
     required this.title,
     this.isFullscreen = false,
+    this.isDesktopInline = false,
     this.onBackPressed,
     this.onOpenEpisodePicker,
     this.onOpenSidePanel,
@@ -87,6 +91,7 @@ class PlayerControlsTopBar extends StatelessWidget {
 
   final String title;
   final bool isFullscreen;
+  final bool isDesktopInline;
   final VoidCallback? onBackPressed;
   final VoidCallback? onOpenEpisodePicker;
   final ValueChanged<PlayerSidePanelTab>? onOpenSidePanel;
@@ -103,58 +108,65 @@ class PlayerControlsTopBar extends StatelessWidget {
           builder: (context, constraints) {
             final isCompact = constraints.maxWidth < 720;
             const btnSpacing = 4.0;
+            final showLeadingAndTitle = !isDesktopInline;
 
             return Row(
               children: [
-                if (onBackPressed != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.35),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.16),
-                            width: 0.5,
+                if (showLeadingAndTitle) ...[
+                  if (onBackPressed != null) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.16),
+                              width: 0.5,
+                            ),
                           ),
-                        ),
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
-                          icon: const Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            color: Colors.white,
-                            size: 15,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              color: Colors.white,
+                              size: 15,
+                            ),
+                            onPressed: onBackPressed,
                           ),
-                          onPressed: onBackPressed,
                         ),
                       ),
                     ),
-                  ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14.0,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.2,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black54,
-                          blurRadius: 6,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14.0,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                        fontFamily: 'MiSans',
+                        fontFamilyFallback: FontManager.fallbackFontFamilies,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black54,
+                            blurRadius: 6,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
+                ] else
+                  const Spacer(),
                 if (onOpenEpisodePicker != null || onOpenSidePanel != null) ...[
                   const SizedBox(width: 6),
                   PlayerPillButton(

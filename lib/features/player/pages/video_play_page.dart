@@ -1139,6 +1139,13 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         selectedSourceName: _selectedSourceName,
         hasEpisodes: _currentEpisodes.isNotEmpty,
         onBackPressed: _handleBackPressed,
+        onPlayPressed: () {
+          if (_currentEpisodes.isNotEmpty) {
+            _selectEpisode(_activeEpisode ?? 1);
+          } else if (!_isLoadingChapters) {
+            _startDefaultSourceSearch(autoPlayFirst: true);
+          }
+        },
       );
     }
 

@@ -52,18 +52,19 @@ class _BottomBarMetrics {
 
     switch (effectiveScale) {
       case PlayerControlBarScale.compact:
+        final isNarrow = totalWidth < 380;
         return _BottomBarMetrics(
-          buttonSize: 26.0,
-          iconSize: 16.5,
-          playIconSize: 18.5,
-          danmakuToggleSize: 18.0,
-          timeFontSize: 11.0,
-          speedFontSize: 11.0,
-          speedPadding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
-          spacing: 3.0,
-          leftSpacing: 6.0,
+          buttonSize: isNarrow ? 21.0 : 26.0,
+          iconSize: isNarrow ? 14.5 : 16.5,
+          playIconSize: isNarrow ? 15.5 : 18.5,
+          danmakuToggleSize: isNarrow ? 15.0 : 18.0,
+          timeFontSize: isNarrow ? 9.5 : 11.0,
+          speedFontSize: isNarrow ? 10.0 : 11.0,
+          speedPadding: EdgeInsets.symmetric(horizontal: isNarrow ? 2.5 : 4.0, vertical: 2.0),
+          spacing: isNarrow ? 1.5 : 3.0,
+          leftSpacing: isNarrow ? 4.0 : 6.0,
           bottomPadding: 6.0,
-          horizontalPadding: totalWidth < 400 ? 6.0 : 12.0,
+          horizontalPadding: isNarrow ? 3.0 : (totalWidth < 400 ? 6.0 : 12.0),
         );
       case PlayerControlBarScale.standard:
         return _BottomBarMetrics(

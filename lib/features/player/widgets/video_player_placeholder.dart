@@ -5,7 +5,7 @@ import 'package:zakoway/core/utils/font_manager.dart';
 import 'package:zakoway/features/common/widgets/bouncing_scale_card.dart';
 import 'package:zakoway/features/common/widgets/cached_anime_image.dart';
 
-/// 播放器未起播海报占位组件 (iOS Ambient Placeholder)
+/// 播放器未起播海报占位组件 (沉浸式影院级 Hero 展台与毛玻璃大播放核)
 class VideoPlayerInitialPlaceholder extends StatelessWidget {
   const VideoPlayerInitialPlaceholder({
     super.key,
@@ -15,6 +15,7 @@ class VideoPlayerInitialPlaceholder extends StatelessWidget {
     required this.selectedSourceName,
     required this.hasEpisodes,
     required this.onBackPressed,
+    this.onPlayPressed,
   });
 
   final String coverUrl;
@@ -23,36 +24,57 @@ class VideoPlayerInitialPlaceholder extends StatelessWidget {
   final String selectedSourceName;
   final bool hasEpisodes;
   final VoidCallback onBackPressed;
+  final VoidCallback? onPlayPressed;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (coverUrl.isNotEmpty)
-          CachedAnimeImage(
-            imageUrl: coverUrl,
-            fit: BoxFit.cover,
-          )
-        else
-          Container(color: Colors.black87),
+        // 1. 底层：超大半径环境高斯散焦流光 (Ambient Backdrop Glow)
+        if (coverUrl.isNotEmpty) ...[
+          Positioned.fill(
+            child: ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 42, sigmaY: 42),
+              child: Transform.scale(
+                scale: 1.15,
+                child: CachedAnimeImage(
+                  imageUrl: coverUrl,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+          // 2. 中层：主体清晰封面配合柔和景深微光
+          Positioned.fill(
+            child: CachedAnimeImage(
+              imageUrl: coverUrl,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ] else
+          const ColoredBox(color: Color(0xFF0F0F14)),
 
-        // 柔和暗角与氛围蒙层
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0.6),
-                Colors.black.withValues(alpha: 0.45),
-                Colors.black.withValues(alpha: 0.72),
-              ],
+        // 3. 电影级非线性自然渐变暗角 (Non-linear Scrim Gradients 杜绝色带断层)
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.68),
+                  Colors.black.withValues(alpha: 0.35),
+                  Colors.black.withValues(alpha: 0.42),
+                  Colors.black.withValues(alpha: 0.82),
+                ],
+                stops: const [0.0, 0.30, 0.65, 1.0],
+              ),
             ),
           ),
         ),
 
-        // 顶部返回与标题
+        // 4. 顶部返回与标题（注入字体回退链，杜绝 Windows 宋体）
         Positioned(
           top: 0,
           left: 0,
@@ -101,6 +123,8 @@ class VideoPlayerInitialPlaceholder extends StatelessWidget {
                         fontSize: 14.5,
                         fontWeight: FontWeight.w600,
                         letterSpacing: -0.2,
+                        fontFamily: 'MiSans',
+                        fontFamilyFallback: FontManager.fallbackFontFamilies,
                         shadows: [
                           Shadow(
                             color: Colors.black54,
@@ -117,62 +141,75 @@ class VideoPlayerInitialPlaceholder extends StatelessWidget {
           ),
         ),
 
-        // 底部 iOS 磨砂提示胶囊条
+        // 5. 底部沉浸式磨砂提示胶囊条 (带按压交互与微光边界)
         Positioned(
-          bottom: 12,
+          bottom: 14,
           left: 16,
           right: 16,
           child: Center(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.16),
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isLoadingChapters)
-                        const Padding(
-                          padding: EdgeInsets.only(right: 6),
-                          child: CupertinoActivityIndicator(
-                            color: Colors.white70,
-                            radius: 6,
-                          ),
-                        )
-                      else
-                        const Icon(
-                          Icons.touch_app_outlined,
-                          color: Colors.white70,
-                          size: 14,
-                        ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          isLoadingChapters
-                              ? '正在同步「$selectedSourceName」选集...'
-                              : (hasEpisodes
-                                  ? '分集已就绪 · 请在下方选择集数开始播放'
-                                  : '请在下方选择播放源或选集'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: -0.1,
-                          ),
-                        ),
+            child: BouncingScaleCard(
+              scaleDown: 0.96,
+              onTap: onPlayPressed,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.48),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        width: 0.5,
                       ),
-                    ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isLoadingChapters)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 7),
+                            child: CupertinoActivityIndicator(
+                              color: Colors.white70,
+                              radius: 6.5,
+                            ),
+                          )
+                        else
+                          const Icon(
+                            Icons.touch_app_outlined,
+                            color: Colors.white70,
+                            size: 14,
+                          ),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            isLoadingChapters
+                                ? '正在同步「$selectedSourceName」分集...'
+                                : (hasEpisodes
+                                    ? '分集已就绪 · 请在下方选择集数开始播放'
+                                    : '请在下方选择播放源或选集'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: -0.1,
+                              fontFamily: 'MiSans',
+                              fontFamilyFallback: FontManager.fallbackFontFamilies,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

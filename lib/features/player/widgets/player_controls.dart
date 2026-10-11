@@ -831,12 +831,12 @@ class _PlayerControlsState extends State<PlayerControls> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    // 顶部氛围自然阴影（加 IgnorePointer 避免吞掉触屏点击）
+                    // 顶部非线性自然暗角（加 IgnorePointer 避免吞掉触屏点击）
                     Positioned(
                       top: 0,
                       left: 0,
                       right: 0,
-                      height: 86,
+                      height: 88,
                       child: IgnorePointer(
                         child: Container(
                           decoration: BoxDecoration(
@@ -844,24 +844,25 @@ class _PlayerControlsState extends State<PlayerControls> {
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                               colors: [
-                                Colors.black.withValues(alpha: 0.54),
-                                Colors.black.withValues(alpha: 0.26),
+                                Colors.black.withValues(alpha: 0.65),
+                                Colors.black.withValues(alpha: 0.42),
+                                Colors.black.withValues(alpha: 0.20),
                                 Colors.black.withValues(alpha: 0.06),
                                 Colors.transparent,
                               ],
-                              stops: const [0.0, 0.35, 0.70, 1.0],
+                              stops: const [0.0, 0.28, 0.58, 0.82, 1.0],
                             ),
                           ),
                         ),
                       ),
                     ),
 
-                    // 底部氛围自然阴影（加 IgnorePointer 避免吞掉触屏点击）
+                    // 底部非线性自然暗角（加 IgnorePointer 避免吞掉触屏点击）
                     Positioned(
                       bottom: 0,
                       left: 0,
                       right: 0,
-                      height: 96,
+                      height: 100,
                       child: IgnorePointer(
                         child: Container(
                           decoration: BoxDecoration(
@@ -869,84 +870,141 @@ class _PlayerControlsState extends State<PlayerControls> {
                               begin: Alignment.bottomCenter,
                               end: Alignment.topCenter,
                               colors: [
-                                Colors.black.withValues(alpha: 0.56),
-                                Colors.black.withValues(alpha: 0.30),
-                                Colors.black.withValues(alpha: 0.08),
+                                Colors.black.withValues(alpha: 0.70),
+                                Colors.black.withValues(alpha: 0.46),
+                                Colors.black.withValues(alpha: 0.22),
+                                Colors.black.withValues(alpha: 0.07),
                                 Colors.transparent,
                               ],
-                              stops: const [0.0, 0.35, 0.70, 1.0],
+                              stops: const [0.0, 0.30, 0.60, 0.82, 1.0],
                             ),
                           ),
                         ),
                       ),
                     ),
 
-                    // 顶部 iOS 悬浮导航岛
+                    // 顶部 iOS 悬浮导航岛（配合垂直位移滑入滑出微动效）
                     Positioned(
                       top: 0,
                       left: 0,
                       right: 0,
-                      child: PlayerControlsTopBar(
-                        title: widget.title,
-                        isFullscreen: widget.isFullscreen,
-                        onBackPressed: widget.onBackPressed,
-                        onOpenEpisodePicker: widget.onOpenEpisodePicker,
-                        onOpenSidePanel: widget.onOpenSidePanel,
-                        onScreenshot: _handleScreenshot,
-                        danmakuController: widget.danmakuController,
+                      child: AnimatedSlide(
+                        offset: (_visible && !_isLocked) ? Offset.zero : const Offset(0, -0.20),
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        child: PlayerControlsTopBar(
+                          title: widget.title,
+                          isFullscreen: widget.isFullscreen,
+                          isDesktopInline: !widget.isFullscreen && playerWidth >= 640,
+                          onBackPressed: widget.onBackPressed,
+                          onOpenEpisodePicker: widget.onOpenEpisodePicker,
+                          onOpenSidePanel: widget.onOpenSidePanel,
+                          onScreenshot: _handleScreenshot,
+                          danmakuController: widget.danmakuController,
+                        ),
                       ),
                     ),
 
-                    // 底部播放控制与流体进度条
+                    // 底部播放控制与流体进度条（配合垂直位移滑入滑出微动效）
                     Positioned(
                       bottom: 0,
                       left: 0,
                       right: 0,
-                      child: PlayerControlsBottomBar(
-                        controller: widget.controller,
-                        primaryColor: primaryColor,
-                        danmakuController: widget.danmakuController,
-                        opedSegment: widget.opedSegment,
-                        isFullscreen: widget.isFullscreen,
-                        onToggleFullscreen: widget.onToggleFullscreen,
-                        onSeekingSliderChanged: (val) =>
-                            setState(() => _isSeekingSlider = val),
-                        onUserInteraction: _startHideTimer,
-                        showSpeedPopup: _showSpeedPopup,
-                        onToggleSpeedPopup: () {
-                          setState(() {
-                            _showSpeedPopup = !_showSpeedPopup;
-                            if (_showSpeedPopup) {
-                              _showVolumeSlider = false;
-                              _activePanel = _ActiveControlPanel.none;
-                            }
-                          });
-                          _startHideTimer();
-                        },
-                        showVolumeSlider: _showVolumeSlider,
-                        onToggleVolumeSlider: () {
-                          setState(() {
-                            _showVolumeSlider = !_showVolumeSlider;
-                            if (_showVolumeSlider) {
-                              _showSpeedPopup = false;
-                              _activePanel = _ActiveControlPanel.none;
-                            }
-                          });
-                          _startHideTimer();
-                        },
-                        isSettingsPanelActive:
-                            _activePanel == _ActiveControlPanel.settings,
-                        isDanmakuPanelActive:
-                            _activePanel == _ActiveControlPanel.danmaku,
-                        onOpenSettingsPanel: () => _openPanel(
-                            context, primaryColor, _ActiveControlPanel.settings),
-                        onOpenDanmakuPanel: () => _openPanel(
-                            context, primaryColor, _ActiveControlPanel.danmaku),
-                        speedButtonKey: _speedButtonKey,
-                        volumeButtonKey: _volumeButtonKey,
+                      child: AnimatedSlide(
+                        offset: (_visible && !_isLocked) ? Offset.zero : const Offset(0, 0.20),
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        child: PlayerControlsBottomBar(
+                          controller: widget.controller,
+                          primaryColor: primaryColor,
+                          danmakuController: widget.danmakuController,
+                          opedSegment: widget.opedSegment,
+                          isFullscreen: widget.isFullscreen,
+                          onToggleFullscreen: widget.onToggleFullscreen,
+                          onSeekingSliderChanged: (val) =>
+                              setState(() => _isSeekingSlider = val),
+                          onUserInteraction: _startHideTimer,
+                          showSpeedPopup: _showSpeedPopup,
+                          onToggleSpeedPopup: () {
+                            setState(() {
+                              _showSpeedPopup = !_showSpeedPopup;
+                              if (_showSpeedPopup) {
+                                _showVolumeSlider = false;
+                                _activePanel = _ActiveControlPanel.none;
+                              }
+                            });
+                            _startHideTimer();
+                          },
+                          showVolumeSlider: _showVolumeSlider,
+                          onToggleVolumeSlider: () {
+                            setState(() {
+                              _showVolumeSlider = !_showVolumeSlider;
+                              if (_showVolumeSlider) {
+                                _showSpeedPopup = false;
+                                _activePanel = _ActiveControlPanel.none;
+                              }
+                            });
+                            _startHideTimer();
+                          },
+                          isSettingsPanelActive:
+                              _activePanel == _ActiveControlPanel.settings,
+                          isDanmakuPanelActive:
+                              _activePanel == _ActiveControlPanel.danmaku,
+                          onOpenSettingsPanel: () => _openPanel(
+                              context, primaryColor, _ActiveControlPanel.settings),
+                          onOpenDanmakuPanel: () => _openPanel(
+                              context, primaryColor, _ActiveControlPanel.danmaku),
+                          speedButtonKey: _speedButtonKey,
+                          volumeButtonKey: _volumeButtonKey,
+                        ),
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
+
+            // 4.5 常态沉浸式微光极窄进度条 (Ambient Mini Progress Bar: 控件收起时保留 2.0px 优雅呼吸指示)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 2.0,
+              child: AnimatedOpacity(
+                opacity: (!_visible && !_isLocked) ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeInOut,
+                child: IgnorePointer(
+                  child: ValueListenableBuilder<PlaybackTimelineState>(
+                    valueListenable: widget.controller.timeline,
+                    builder: (context, timelineState, _) {
+                      final dur = timelineState.duration;
+                      final pos = timelineState.displayPosition;
+                      final buf = timelineState.buffer;
+                      final ratio = dur > Duration.zero
+                          ? (pos.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0)
+                          : 0.0;
+                      final bufRatio = dur > Duration.zero
+                          ? (buf.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0)
+                          : 0.0;
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ColoredBox(color: Colors.white.withValues(alpha: 0.12)),
+                          FractionallySizedBox(
+                            alignment: Alignment.centerLeft,
+                            widthFactor: bufRatio,
+                            child: ColoredBox(color: Colors.white.withValues(alpha: 0.28)),
+                          ),
+                          FractionallySizedBox(
+                            alignment: Alignment.centerLeft,
+                            widthFactor: ratio,
+                            child: ColoredBox(color: primaryColor.withValues(alpha: 0.85)),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
             ),

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/models/bangumi/bangumi_item.dart';
+import '../../../core/theme/m3_surface.dart';
+import '../../../core/utils/font_manager.dart';
 import '../../common/widgets/cached_anime_image.dart';
-import '../../common/widgets/bouncing_scale_card.dart';
 
 /// iOS 现代风格番剧详情 Tab 组件 (Apple Card & Typography Style)
 class WatchMetaView extends StatefulWidget {
@@ -28,6 +29,7 @@ class WatchMetaView extends StatefulWidget {
 class _WatchMetaViewState extends State<WatchMetaView> {
   bool _isSummaryExpanded = false;
   String? _collectStatus;
+  int _lastCollectIndex = 0;
 
   static const List<String> _collectOptions = ['想看', '在看', '看过', '搁置', '抛弃'];
 
@@ -51,6 +53,16 @@ class _WatchMetaViewState extends State<WatchMetaView> {
         ? item.summary.trim()
         : '暂无番剧详细剧情简介。';
 
+    final selectedCollectIndex = _collectStatus != null
+        ? _collectOptions.indexOf(_collectStatus!)
+        : -1;
+    final activeCollectSliderIndex = selectedCollectIndex != -1
+        ? selectedCollectIndex
+        : _lastCollectIndex;
+    final collectAlignX = _collectOptions.length > 1
+        ? -1.0 + (activeCollectSliderIndex * (2.0 / (_collectOptions.length - 1)))
+        : 0.0;
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
@@ -61,9 +73,19 @@ class _WatchMetaViewState extends State<WatchMetaView> {
             Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: isDark ? 0.16 : 0.6),
+                  width: 0.6,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
+                    color: primaryColor.withValues(alpha: isDark ? 0.28 : 0.14),
+                    blurRadius: 18,
+                    spreadRadius: -1,
+                    offset: const Offset(0, 6),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.40 : 0.10),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -98,6 +120,8 @@ class _WatchMetaViewState extends State<WatchMetaView> {
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.4,
                       height: 1.25,
+                      fontFamily: 'MiSans',
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -111,6 +135,8 @@ class _WatchMetaViewState extends State<WatchMetaView> {
                         color: theme.textTheme.bodySmall?.color,
                         letterSpacing: -0.1,
                         height: 1.2,
+                        fontFamily: 'MiSans',
+                        fontFamilyFallback: FontManager.fallbackFontFamilies,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -144,6 +170,8 @@ class _WatchMetaViewState extends State<WatchMetaView> {
                                   color: Colors.amber,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
+                                  fontFamily: 'MiSans',
+                                  fontFamilyFallback: FontManager.fallbackFontFamilies,
                                 ),
                               ),
                             ],
@@ -169,6 +197,8 @@ class _WatchMetaViewState extends State<WatchMetaView> {
                               color: primaryColor,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
+                              fontFamily: 'MiSans',
+                              fontFamilyFallback: FontManager.fallbackFontFamilies,
                             ),
                           ),
                         ),
@@ -180,6 +210,8 @@ class _WatchMetaViewState extends State<WatchMetaView> {
                           fontSize: 12,
                           color: theme.textTheme.bodySmall?.color,
                           fontWeight: FontWeight.w500,
+                          fontFamily: 'MiSans',
+                          fontFamilyFallback: FontManager.fallbackFontFamilies,
                         ),
                       ),
                     ],
@@ -203,63 +235,89 @@ class _WatchMetaViewState extends State<WatchMetaView> {
 
         const SizedBox(height: 18),
 
-        // 2. iOS 风格追番状态分段控制器 (Segmented Collection Status)
+        // 2. iOS 风格追番状态分段控制器 (带 AnimatedAlign 丝滑物理滑动滑块)
         Container(
+          height: 40,
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(8),
+            color: M3Surface.container(context, level: M3ContainerLevel.lowest),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isDark ? Colors.white.withAlpha(18) : Colors.black.withAlpha(12),
-              width: 0.5,
-            ),
+            border: M3Surface.border(context) ??
+                Border.all(
+                  color: isDark ? Colors.white.withAlpha(18) : Colors.black.withAlpha(12),
+                  width: 0.5,
+                ),
           ),
-          child: Row(
-            children: _collectOptions.map((opt) {
-              final isSelected = _collectStatus == opt;
-              return Expanded(
-                child: BouncingScaleCard(
-                  scaleDown: 0.94,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    setState(() {
-                      _collectStatus = _collectStatus == opt ? null : opt;
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? (isDark ? Colors.white.withAlpha(36) : Colors.white)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: isSelected
-                          ? [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              )
-                            ]
-                          : null,
-                    ),
-                    child: Text(
-                      opt,
-                      style: TextStyle(
-                        fontFamily: theme.textTheme.bodyMedium?.fontFamily,
-                        fontSize: 12.5,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected
-                            ? (isDark ? Colors.white : primaryColor)
-                            : theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
+          child: Stack(
+            children: [
+              // (1) 丝滑物理平移的选中滑块 (AnimatedAlign + 柔和阴影，消除局部缩放变形)
+              AnimatedOpacity(
+                opacity: selectedCollectIndex != -1 ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeInOut,
+                child: AnimatedAlign(
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment(collectAlignX, 0.0),
+                  child: FractionallySizedBox(
+                    widthFactor: 1.0 / _collectOptions.length,
+                    child: Container(
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withAlpha(36) : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                            blurRadius: 6,
+                            offset: const Offset(0, 1.5),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
-              );
-            }).toList(),
+              ),
+
+              // (2) 5 个等分热区按钮项 (平滑颜色渐变，消除跳动闪烁)
+              Row(
+                children: _collectOptions.map((opt) {
+                  final isSelected = _collectStatus == opt;
+                  return Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() {
+                          if (_collectStatus == opt) {
+                            _collectStatus = null;
+                          } else {
+                            _collectStatus = opt;
+                            _lastCollectIndex = _collectOptions.indexOf(opt);
+                          }
+                        });
+                      },
+                      child: Container(
+                        height: 32,
+                        alignment: Alignment.center,
+                        child: Text(
+                          opt,
+                          style: TextStyle(
+                            fontFamily: 'MiSans',
+                            fontFamilyFallback: FontManager.fallbackFontFamilies,
+                            fontSize: 12.5,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected
+                                ? (isDark ? Colors.white : primaryColor)
+                                : theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
           ),
         ),
 
@@ -274,7 +332,7 @@ class _WatchMetaViewState extends State<WatchMetaView> {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.white.withAlpha(12) : Colors.black.withAlpha(6),
+                  color: M3Surface.container(context, level: M3ContainerLevel.lowest),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isDark ? Colors.white.withAlpha(16) : Colors.black.withAlpha(10),
@@ -284,8 +342,8 @@ class _WatchMetaViewState extends State<WatchMetaView> {
                 child: Text(
                   t.name,
                   style: TextStyle(
-                    fontFamily: theme.textTheme.bodyMedium?.fontFamily,
-                    fontFamilyFallback: theme.textTheme.bodyMedium?.fontFamilyFallback,
+                    fontFamily: 'MiSans',
+                    fontFamilyFallback: FontManager.fallbackFontFamilies,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w500,
                     color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
@@ -318,12 +376,13 @@ class _WatchMetaViewState extends State<WatchMetaView> {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: isDark ? Colors.white.withAlpha(12) : Colors.black.withAlpha(6),
+            color: M3Surface.container(context, level: M3ContainerLevel.lowest),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isDark ? Colors.white.withAlpha(16) : Colors.black.withAlpha(10),
-              width: 0.5,
-            ),
+            border: M3Surface.border(context) ??
+                Border.all(
+                  color: isDark ? Colors.white.withAlpha(16) : Colors.black.withAlpha(10),
+                  width: 0.5,
+                ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,6 +396,8 @@ class _WatchMetaViewState extends State<WatchMetaView> {
                       fontSize: 14.5,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.3,
+                      fontFamily: 'MiSans',
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                     ),
                   ),
                   InkWell(

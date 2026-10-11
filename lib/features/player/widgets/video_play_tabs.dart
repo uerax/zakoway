@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:zakoway/core/models/bangumi/bangumi_item.dart';
 import 'package:zakoway/core/services/watched_episodes_service.dart';
+import 'package:zakoway/core/utils/font_manager.dart';
 import 'package:zakoway/features/common/widgets/bouncing_scale_card.dart';
 import 'package:zakoway/features/player/source/models/source_models.dart';
 import 'package:zakoway/features/player/source/source_aggregator.dart';
@@ -10,7 +11,7 @@ import 'episode_picker_section.dart';
 import 'video_source_view.dart';
 import 'watch_meta_view.dart';
 
-/// iOS 风格极简精致滑动胶囊分段控制器
+/// iOS / M3 风格极简精致滑动胶囊分段控制器
 class VideoPlaySegmentedTabBar extends StatelessWidget {
   const VideoPlaySegmentedTabBar({
     super.key,
@@ -26,16 +27,16 @@ class VideoPlaySegmentedTabBar extends StatelessWidget {
     final primaryColor = theme.colorScheme.primary;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 4),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 360),
           child: Container(
-            height: 32,
-            padding: const EdgeInsets.all(2.5),
+            height: 38,
+            padding: const EdgeInsets.all(3.0),
             decoration: BoxDecoration(
               color: isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(8),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(19),
               border: Border.all(
                 color: isDark ? Colors.white.withAlpha(18) : Colors.black.withAlpha(12),
                 width: 0.5,
@@ -50,32 +51,36 @@ class VideoPlaySegmentedTabBar extends StatelessWidget {
               labelPadding: EdgeInsets.zero,
               indicatorSize: TabBarIndicatorSize.tab,
               indicator: BoxDecoration(
-                color: isDark ? Colors.white.withAlpha(36) : Colors.white,
-                borderRadius: BorderRadius.circular(13.5),
+                color: isDark ? Colors.white.withValues(alpha: 0.16) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1.5),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
               labelColor: isDark ? Colors.white : primaryColor,
               unselectedLabelColor: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.65),
               labelStyle: const TextStyle(
-                fontSize: 12.5,
+                fontSize: 13.0,
                 fontWeight: FontWeight.w600,
                 letterSpacing: -0.2,
+                fontFamily: 'MiSans',
+                fontFamilyFallback: FontManager.fallbackFontFamilies,
               ),
               unselectedLabelStyle: const TextStyle(
-                fontSize: 12.5,
+                fontSize: 13.0,
                 fontWeight: FontWeight.w500,
                 letterSpacing: -0.2,
+                fontFamily: 'MiSans',
+                fontFamilyFallback: FontManager.fallbackFontFamilies,
               ),
               tabs: const [
-                Tab(height: 27, text: '番剧详情'),
-                Tab(height: 27, text: '视频源'),
-                Tab(height: 27, text: '选集'),
+                Tab(height: 32, text: '番剧详情'),
+                Tab(height: 32, text: '视频源'),
+                Tab(height: 32, text: '选集'),
               ],
             ),
           ),

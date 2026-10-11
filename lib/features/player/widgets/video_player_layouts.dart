@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/font_manager.dart';
 
 /// 全屏横屏布局（全宽播放器 + 浮层侧边抽屉面板）
 class VideoPlayerFullscreenLayout extends StatelessWidget {
@@ -41,11 +42,20 @@ class VideoPlayerDesktopLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
           title,
-          style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.3),
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.3,
+            fontFamily: 'MiSans',
+            fontFamilyFallback: FontManager.fallbackFontFamilies,
+          ),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
@@ -97,8 +107,14 @@ class VideoPlayerDesktopLayout extends StatelessWidget {
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.2),
-                                  blurRadius: 16,
+                                  color: primaryColor.withValues(alpha: isDark ? 0.22 : 0.12),
+                                  blurRadius: 28,
+                                  spreadRadius: -2,
+                                  offset: const Offset(0, 8),
+                                ),
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.15),
+                                  blurRadius: 18,
                                   offset: const Offset(0, 6),
                                 ),
                               ],
