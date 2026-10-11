@@ -402,21 +402,33 @@ class _HistoryPageState extends State<HistoryPage> {
                         ),
                         if (item.pluginName.isNotEmpty && item.pluginName != '默认源') ...[
                           const SizedBox(width: 5),
-                          Text(
-                            item.pluginName,
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w600,
-                              color: theme.colorScheme.primary,
+                          Flexible(
+                            child: Text(
+                              item.pluginName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                color: theme.colorScheme.primary,
+                              ),
                             ),
                           ),
                         ],
-                        const Spacer(),
-                        Text(
-                          item.formatRelativeWatchTime(),
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            color: theme.colorScheme.onSurfaceVariant,
+                        const SizedBox(width: 6),
+                        // 特殊处理说明：相对时间文本使用 Expanded + Align 弹性右对齐并限制单行截断，防止窄屏下与集数/片源文本挤压溢出
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              item.formatRelativeWatchTime(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -439,13 +451,21 @@ class _HistoryPageState extends State<HistoryPage> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          item.positionText,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontFamily: 'monospace',
-                            color: theme.colorScheme.onSurfaceVariant,
+                        const SizedBox(width: 6),
+                        // 特殊处理说明：时间轴文本限制最大宽度并通过 FittedBox 自动缩放，防止长时码或窄屏下挤爆进度条
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 80),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              item.positionText,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontFamily: 'monospace',
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
                           ),
                         ),
                       ],

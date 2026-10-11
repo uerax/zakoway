@@ -68,12 +68,15 @@ class ContinueWatchingShelf extends StatelessWidget {
       builder: (context, constraints) {
         final screenWidth = constraints.maxWidth;
         // 依据屏幕宽度响应式决定展示卡片数量与列宽：
-        // 手机端 (< 600px)：平铺展示最新 2 部
-        // 平板端 (600 ~ 840px)：平铺展示最新 3 部
+        // 极窄小窗 (< 250px)：展示最新 1 部，避免强制双列过度挤压卡片破排
+        // 手机端 (250 ~ 599px)：平铺展示最新 2 部
+        // 平板端 (600 ~ 839px)：平铺展示最新 3 部
         // 桌面大屏 (>= 840px)：平铺展示最新 4 部
         final int maxColumns = screenWidth >= AppBreakpoints.medium
             ? 4
-            : (screenWidth >= AppBreakpoints.compact ? 3 : 2);
+            : (screenWidth >= AppBreakpoints.compact
+                ? 3
+                : (screenWidth < 250 ? 1 : 2));
 
         final displayItems = records.take(maxColumns).toList();
         if (displayItems.isEmpty) return const SizedBox.shrink();
@@ -115,36 +118,46 @@ class ContinueWatchingShelf extends StatelessWidget {
                         color: theme.textTheme.titleMedium?.color,
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
+                    // 特殊处理说明：查看历史按钮使用 Expanded + Align + FittedBox 弹性右对齐并自适应等比缩放，避免极窄窗口下两端挤爆
                     if (onViewAllHistory != null)
-                      Material(
-                        color: theme.colorScheme.primary.withAlpha(isDark ? 36 : 20),
-                        borderRadius: BorderRadius.circular(6),
-                        child: InkWell(
-                          onTap: onViewAllHistory,
-                          borderRadius: BorderRadius.circular(6),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.history_rounded,
-                                  size: 13,
-                                  color: theme.colorScheme.primary,
-                                ),
-                                const SizedBox(width: 3),
-                                Text(
-                                  '历史记录',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w600,
-                                    fontFamily: FontManager.instance.activeFontFamily,
-                                    fontFamilyFallback: FontManager.fallbackFontFamilies,
-                                    color: theme.colorScheme.primary,
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Material(
+                              color: theme.colorScheme.primary.withAlpha(isDark ? 36 : 20),
+                              borderRadius: BorderRadius.circular(6),
+                              child: InkWell(
+                                onTap: onViewAllHistory,
+                                borderRadius: BorderRadius.circular(6),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.history_rounded,
+                                        size: 13,
+                                        color: theme.colorScheme.primary,
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        '历史记录',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w600,
+                                          fontFamily: FontManager.instance.activeFontFamily,
+                                          fontFamilyFallback: FontManager.fallbackFontFamilies,
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
@@ -284,32 +297,39 @@ class ContinueWatchingShelf extends StatelessWidget {
                   ),
                   const SizedBox(height: 5),
 
-                  // M3 圆润进度条与百分比
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(999),
-                          child: LinearProgressIndicator(
-                            value: record.progress.clamp(0.0, 1.0),
-                            minHeight: 3.5,
-                            backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              theme.colorScheme.primary,
+                  // M3 圆润进度条与百分比（极窄小窗下自适应隐藏百分比文字，避免挤压溢出）
+                  LayoutBuilder(
+                    builder: (context, progressConstraints) {
+                      final showText = progressConstraints.maxWidth > 35;
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(999),
+                              child: LinearProgressIndicator(
+                                value: record.progress.clamp(0.0, 1.0),
+                                minHeight: 3.5,
+                                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  theme.colorScheme.primary,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        '${(record.progress * 100).toInt()}%',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+                          if (showText) ...[
+                            const SizedBox(width: 5),
+                            Text(
+                              '${(record.progress * 100).toInt()}%',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),

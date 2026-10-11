@@ -138,6 +138,47 @@ void main() {
       expect(find.text('DunMeshi 中文'), findsOneWidget);
     });
 
+    testWidgets('Ultra narrow width (180dp) for ContinueWatchingShelf adapts to 1 column without overflow', (tester) async {
+      final records = [
+        WatchProgressItem(
+          item: _createMockItem(10, 'Frieren', 9.4),
+          episodeNumber: 8,
+          progress: 0.72,
+          positionText: '18:23 / 24:00',
+          lastWatchTime: DateTime.now(),
+        ),
+        WatchProgressItem(
+          item: _createMockItem(11, 'DunMeshi', 9.0),
+          episodeNumber: 5,
+          progress: 0.50,
+          positionText: '12:00 / 24:00',
+          lastWatchTime: DateTime.now(),
+        ),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 180.0, // 极限窄窗宽度
+                child: ContinueWatchingShelf(
+                  records: records,
+                  onViewAllHistory: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('继续追番'), findsOneWidget);
+      expect(find.text('Frieren 中文'), findsOneWidget);
+      // 超窄视口下自适应单卡片展示，第二部自动收拢
+      expect(find.text('DunMeshi 中文'), findsNothing);
+    });
+
     testWidgets('Wide screen (1440dp) caps card width to 280dp and does not stretch infinitely', (tester) async {
       final records = [
         WatchProgressItem(
@@ -213,6 +254,62 @@ void main() {
       expect(find.text('当季精选'), findsOneWidget);
       expect(find.text('Dungeon Meshi 中文'), findsOneWidget);
       expect(find.textContaining('极高水准奇幻生态冒险剧'), findsOneWidget);
+    });
+
+    testWidgets('Narrow width with long tag does not throw RenderFlex overflow', (tester) async {
+      final recs = [
+        RecommendItem(
+          item: _createMockItem(103, 'Steins;Gate', 9.2),
+          reason: '极高水准科幻悬疑神作',
+          tag: '#硬核烧脑',
+          matchRate: 98,
+        ),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 301.0, // 对应右侧 143.0px 极限可用宽度的窄屏
+                child: DailySpotlightCard(recommendations: recs),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('98% 契合'), findsOneWidget);
+      expect(find.text('#硬核烧脑'), findsOneWidget);
+    });
+
+    testWidgets('Ultra narrow width (180dp) for DailySpotlightCard does not throw RenderFlex overflow', (tester) async {
+      final recs = [
+        RecommendItem(
+          item: _createMockItem(103, 'Steins;Gate', 9.2),
+          reason: '极高水准科幻悬疑神作',
+          tag: '#硬核烧脑',
+          matchRate: 98,
+        ),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 180.0, // 极限窄窗宽度
+                child: DailySpotlightCard(recommendations: recs),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('今日推荐'), findsOneWidget);
+      expect(find.text('换一部'), findsNothing); // 单部或超窄时不报错
     });
   });
 

@@ -94,7 +94,6 @@ class _TodayAnimeShelfState extends State<TodayAnimeShelf> {
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final isToday = _selectedDayIndex == _todayWeekdayIndex;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -111,7 +110,7 @@ class _TodayAnimeShelfState extends State<TodayAnimeShelf> {
               ),
               const SizedBox(width: 7),
               Text(
-                '新番每日放送',
+                '每日放送',
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
@@ -121,7 +120,7 @@ class _TodayAnimeShelfState extends State<TodayAnimeShelf> {
               ),
               const SizedBox(width: 8),
               Text(
-                '$_currentWeekdayLabel · ${isToday ? '今日 ' : ''}${items.length} 部更新',
+                '$_currentWeekdayLabel · ${items.length} 部更新',
                 style: TextStyle(
                   fontSize: 12,
                   color: theme.colorScheme.onSurfaceVariant,

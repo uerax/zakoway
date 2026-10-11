@@ -246,14 +246,54 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('属性标签词云'), findsOneWidget);
-      expect(find.text('#奇幻'), findsOneWidget);
-      expect(find.text('#冒险'), findsOneWidget);
 
-      final fantasyText = tester.widget<Text>(find.text('#奇幻'));
-      final adventureText = tester.widget<Text>(find.text('#冒险'));
+      final wordCloudFinder = find.byWidgetPredicate((w) => w.runtimeType.toString() == '_WordCloudView');
+      final fantasyFinder = find.descendant(of: wordCloudFinder, matching: find.text('奇幻'));
+      final adventureFinder = find.descendant(of: wordCloudFinder, matching: find.textContaining('险'));
+
+      expect(fantasyFinder, findsOneWidget);
+      expect(adventureFinder, findsOneWidget);
+
+      final fantasyText = tester.widget<Text>(fantasyFinder);
+      final adventureText = tester.widget<Text>(adventureFinder);
 
       // 验证频次更高的“奇幻”字号严格大于频次较少的“冒险”
       expect(fantasyText.style?.fontSize, greaterThan(adventureText.style?.fontSize ?? 0));
+    });
+
+    testWidgets('DataAnalysisPage renders cleanly on extremely narrow width (280dp) without overflow', (tester) async {
+      WatchHistoryService.instance.resetForTest();
+      await WatchHistoryService.instance.recordProgress(
+        const WatchHistoryItem(
+          id: '1::ep1',
+          bangumiId: 1,
+          title: '超长标题的番剧作品1',
+          episode: 1,
+          pluginName: 'cycani',
+          position: 3600,
+          duration: 3600,
+          updatedAt: 1000,
+          genres: ['奇幻', '异世界', '战斗', '热血'],
+        ),
+      );
+
+      tester.view.physicalSize = const Size(280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: DataAnalysisPage(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 验证未抛出任何 RenderFlex overflow 异常
+      expect(tester.takeException(), isNull);
+      expect(find.text('属性标签词云'), findsOneWidget);
+      expect(find.text('观看'), findsOneWidget);
+      expect(find.text('时长'), findsOneWidget);
+      expect(find.text('杂食度'), findsOneWidget);
     });
   });
 }

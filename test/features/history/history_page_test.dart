@@ -131,5 +131,24 @@ void main() {
       expect(find.text('迷宫饭'), findsNothing);
       expect(find.text('间谍过家家 第二季'), findsOneWidget);
     });
+
+    testWidgets('HistoryPage renders cleanly on narrow screen (280dp) without RenderFlex overflow', (tester) async {
+      await WatchHistoryService.instance.saveHistory(WatchHistoryService.initialMockSeeds);
+
+      tester.view.physicalSize = const Size(280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: HistoryPage(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('播放历史'), findsOneWidget);
+      expect(find.text('葬送的芙莉莲'), findsOneWidget);
+    });
   });
 }

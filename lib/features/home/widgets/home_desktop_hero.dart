@@ -240,7 +240,7 @@ class _HomeDesktopHeroState extends State<HomeDesktopHero> {
         ),
         const SizedBox(width: 7),
         Text(
-          '新番每日放送',
+          '每日放送',
           style: TextStyle(
             fontSize: 16.5,
             fontWeight: FontWeight.w800,

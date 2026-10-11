@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../core/collection/services/anime_collection_service.dart';
 import '../../../core/models/bangumi/bangumi_collection.dart';
@@ -169,15 +170,23 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
                   ],
                 ),
               ),
-              const Spacer(),
-              Text(
-                _report.diversityLabel,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: fontMgr.activeFontFamily,
-                  fontFamilyFallback: FontManager.fallbackFontFamilies,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+              const SizedBox(width: 8),
+              // 特殊处理说明：称号文案包裹 Expanded + Align 弹性右对齐并限制单行省略，防止极窄窗口下两端挤压溢出
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    _report.diversityLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: fontMgr.activeFontFamily,
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -193,7 +202,7 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
             children: [
               _buildStatChip(
                 context,
-                title: '观看番剧',
+                title: '观看',
                 value: '${_report.totalAnimeCount}',
                 unit: '部',
                 icon: Icons.movie_filter_rounded,
@@ -202,7 +211,7 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
               const SizedBox(width: 10),
               _buildStatChip(
                 context,
-                title: '累计时长',
+                title: '时长',
                 value: _report.totalWatchHours < 0.1
                     ? '0.1'
                     : _report.totalWatchHours.toStringAsFixed(1),
@@ -226,7 +235,12 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
     );
   }
 
-  /// 构建自适应权重标签词云图：频次越高的题材字体越大、字重越粗、色彩越醒目
+  /// 构建自适应经典文字词云图（2D 螺旋紧凑无重叠排布、横竖穿插、保留二次元专属色彩）：
+  /// 特殊处理说明：
+  /// 1. 采用阿基米德螺旋线碰撞放置算法（Archimedean Spiral），让高频大字聚焦于视觉中心，中小字横竖紧密咬合填补缝隙，完全消除外框气泡，呈现纯净的经典文字词云质感；
+  /// 2. 中文方块字天然支持垂直排版（按字符换行堆叠），高频词按 25%~30% 比例交替进行纵横混排，高度还原自然生动的视觉构图；
+  /// 3. 支持 Tooltip 交互（悬浮或点击提示具体观看番剧数），兼顾视觉极简与量化数据可读性；
+  /// 4. 严守字体回退链，注入 activeFontFamily 与 fallbackFontFamilies，防止 Windows 平台退回中易宋体。
   Widget _buildTagCloud(BuildContext context) {
     final theme = Theme.of(context);
     final fontMgr = FontManager.instance;
@@ -250,49 +264,8 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
       );
     }
 
-    // 按频次从大到小排序
-    final sortedEntries = genreCounts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    final maxCount = sortedEntries.first.value;
-    final minCount = sortedEntries.last.value;
-    final countDiff = maxCount - minCount;
-
-    // 综合计算每个标签的视觉权重 (0.0 ~ 1.0)：
-    // 兼顾实际频次比例与自然排位梯度，彻底避免“全都是同一种巨大尺寸”的死板情况
-    final itemsWithWeights = <(MapEntry<String, int>, double)>[];
-    for (var i = 0; i < sortedEntries.length; i++) {
-      final entry = sortedEntries[i];
-      double weight;
-      if (countDiff > 0) {
-        // 当有频次差异时：频次占比占 70%，排位递减占 30%
-        final freqRatio = (entry.value - minCount) / countDiff;
-        final rankRatio = 1.0 - (i / sortedEntries.length);
-        weight = (freqRatio * 0.70 + rankRatio * 0.30).clamp(0.0, 1.0);
-      } else {
-        // 当频次全部相同时：按排位衰减梯级权重，确保即使频次一样也能错落有致、大小自然
-        weight = sortedEntries.length > 1
-            ? (1.0 - (i / (sortedEntries.length - 1)) * 0.75).clamp(0.15, 1.0)
-            : 0.85;
-      }
-      itemsWithWeights.add((entry, weight));
-    }
-
-    // 采用经典词云“中心扩散穿插”算法：
-    // 将最大核心标签排在视觉重心区域，中等与较小标签在周围散落环绕
-    final interleaved = <(MapEntry<String, int>, double)>[];
-    for (var i = 0; i < itemsWithWeights.length; i++) {
-      if (i % 2 == 0) {
-        interleaved.add(itemsWithWeights[i]);
-      } else {
-        interleaved.insert(0, itemsWithWeights[i]);
-      }
-    }
-
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 140),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
       decoration: BoxDecoration(
         color: isDark
             ? Colors.white.withValues(alpha: 0.035)
@@ -305,82 +278,12 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
           width: 1,
         ),
       ),
-      child: Center(
-        child: Wrap(
-          alignment: WrapAlignment.center,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 10,
-          runSpacing: 10,
-          children: interleaved.map((item) {
-            final entry = item.$1;
-            final weight = item.$2;
-            final genre = entry.key;
-            final count = entry.value;
-
-            // 字体大小平滑映射：最小 13px，最大 24.5px
-            final fontSize = 13.0 + weight * 11.5;
-
-            // 字重映射：高权重字重更粗
-            final fontWeight = weight >= 0.70
-                ? FontWeight.w900
-                : (weight >= 0.35 ? FontWeight.w800 : FontWeight.w600);
-
-            // 获取题材专属二次元色彩
-            final tagColor = _getGenreColor(genre, isDark, theme);
-            final tagBg = tagColor.withValues(alpha: isDark ? 0.16 : 0.08);
-
-            return Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: 9 + weight * 4.5,
-                vertical: 4 + weight * 2.8,
-              ),
-              decoration: BoxDecoration(
-                color: tagBg,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: tagColor.withValues(alpha: isDark ? 0.38 : 0.22),
-                  width: weight >= 0.70 ? 1.4 : 1.0,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '#$genre',
-                    style: TextStyle(
-                      fontSize: fontSize,
-                      fontWeight: fontWeight,
-                      letterSpacing: -0.2,
-                      fontFamily: fontMgr.activeFontFamily,
-                      fontFamilyFallback: FontManager.fallbackFontFamilies,
-                      color: tagColor,
-                    ),
-                  ),
-                  if (count > 1) ...[
-                    const SizedBox(width: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 0.8),
-                      decoration: BoxDecoration(
-                        color: tagColor.withValues(alpha: isDark ? 0.28 : 0.16),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '$count',
-                        style: TextStyle(
-                          fontSize: (fontSize * 0.65).clamp(9.5, 12.0),
-                          fontWeight: FontWeight.w700,
-                          fontFamily: fontMgr.activeFontFamily,
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
-                          color: tagColor,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            );
-          }).toList(),
-        ),
+      clipBehavior: Clip.antiAlias,
+      child: _WordCloudView(
+        genreCounts: genreCounts,
+        isDark: isDark,
+        theme: theme,
+        colorGetter: _getGenreColor,
       ),
     );
   }
@@ -465,7 +368,7 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
 
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         decoration: BoxDecoration(
           color: isDark ? color.withValues(alpha: 0.12) : color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(16),
@@ -477,49 +380,59 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 特殊处理说明：标题行采用 Flexible + 省略号，避免极窄视口下小指标卡片内图标与文本横向溢出
             Row(
               children: [
                 Icon(icon, size: 14, color: color),
                 const SizedBox(width: 4),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: fontMgr.activeFontFamily,
-                    fontFamilyFallback: FontManager.fallbackFontFamilies,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                Flexible(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: fontMgr.activeFontFamily,
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 6),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    fontFamily: fontMgr.activeFontFamily,
-                    fontFamilyFallback: FontManager.fallbackFontFamilies,
-                    color: color,
+            // 特殊处理说明：数值与单位行使用 FittedBox 自适应等比微缩，保证数值在极窄视口或较大数字时完整可见且不溢出
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      fontFamily: fontMgr.activeFontFamily,
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                      color: color,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 2),
-                Text(
-                  unit,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: fontMgr.activeFontFamily,
-                    fontFamilyFallback: FontManager.fallbackFontFamilies,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.60),
+                  const SizedBox(width: 2),
+                  Text(
+                    unit,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: fontMgr.activeFontFamily,
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.60),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -573,7 +486,7 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
               const Icon(Icons.favorite_rounded, size: 18, color: Color(0xFFE91E63)),
               const SizedBox(width: 8),
               Text(
-                '追番状态透视',
+                '追番透视',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
@@ -582,21 +495,29 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
                   color: theme.colorScheme.onSurface,
                 ),
               ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE91E63).withValues(alpha: isDark ? 0.22 : 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '完结率 ${_report.completionRateText}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: fontMgr.activeFontFamily,
-                    fontFamilyFallback: FontManager.fallbackFontFamilies,
-                    color: const Color(0xFFE91E63),
+              const SizedBox(width: 8),
+              // 特殊处理说明：完结率胶囊采用 Expanded + Align 弹性右对齐并限制单行省略，防止极窄视口下两端挤压溢出
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE91E63).withValues(alpha: isDark ? 0.22 : 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '完结率 ${_report.completionRateText}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: fontMgr.activeFontFamily,
+                        fontFamilyFallback: FontManager.fallbackFontFamilies,
+                        color: const Color(0xFFE91E63),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -611,7 +532,7 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
               const SizedBox(width: 8),
               _buildCollectionStatCell(context, '看过', '$watched', const Color(0xFF388E3C)),
               const SizedBox(width: 8),
-              _buildCollectionStatCell(context, '搁置/抛弃', '${onHold + abandoned}', const Color(0xFFE65100)),
+              _buildCollectionStatCell(context, '抛弃', '${onHold + abandoned}', const Color(0xFFE65100)),
             ],
           ),
         ],
@@ -644,25 +565,31 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
         ),
         child: Column(
           children: [
-            Text(
-              count,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                fontFamily: fontMgr.activeFontFamily,
-                fontFamilyFallback: FontManager.fallbackFontFamilies,
-                color: accentColor,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                count,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  fontFamily: fontMgr.activeFontFamily,
+                  fontFamilyFallback: FontManager.fallbackFontFamilies,
+                  color: accentColor,
+                ),
               ),
             ),
             const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                fontFamily: fontMgr.activeFontFamily,
-                fontFamilyFallback: FontManager.fallbackFontFamilies,
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: fontMgr.activeFontFamily,
+                  fontFamilyFallback: FontManager.fallbackFontFamilies,
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+                ),
               ),
             ),
           ],
@@ -703,7 +630,7 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
               Icon(Icons.pie_chart_rounded, size: 18, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
               Text(
-                '题材偏好分布',
+                '题材偏好',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
@@ -712,15 +639,23 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
                   color: theme.colorScheme.onSurface,
                 ),
               ),
-              const Spacer(),
-              Text(
-                '共 ${_report.allGenreCounts.length} 种题材',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: fontMgr.activeFontFamily,
-                  fontFamilyFallback: FontManager.fallbackFontFamilies,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+              const SizedBox(width: 8),
+              // 特殊处理说明：题材数文案采用 Expanded + Align 弹性右对齐并限制单行省略，防止极窄窗口下两端挤压溢出
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '共 ${_report.allGenreCounts.length} 种题材',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: fontMgr.activeFontFamily,
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -762,25 +697,32 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          '${item.count} 部作品',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w500,
-                            fontFamily: fontMgr.activeFontFamily,
-                            fontFamilyFallback: FontManager.fallbackFontFamilies,
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.50),
+                        Flexible(
+                          child: Text(
+                            '${item.count} 部作品',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                              fontFamily: fontMgr.activeFontFamily,
+                              fontFamilyFallback: FontManager.fallbackFontFamilies,
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.50),
+                            ),
                           ),
                         ),
-                        const Spacer(),
-                        Text(
-                          item.percentageText,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            fontFamily: fontMgr.activeFontFamily,
-                            fontFamilyFallback: FontManager.fallbackFontFamilies,
-                            color: theme.colorScheme.primary,
+                        const SizedBox(width: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            item.percentageText,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              fontFamily: fontMgr.activeFontFamily,
+                              fontFamilyFallback: FontManager.fallbackFontFamilies,
+                              color: theme.colorScheme.primary,
+                            ),
                           ),
                         ),
                       ],
@@ -1035,5 +977,327 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
         ),
       ),
     );
+  }
+}
+
+/// 经典文字词云展示视图组件
+class _WordCloudView extends StatelessWidget {
+  final Map<String, int> genreCounts;
+  final bool isDark;
+  final ThemeData theme;
+  final Color Function(String, bool, ThemeData) colorGetter;
+
+  const _WordCloudView({
+    required this.genreCounts,
+    required this.isDark,
+    required this.theme,
+    required this.colorGetter,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fontMgr = FontManager.instance;
+    final fontFamily = fontMgr.activeFontFamily;
+    final fontFallback = FontManager.fallbackFontFamilies;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final canvasWidth = constraints.maxWidth;
+        // 动态高度自适应：窄屏长宽比约 1.6:1 ~ 1.7:1，宽屏锁定在 245dp 以内，兼顾密集紧凑度与开阔感
+        final canvasHeight = (canvasWidth * 0.58).clamp(210.0, 245.0);
+
+        final placedItems = _WordCloudLayoutEngine.compute(
+          genreCounts: genreCounts,
+          canvasWidth: canvasWidth,
+          canvasHeight: canvasHeight,
+          isDark: isDark,
+          theme: theme,
+          colorGetter: colorGetter,
+          fontFamily: fontFamily,
+          fontFallback: fontFallback,
+        );
+
+        return SizedBox(
+          width: canvasWidth,
+          height: canvasHeight,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: placedItems.map((item) {
+              return Positioned(
+                left: item.x,
+                top: item.y,
+                child: Tooltip(
+                  message: '${item.genre} · ${item.count} 部番剧',
+                  child: Text(
+                    item.displayText,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: item.fontSize,
+                      fontWeight: item.fontWeight,
+                      height: item.isVertical ? 1.05 : 1.15,
+                      letterSpacing: item.isVertical ? 0 : -0.2,
+                      fontFamily: fontFamily,
+                      fontFamilyFallback: fontFallback,
+                      color: item.color.withValues(alpha: item.opacity),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 词云渲染实体模型
+class _WordCloudItem {
+  final String genre;
+  final int count;
+  final String displayText;
+  final double x;
+  final double y;
+  final double fontSize;
+  final FontWeight fontWeight;
+  final bool isVertical;
+  final Color color;
+  final double opacity;
+
+  const _WordCloudItem({
+    required this.genre,
+    required this.count,
+    required this.displayText,
+    required this.x,
+    required this.y,
+    required this.fontSize,
+    required this.fontWeight,
+    required this.isVertical,
+    required this.color,
+    required this.opacity,
+  });
+}
+
+/// 2D 阿基米德螺旋线碰撞紧密排版引擎：
+/// 1. 将最高频词汇定位在画布重心，其余词汇沿椭圆螺旋线向外紧凑填补空白；
+/// 2. 支持中文题材横竖穿插（字间换行），打破单调的横向排列；
+/// 3. 多级字号降级重试机制，确保各类题材均能找到合适的无重叠空隙。
+class _WordCloudLayoutEngine {
+  static List<_WordCloudItem> compute({
+    required Map<String, int> genreCounts,
+    required double canvasWidth,
+    required double canvasHeight,
+    required bool isDark,
+    required ThemeData theme,
+    required Color Function(String, bool, ThemeData) colorGetter,
+    required String? fontFamily,
+    required List<String> fontFallback,
+  }) {
+    if (genreCounts.isEmpty || canvasWidth < 60 || canvasHeight < 60) {
+      return const [];
+    }
+
+    final sorted = genreCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    final maxCount = sorted.first.value;
+    final minCount = sorted.last.value;
+    final countDiff = maxCount - minCount;
+
+    final placedItems = <_WordCloudItem>[];
+    final placedRects = <Rect>[];
+
+    final cx = canvasWidth / 2;
+    final cy = canvasHeight / 2;
+    // 椭圆长宽比系数，使螺旋线走向贴合长方形画布
+    final aspectFactor = (canvasWidth / canvasHeight).clamp(1.15, 2.3);
+    // 基于画布宽度微调缩放基准
+    final scale = (canvasWidth / 360.0).clamp(0.85, 1.25);
+
+    for (var i = 0; i < sorted.length; i++) {
+      final entry = sorted[i];
+      final genre = entry.key;
+      final count = entry.value;
+
+      double weight;
+      if (countDiff > 0) {
+        final freqRatio = (count - minCount) / countDiff;
+        final rankRatio = 1.0 - (i / sorted.length);
+        weight = (freqRatio * 0.70 + rankRatio * 0.30).clamp(0.0, 1.0);
+      } else {
+        weight = sorted.length > 1
+            ? (1.0 - (i / (sorted.length - 1)) * 0.75).clamp(0.15, 1.0)
+            : 0.90;
+      }
+
+      // 字体大小平滑映射：高频最大约 33px，低频约 11.5px
+      var fontSize = (11.5 + math.pow(weight, 0.72) * 21.5) * scale;
+      final fontWeight = weight >= 0.72
+          ? FontWeight.w900
+          : (weight >= 0.38 ? FontWeight.w800 : FontWeight.w600);
+
+      final baseColor = colorGetter(genre, isDark, theme);
+      final opacity = (0.72 + weight * 0.28).clamp(0.60, 1.0);
+
+      // 决定排版方向：纯汉字题材（2~4字）在特定位序尝试竖排（约25%~30%），英文/数字强制横排
+      final canVertical = genre.length >= 2 &&
+          genre.length <= 4 &&
+          RegExp(r'^[一-龥]+$').hasMatch(genre);
+
+      final preferVertical = canVertical && (i % 3 == 1 || (i > 3 && (i * 7) % 5 == 0));
+
+      final success = _tryPlace(
+        genre: genre,
+        count: count,
+        baseFontSize: fontSize,
+        fontWeight: fontWeight,
+        preferVertical: preferVertical,
+        canVertical: canVertical,
+        baseColor: baseColor,
+        opacity: opacity,
+        cx: cx,
+        cy: cy,
+        canvasWidth: canvasWidth,
+        canvasHeight: canvasHeight,
+        aspectFactor: aspectFactor,
+        fontFamily: fontFamily,
+        fontFallback: fontFallback,
+        placedItems: placedItems,
+        placedRects: placedRects,
+      );
+
+      // 若区域过于拥挤未放下，以 75% 较小尺寸重试横排
+      if (!success) {
+        _tryPlace(
+          genre: genre,
+          count: count,
+          baseFontSize: fontSize * 0.75,
+          fontWeight: FontWeight.w600,
+          preferVertical: false,
+          canVertical: canVertical,
+          baseColor: baseColor,
+          opacity: opacity * 0.88,
+          cx: cx,
+          cy: cy,
+          canvasWidth: canvasWidth,
+          canvasHeight: canvasHeight,
+          aspectFactor: aspectFactor,
+          fontFamily: fontFamily,
+          fontFallback: fontFallback,
+          placedItems: placedItems,
+          placedRects: placedRects,
+        );
+      }
+    }
+
+    return placedItems;
+  }
+
+  static bool _tryPlace({
+    required String genre,
+    required int count,
+    required double baseFontSize,
+    required FontWeight fontWeight,
+    required bool preferVertical,
+    required bool canVertical,
+    required Color baseColor,
+    required double opacity,
+    required double cx,
+    required double cy,
+    required double canvasWidth,
+    required double canvasHeight,
+    required double aspectFactor,
+    required String? fontFamily,
+    required List<String> fontFallback,
+    required List<_WordCloudItem> placedItems,
+    required List<Rect> placedRects,
+  }) {
+    final orientationAttempts = preferVertical
+        ? [true, false]
+        : (canVertical ? [false, true] : [false]);
+
+    for (final isVertical in orientationAttempts) {
+      final text = isVertical ? genre.split('').join('\n') : genre;
+      final textStyle = TextStyle(
+        fontSize: baseFontSize,
+        fontWeight: fontWeight,
+        height: isVertical ? 1.05 : 1.15,
+        letterSpacing: isVertical ? 0 : -0.2,
+        fontFamily: fontFamily,
+        fontFamilyFallback: fontFallback,
+      );
+
+      final tp = TextPainter(
+        text: TextSpan(text: text, style: textStyle),
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final w = tp.width;
+      final h = tp.height;
+      const margin = 2.5;
+      final boxW = w + margin * 2;
+      final boxH = h + margin * 2;
+
+      if (boxW > canvasWidth - 8 || boxH > canvasHeight - 8) {
+        continue;
+      }
+
+      const stepAngle = 0.18;
+      const radiusStep = 0.65;
+      final maxRadius = math.max(canvasWidth, canvasHeight) * 0.65;
+      var theta = 0.0;
+      var found = false;
+      double bestX = 0;
+      double bestY = 0;
+
+      while (true) {
+        final r = radiusStep * theta;
+        if (r > maxRadius) break;
+
+        final candX = cx + r * math.cos(theta) * aspectFactor - boxW / 2;
+        final candY = cy + r * math.sin(theta) - boxH / 2;
+
+        if (candX >= 4 &&
+            candX + boxW <= canvasWidth - 4 &&
+            candY >= 4 &&
+            candY + boxH <= canvasHeight - 4) {
+          final candRect = Rect.fromLTWH(candX, candY, boxW, boxH);
+          var overlaps = false;
+          for (var k = 0; k < placedRects.length; k++) {
+            if (candRect.overlaps(placedRects[k])) {
+              overlaps = true;
+              break;
+            }
+          }
+
+          if (!overlaps) {
+            found = true;
+            bestX = candX + margin;
+            bestY = candY + margin;
+            placedRects.add(candRect);
+            placedItems.add(_WordCloudItem(
+              genre: genre,
+              count: count,
+              displayText: text,
+              x: bestX,
+              y: bestY,
+              fontSize: baseFontSize,
+              fontWeight: fontWeight,
+              isVertical: isVertical,
+              color: baseColor,
+              opacity: opacity,
+            ));
+            break;
+          }
+        }
+
+        theta += stepAngle;
+      }
+
+      if (found) return true;
+    }
+
+    return false;
   }
 }
