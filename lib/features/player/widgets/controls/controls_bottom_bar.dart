@@ -281,12 +281,23 @@ class PlayerControlsBottomBar extends StatelessWidget {
                         ValueListenableBuilder<PlaybackTimelineState>(
                           valueListenable: controller.timeline,
                           builder: (context, timelineState, _) {
-                            final hasHours = timelineState.duration.inHours > 0;
-                            final pos = _formatDuration(
-                                timelineState.displayPosition,
-                                showHours: hasHours);
-                            final total = _formatDuration(timelineState.duration,
-                                showHours: hasHours);
+                            // 特殊处理说明：
+                            // 在媒体总时长未就绪（duration <= 0）时，强制归零展示为 00:00 / 00:00，
+                            // 杜绝任何极端弱网或断点起播阶段冒出如「04:26 / 00:00」的严重时间倒挂视觉错误；
+                            // 时长就绪后，将当前显示进度严格钳制在 [0, effectiveDuration] 范围内。
+                            final isDurationValid = timelineState.duration > Duration.zero;
+                            final effectiveDuration = isDurationValid ? timelineState.duration : Duration.zero;
+                            final effectivePosition = isDurationValid
+                                ? (timelineState.displayPosition > effectiveDuration
+                                    ? effectiveDuration
+                                    : (timelineState.displayPosition < Duration.zero
+                                        ? Duration.zero
+                                        : timelineState.displayPosition))
+                                : Duration.zero;
+
+                            final hasHours = effectiveDuration.inHours > 0;
+                            final pos = _formatDuration(effectivePosition, showHours: hasHours);
+                            final total = _formatDuration(effectiveDuration, showHours: hasHours);
                             return Text.rich(
                               TextSpan(
                                 children: [

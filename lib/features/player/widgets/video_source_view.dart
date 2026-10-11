@@ -28,11 +28,11 @@ class VideoSourceItem {
 List<VideoSourceItem> getDefaultSourceItems() {
   const descriptions = {
     'xifan-next': '1080P · 官方推荐综合主线',
-    'moonci': '1080P · 零 Referer 防盗链直连',
     'cycani': '1080P · 纯净 REST API 多线路',
     'mifun': '1080P · 字节/百度 CDN 高速切片',
     'sorani': '1080P · 官方原生 API 直出 (最高画质)',
     'girigiri': '1080P · Cloudflare CDN 原画直连',
+    'moonci': '1080P · 备用多线路直连',
     'lzizy': 'HLS · 全品类影视 0ms 纯直链',
     'animoe': 'HLS · 网易云音乐 CDN 节点',
     'gugu': '1080P · 字节 TOS 国内极速直链 (咕咕新线/A线)',
@@ -45,11 +45,11 @@ List<VideoSourceItem> getDefaultSourceItems() {
 
   const sourceNames = {
     'xifan-next': '稀饭Next',
-    'moonci': '月之祠',
     'cycani': '次元城',
     'mifun': 'MiFun',
     'sorani': '青空次元',
     'girigiri': 'girigiri',
+    'moonci': '月之祠',
     'lzizy': '量子资源',
     'animoe': 'Animoe',
     'gugu': '咕咕番',

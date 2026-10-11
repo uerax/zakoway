@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import '../models/source_models.dart';
 import 'video_source.dart';
+import 'xifan_next_source.dart';
 
 const String _kDefaultUserAgent =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
@@ -21,10 +22,10 @@ class MoonciSource extends VideoSource {
   String get name => '月之祠';
 
   @override
-  String get version => '1.3.0';
+  String get version => '1.4.0';
 
   @override
-  String get description => '1080P · 零 Referer 防盗链直连 (moedot/xfvod CDN)';
+  String get description => '1080P · 备用多线路直连 (双轨极速解析)';
 
   Map<String, String> _headers([String? referer]) {
     final h = <String, String>{
@@ -154,9 +155,7 @@ class MoonciSource extends VideoSource {
       }
     }
 
-    // 特殊处理说明：月之祠通常有 2-3 条线路（如 X.1, X.2, X.3），但 1-2 线路经常不可用/失效，
-    // 逆向排序使得更稳定的后置线路（如 X.3 / X.2）优先作为默认首发线路。
-    return roads.reversed.toList();
+    return roads;
   }
 
   @override
@@ -209,7 +208,15 @@ class MoonciSource extends VideoSource {
       throw Exception('月之祠直链格式不正确: $rawUrl');
     }
 
-    // animaku 规范：moedot / unicom 节点若携带月之祠 Referer 会返回 400，必须不带 Referer 原生播放
+    // 特殊处理说明：
+    // 月之祠近期底层改版，站内视频流全部封装嵌入为稀饭动漫（next.xifanacg.com）播放页面链接。
+    // 若识别到为该类嵌入页面，自动委托 XifanNextSource 进行二次解析，获取真正的 1080P 媒体流直链，
+    // 实现 100% 自愈起播，彻底杜绝播放器将 HTML 网页误当成视频流导致解复用失败。
+    if (rawUrl.contains('next.xifanacg.com') || rawUrl.contains('xifanacg')) {
+      return XifanNextSource(dio: _dio).resolve(rawUrl);
+    }
+
+    // 原生媒体流直链兜底 (moedot / unicom 节点原生播放)
     return SourceResolveResult(
       url: rawUrl,
       headers: {

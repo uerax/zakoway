@@ -671,7 +671,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       if (!mounted) return;
       setState(() {
         _isLoadingChapters = false;
-        _resolveError = '检索异常: ${e.toString().replaceFirst("Exception: ", "")}';
+        _resolveError = cleanErrorMessage(e, prefix: '检索异常');
       });
     }
   }
@@ -838,7 +838,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       if (!mounted) return;
       setState(() {
         _isLoadingChapters = false;
-        _resolveError = e.toString().replaceFirst('Exception: ', '');
+        _resolveError = cleanErrorMessage(e, prefix: '分集同步失败');
       });
     }
   }
@@ -901,7 +901,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _resolveError = '播放解析失败: ${e.toString().replaceFirst("Exception: ", "")}';
+        _resolveError = cleanErrorMessage(e, prefix: '播放解析失败');
       });
     }
   }
@@ -985,7 +985,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _resolveError = '播放解析失败: ${e.toString().replaceFirst("Exception: ", "")}';
+        _resolveError = cleanErrorMessage(e, prefix: '播放解析失败');
       });
     }
   }

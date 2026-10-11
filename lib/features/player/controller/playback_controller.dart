@@ -26,7 +26,11 @@ const int _kMobileMaxBytes = 16 * 1024 * 1024; // 16MB
 const int _kMobileMaxBackBytes = 4 * 1024 * 1024; // 4MB
 
 /// 首帧黑屏防闪遮罩最长保持时间（硬上限超时兜底，防止纯音频、无视频轨或尺寸事件缺失导致死等遮罩）
-const Duration kFirstFrameCoverMaxWait = Duration(milliseconds: 1800);
+/// 特殊处理说明：
+/// 第三方外链与 CDN 在网络波动下拉流与解复用首片往往需要 2~5 秒，
+/// 若超时过短（如 1.8s）会导致在网络加载稍慢时过早解除 loading 与黑屏遮罩，造成假死黑屏；
+/// 将硬超时放宽至 8 秒，兼顾纯音频等特殊流兜底与弱网首帧等待体验。
+const Duration kFirstFrameCoverMaxWait = Duration(milliseconds: 8000);
 
 /// zakoway 视频播放引擎控制器
 /// 封装 media_kit (libmpv) 底层驱动，支持 250ms 节流解耦、倍速变调修正与切片断流自动重试
@@ -260,7 +264,12 @@ class ZakowayPlaybackController {
 
     _currentUri = uri;
     _pendingStart = start ?? Duration.zero;
-    _lastPosition = _pendingStart;
+    // 特殊处理说明：
+    // 起播时将内部 _lastPosition 初始化为 Duration.zero，严禁提前预设为 _pendingStart！
+    // 目标断点续播进度由底层 mpv 通过 Media(..., start: start) 驱动定位；
+    // 在底层解析出真实时长并上报有效播放位置前，时间轴必须保持 Duration.zero，
+    // 杜绝在网络慢或直链失效时出现「04:26 / 00:00」的时间倒挂荒谬界面。
+    _lastPosition = Duration.zero;
     _lastPositionAt = _positionClock.elapsed;
     _lastDuration = Duration.zero;
     _lastBuffer = Duration.zero;
@@ -286,8 +295,8 @@ class ZakowayPlaybackController {
       clearError: true,
     );
 
-    timeline.value = PlaybackTimelineState(
-      position: _pendingStart,
+    timeline.value = const PlaybackTimelineState(
+      position: Duration.zero,
       duration: Duration.zero,
       buffer: Duration.zero,
     );
@@ -566,9 +575,13 @@ class ZakowayPlaybackController {
 
   void _onPositionChanged(Duration pos) {
     if (_disposed) return;
-    // 门禁：规避起播瞬间 mpv 抛出的 0 秒事件覆盖真实断点进度
+    // 特殊处理说明：
+    // 门禁：规避起播瞬间 mpv 抛出的 0 秒瞬态事件提前冲掉 _pendingStart；
+    // 仅当底层进度尚未接近断点目标且尚未获得有效时长（媒体还在解复用）时才过滤防抖；
+    // 一旦获得有效时长或底层 Seek 完成，立即放行真实进度。
     if (_pendingStart > Duration.zero) {
-      if (pos + const Duration(seconds: 1) < _pendingStart) {
+      if (pos + const Duration(seconds: 1) < _pendingStart &&
+          _lastDuration == Duration.zero) {
         return;
       }
       _pendingStart = Duration.zero;

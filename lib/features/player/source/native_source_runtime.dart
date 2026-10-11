@@ -61,17 +61,17 @@ class NativeSourceRuntime {
     // 特殊处理说明：
     // 视频源默认注册位序直接决定了 UI 排序与自动选源的优先级：
     // 1. xifan-next（综合主线首选）
-    // 2. moonci（月之祠，零防盗链极速直连）
-    // 3. cycani（次元城，多线路原画）
-    // 4. mifun / sorani（青空次元权重下调至与 mifun 同级第二梯队）
-    // 5. girigiri / lzizy（主流采集与原画老番）
-    // 6. animoe / gugu（咕咕番与 Animoe 同级，作为备选多线路源）
+    // 2. cycani（次元城，多线路原画）
+    // 3. mifun / sorani（青空次元与 mifun 同级优质主线）
+    // 4. girigiri（Cloudflare CDN 原画直连）
+    // 5. moonci（月之祠，降权至 girigiri 之后作为备选多线路源）
+    // 6. lzizy / animoe / gugu（全品类与备用多线路源）
     registerSource(XifanNextSource(dio: _dio));
-    registerSource(MoonciSource(dio: _dio));
     registerSource(CycaniSource(dio: _dio));
     registerSource(MifunSource(dio: _dio));
     registerSource(SoraniSource(dio: _dio));
     registerSource(GirigiriSource(dio: _dio));
+    registerSource(MoonciSource(dio: _dio));
     registerSource(LzizySource(dio: _dio));
     registerSource(AnimoeSource(dio: _dio));
     registerSource(GuguSource(dio: _dio));
