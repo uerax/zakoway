@@ -83,7 +83,7 @@ class _SettingsPageState extends State<SettingsPage> with AutomaticKeepAliveClie
                   const UserProfileHeaderCard(),
                   const SizedBox(height: 16),
 
-                  // 2. 核心功能控制栏 (观看历史、我的追番、离线缓存、交流吹水 4 胶囊按钮)
+                  // 2. 核心功能控制栏 (观看历史、我的追番、数据分析、离线缓存 4 胶囊按钮)
                   const UserActionControlBar(),
                   const SizedBox(height: 10),
 

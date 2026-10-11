@@ -6,6 +6,7 @@ import 'package:zakoway/core/services/daily_recommend_service.dart';
 
 class MockDailyClientAdapter implements HttpClientAdapter {
   final List<Map<String, dynamic>> recordedPayloads = [];
+  final List<RequestOptions> recordedOptions = [];
 
   @override
   Future<ResponseBody> fetch(
@@ -13,6 +14,7 @@ class MockDailyClientAdapter implements HttpClientAdapter {
     Stream<dynamic>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    recordedOptions.add(options);
     if (options.data is Map<String, dynamic>) {
       recordedPayloads.add(options.data as Map<String, dynamic>);
     }
@@ -124,6 +126,70 @@ void main() {
       // 验证 Top 1 标签“恋爱”被正确查询
       final hasLoveTag = queriedTagSets.any((tags) => tags.contains('恋爱'));
       expect(hasLoveTag, isTrue);
+    });
+
+    test('Cold start samples across scattered mutual-exclusive genre slots with non-contiguous offsets', () async {
+      final dio = Dio();
+      final adapter = MockDailyClientAdapter();
+      dio.httpClientAdapter = adapter;
+      final client = BangumiClient(dio: dio);
+
+      final result = await DailyRecommendService.getDailyRecommendations(
+        client: client,
+        rawUserTagFreq: const {},
+        customDate: DateTime(2026, 10, 4),
+        customDeviceId: 'test_dev_scattered',
+        forceRefresh: true,
+      );
+
+      expect(result, isNotEmpty);
+      // 验证发出的请求覆盖了 5 个槽位
+      expect(adapter.recordedPayloads.length, equals(5));
+
+      // 提取每个槽位专属的题材标签（排除固定的“日本”）
+      final sampledGenres = adapter.recordedPayloads.map((p) {
+        final filter = p['filter'] as Map<String, dynamic>;
+        final tags = (filter['tag'] as List).cast<String>();
+        return tags.firstWhere((t) => t != '日本', orElse: () => '');
+      }).toList();
+
+      // 验证 5 个槽位的题材完全互斥，绝无重复
+      final uniqueGenres = sampledGenres.toSet();
+      expect(uniqueGenres.length, equals(5));
+
+      // 验证各槽位的翻页 offset 大跨度散落，绝对不连号
+      final offsets = adapter.recordedOptions
+          .map((opt) => opt.queryParameters['offset'] as int)
+          .toList();
+      for (var i = 0; i < offsets.length - 1; i++) {
+        // 相邻槽位的 offset 差值不为 0 且绝对值不为 1 (不连号)
+        expect((offsets[i] - offsets[i + 1]).abs(), isNot(equals(1)));
+      }
+    });
+
+    test('Watched items are strictly deduped and filtered from recommendations', () async {
+      final dio = Dio();
+      final adapter = MockDailyClientAdapter();
+      dio.httpClientAdapter = adapter;
+      final client = BangumiClient(dio: dio);
+
+      // 模拟已看过 1000, 1001, 1002
+      final watchedIds = {1000, 1001, 1002};
+
+      final result = await DailyRecommendService.getDailyRecommendations(
+        client: client,
+        rawUserTagFreq: const {},
+        watchedSubjectIds: watchedIds,
+        customDate: DateTime(2026, 10, 4),
+        customDeviceId: 'test_dev_dedup',
+        forceRefresh: true,
+      );
+
+      expect(result, isNotEmpty);
+      // 验证推荐列表绝不包含已看番剧
+      for (final rec in result) {
+        expect(watchedIds.contains(rec.item.id), isFalse);
+      }
     });
 
     test('resolveDisplayTag generates accurate anime slang tags', () {

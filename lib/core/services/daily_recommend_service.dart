@@ -7,19 +7,21 @@ import '../network/bangumi_data_disk_cache_manager.dart';
 import '../utils/anime_tag_filter.dart';
 import 'app_preferences.dart';
 
-/// 今日推荐调度核心算法服务：
+/// 今日推荐调度核心算法服务（广域离散散落采样架构）：
 /// 1. 确定性天命种子（Deterministic Daily Seed）：
 ///    结合设备唯一标识 (DeviceUUID) 与当日日期字符串计算 32 位离散哈希，
 ///    确保“千人千面、天内绝对幂等（全天刷新结果不变）、次日零点自动平滑轮换”；
 /// 2. 受控白名单精准清洗：
 ///    通过 AnimeTagFilter.genreAllowList 过滤用户输入，彻底免疫时间、载体、恶搞短句等一切 UGC 噪音；
-/// 3. 特殊处理说明：根据业务强规则，所有检索请求均强行绑定【日本】标签（tags: [..., '日本']），
-///    配合评分门槛 (score >= 5.0) 与评价人数 (rating_count >= 50)，坚决杜绝低幼片、非日系动画或无评分僵尸条目污染；
+/// 3. 广域离散散落采样（Scattered Sampling，坚决杜绝连号与扎堆）：
+///    - 5 个槽位题材严格互斥（绝不推荐同一题材）；
+///    - 每个槽位基于独立质数步进与基底计算 offset，翻页深度彼此相距甚远，杜绝在同一局部区间抓取连号邻近条目；
+///    - 排序维度交替采用 heat（热度/流行新番）与 score（口碑经典），热度与品质错落交替；
+///    - 评分不过滤：放宽生硬的评分限制，让 6~8 分各类精品与宝藏自然涌现；
 /// 4. 槽位调度与降级保护：
-///    - 无数据时（冷启动）：以种子派生基底偏移量，在全量高分池中批量切片提取 5 部；
-///    - 有数据时：前 3 个槽位分配给出现最多的 Top 3 标签，后 2 个槽位在剩余长尾标签中基于 Seed 随机抽样；
-///      若长尾无数据或检索为空，三级优雅降级平滑退化至全量池兜底，绝不开天窗；
-/// 5. 跨槽位与播放历史全局去重，输出稳固的 5 部今日推荐番剧。
+///    - 无数据时（冷启动）：从题材库中离散打乱抽样 5 个互斥题材独立检索；
+///    - 有数据时（个性化）：前几个槽位绑定用户 Top 偏好题材，其余槽位取长尾与探索互斥题材；
+/// 5. 跨槽位与播放历史全局去重，输出稳固散落的 5 部今日推荐番剧。
 class DailyRecommendService {
   DailyRecommendService._();
 
@@ -135,53 +137,28 @@ class DailyRecommendService {
     return finalRecommendations;
   }
 
-  /// 冷启动抓取：根据种子在全量【日本动画 (评分>=5.0, 评价人数>=50)】池中抽取
+  /// 冷启动抓取：广域离散散落抽样（从白名单题材库中抽选 5 个互斥题材独立检索，绝不连号扎堆）
   static Future<List<RecommendItem>> _fetchColdStartRecommendations({
     required BangumiClient client,
     required int seed,
     required Random rng,
     required Set<int> watchedSubjectIds,
   }) async {
-    // 安全翻页深度控制在前 250 位以内，确保拉取的番剧海报完整且品质稳定
-    final baseOffset = seed % 250;
+    // 从题材白名单中基于种子打乱选取 5 个截然不同的题材，确保 5 个槽位题材完全互斥
+    final availableGenres = AnimeTagFilter.genreAllowList.toList()..shuffle(rng);
+    final slotTags = availableGenres.take(5).toList();
 
-    try {
-      final result = await client.searchWithTotal(
-        '',
-        tags: const ['日本'],
-        sort: 'score',
-        limit: 20,
-        offset: baseOffset,
-      );
-
-      final validCandidates = result.items.where((item) {
-        return !watchedSubjectIds.contains(item.id) &&
-            item.ratingScore >= 5.0 &&
-            item.coverUrl.isNotEmpty;
-      }).toList();
-
-      if (validCandidates.length >= 5) {
-        // 分散抽取 5 部
-        final step = (validCandidates.length / 5).floor().clamp(1, 4);
-        final selected = <BangumiItem>[];
-        for (var i = 0; i < 5; i++) {
-          final index = (i * step) % validCandidates.length;
-          selected.add(validCandidates[index]);
-        }
-        return _wrapRecommendations(selected, rng: rng);
-      } else if (validCandidates.isNotEmpty) {
-        return _wrapRecommendations(validCandidates.take(5).toList(), rng: rng);
-      }
-    } catch (_) {
-      // 网络降级保护
-    }
-
-    // 终极网络失败兜底：从热门列表中挑 5 部
-    final hotFallback = await client.getTrending(limit: 10);
-    return _wrapRecommendations(hotFallback.take(5).toList(), rng: rng);
+    return _fetchScatteredRecommendations(
+      client: client,
+      slotTags: slotTags,
+      seed: seed,
+      rng: rng,
+      watchedSubjectIds: watchedSubjectIds,
+      isColdStart: true,
+    );
   }
 
-  /// 个性化抓取：前 3 个槽位取 Top 3 标签，后 2 个槽位在长尾标签中基于 Seed 随机挑
+  /// 个性化抓取：前几个槽位绑定用户 Top 偏好题材，其余槽位取长尾与探索互斥题材
   static Future<List<RecommendItem>> _fetchPersonalizedRecommendations({
     required BangumiClient client,
     required Map<String, int> cleanProfile,
@@ -193,7 +170,7 @@ class DailyRecommendService {
     final sortedTags = cleanProfile.keys.toList()
       ..sort((a, b) => (cleanProfile[b] ?? 0).compareTo(cleanProfile[a] ?? 0));
 
-    // 2. 提取 Top 3 核心标签
+    // 2. 提取 Top 3 核心偏好标签
     final top3Tags = sortedTags.take(3).toList();
 
     // 3. 提取长尾候选标签（排除 Top 3）
@@ -204,21 +181,56 @@ class DailyRecommendService {
       selectedLongTailTags.addAll(shuffled.take(2));
     }
 
-    // 4. 构建 5 个槽位的目标检索标签（不足则为 null 触发退化全量池）
-    final slotTags = <String?>[
-      top3Tags.isNotEmpty ? top3Tags[0] : null,
-      top3Tags.length > 1 ? top3Tags[1] : null,
-      top3Tags.length > 2 ? top3Tags[2] : null,
-      selectedLongTailTags.isNotEmpty ? selectedLongTailTags[0] : null,
-      selectedLongTailTags.length > 1 ? selectedLongTailTags[1] : null,
-    ];
+    // 4. 构建 5 个互斥的槽位标签；若用户题材不足 5 个，从白名单题材中补充互斥题材
+    final pickedTagSet = <String>{...top3Tags, ...selectedLongTailTags};
+    final candidateGenres = AnimeTagFilter.genreAllowList
+        .where((g) => !pickedTagSet.contains(g))
+        .toList()
+      ..shuffle(rng);
 
-    // 5. 并发向 Bangumi 请求 5 个槽位（每个槽位独立计算派生 offset 拉开翻页深度）
+    final slotTags = <String>[...top3Tags, ...selectedLongTailTags];
+    for (final genre in candidateGenres) {
+      if (slotTags.length >= 5) break;
+      slotTags.add(genre);
+    }
+
+    return _fetchScatteredRecommendations(
+      client: client,
+      slotTags: slotTags,
+      seed: seed,
+      rng: rng,
+      watchedSubjectIds: watchedSubjectIds,
+      isColdStart: false,
+    );
+  }
+
+  /// 核心离散散落推荐调度引擎：
+  /// 1. 题材散落：5 个槽位题材严格互斥，各探索不同风格；
+  /// 2. 深度散落：每个槽位使用独立的大质数散列步进计算 offset，翻页深度彼此相距甚远，杜绝在同一局部区间抓取连号邻近条目；
+  /// 3. 排序错落：交替使用 heat（热度）与 score（口碑经典），热度与口碑自然交融；
+  /// 4. 评分不过滤：放宽生硬的评分限制，只校验海报有效性与已看去重，让 6~8 分各类精品与宝藏自然涌现；
+  /// 5. 跨槽位全局去重与已看过滤，平滑兜底。
+  static Future<List<RecommendItem>> _fetchScatteredRecommendations({
+    required BangumiClient client,
+    required List<String> slotTags,
+    required int seed,
+    required Random rng,
+    required Set<int> watchedSubjectIds,
+    required bool isColdStart,
+  }) async {
+    // 质数散列步进常数：保证各槽位翻页深度相隔拉远，杜绝在同一局部区间抓取连号邻近条目
+    const primes = [17, 37, 53, 71, 89];
+    const bases = [0, 19, 31, 47, 63];
+    const sortModes = ['heat', 'score', 'heat', 'score', 'heat'];
+
     final futures = <Future<List<BangumiItem>>>[];
     for (var i = 0; i < 5; i++) {
-      final targetTag = slotTags[i];
-      // 利用种子派生不同深度偏移量
-      final slotOffset = (seed + i * 17) % 35;
+      final targetTag = i < slotTags.length ? slotTags[i] : null;
+      final prime = primes[i % primes.length];
+      final base = bases[i % bases.length];
+      // 深度大跨度散落：每个槽位 offset 在 0 ~ 45 不同的质数区间分布，绝不挨着
+      final slotOffset = ((seed * prime + base) & 0x7FFFFFFF) % 45;
+      final sortMode = sortModes[i % sortModes.length];
 
       if (targetTag != null) {
         futures.add(
@@ -226,7 +238,7 @@ class DailyRecommendService {
               .searchWithTotal(
                 '',
                 tags: [targetTag, '日本'],
-                sort: 'score',
+                sort: sortMode,
                 limit: 8,
                 offset: slotOffset,
               )
@@ -234,13 +246,12 @@ class DailyRecommendService {
               .catchError((_) => <BangumiItem>[]),
         );
       } else {
-        // 无标签时平滑退化为全量高分池
         futures.add(
           client
               .searchWithTotal(
                 '',
                 tags: const ['日本'],
-                sort: 'score',
+                sort: sortMode,
                 limit: 8,
                 offset: slotOffset,
               )
@@ -252,7 +263,7 @@ class DailyRecommendService {
 
     final slotResults = await Future.wait(futures);
 
-    // 6. 跨槽位去重与顺延选取
+    // 跨槽位去重与已看过滤（取消死板评分限制，重点保证条目散落不扎堆）
     final seenIds = <int>{...watchedSubjectIds};
     final chosenItems = <BangumiItem>[];
     final chosenTags = <String>[];
@@ -261,7 +272,7 @@ class DailyRecommendService {
       final candidates = slotResults[i];
       BangumiItem? picked;
       for (final item in candidates) {
-        if (!seenIds.contains(item.id) && item.ratingScore >= 5.0 && item.coverUrl.isNotEmpty) {
+        if (!seenIds.contains(item.id) && item.coverUrl.isNotEmpty) {
           picked = item;
           break;
         }
@@ -270,22 +281,38 @@ class DailyRecommendService {
       if (picked != null) {
         seenIds.add(picked.id);
         chosenItems.add(picked);
-        chosenTags.add(slotTags[i] ?? '精选');
+        chosenTags.add(i < slotTags.length ? slotTags[i] : '精选');
       }
     }
 
-    // 7. 若部分槽位因冷门或去重导致未凑满 5 部，启动全量池兜底补充
+    // 兜底补偿：若因去重或偏门标签未凑满 5 部，通过离散 offset 全量池平滑补充
     if (chosenItems.length < 5) {
       try {
+        final fallbackOffset = ((seed * 73 + chosenItems.length * 29) & 0x7FFFFFFF) % 100;
         final fallbackRes = await client.searchWithTotal(
           '',
           tags: const ['日本'],
-          sort: 'score',
+          sort: 'heat',
           limit: 12,
-          offset: (seed * 3) % 150,
+          offset: fallbackOffset,
         );
         for (final item in fallbackRes.items) {
-          if (!seenIds.contains(item.id) && item.ratingScore >= 5.0 && item.coverUrl.isNotEmpty) {
+          if (!seenIds.contains(item.id) && item.coverUrl.isNotEmpty) {
+            seenIds.add(item.id);
+            chosenItems.add(item);
+            chosenTags.add('精选');
+            if (chosenItems.length >= 5) break;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 终极网络失败兜底（当 Bangumi searchWithTotal 完全不可用时）：从热门列表中补充
+    if (chosenItems.isEmpty) {
+      try {
+        final hotFallback = await client.getTrending(limit: 10);
+        for (final item in hotFallback) {
+          if (!seenIds.contains(item.id) && item.coverUrl.isNotEmpty) {
             seenIds.add(item.id);
             chosenItems.add(item);
             chosenTags.add('精选');
@@ -302,7 +329,7 @@ class DailyRecommendService {
       final tag = chosenTags[i];
       final isDegraded = tag == '精选';
       final displayTag = resolveDisplayTag(isDegraded ? null : tag, item, rng);
-      final reason = buildRecommendReason(i, isDegraded ? null : tag, item);
+      final reason = buildRecommendReason(i, isDegraded ? null : tag, item, isColdStart);
 
       result.add(
         RecommendItem(
@@ -369,8 +396,17 @@ class DailyRecommendService {
 
   /// 四维槽位推荐理由文案动态引擎
   /// 特殊处理说明：文案返回纯语义文本，不包含 💡 等装饰 Emoji，避免与 UI 层的图标控件叠加显示重复。
-  static String buildRecommendReason(int slotIndex, String? mainTag, BangumiItem item) {
-    final scoreStr = item.ratingScore > 0 ? '${item.ratingScore.toStringAsFixed(1)}分' : '高分';
+  static String buildRecommendReason(
+    int slotIndex,
+    String? mainTag,
+    BangumiItem item, [
+    bool isColdStart = false,
+  ]) {
+    final scoreStr = item.ratingScore > 0 ? '${item.ratingScore.toStringAsFixed(1)}分' : '高人气';
+
+    if (isColdStart && mainTag != null && mainTag.isNotEmpty) {
+      return '今日散落精选：【$mainTag】题材，Bangumi $scoreStr';
+    }
 
     // 槽位 0 (Top 1 主力)
     if (slotIndex == 0 && mainTag != null) {
@@ -387,29 +423,7 @@ class DailyRecommendService {
       return '偶尔换换口味：捕捉到你兴趣库中的【$mainTag】基因，翻出的宝藏作品';
     }
 
-    // 冷启动 / 退化全量
+    // 无标签 / 兜底
     return '今日番剧推荐：Bangumi $scoreStr';
-  }
-
-  /// 辅助方法：将番剧列表批量包装为带默认推荐理由的实体
-  static List<RecommendItem> _wrapRecommendations(
-    List<BangumiItem> items, {
-    Random? rng,
-  }) {
-    final result = <RecommendItem>[];
-    for (var i = 0; i < items.length; i++) {
-      final item = items[i];
-      final tag = resolveDisplayTag(null, item, rng);
-      final reason = buildRecommendReason(i, null, item);
-      result.add(
-        RecommendItem(
-          item: item,
-          tag: tag,
-          reason: reason,
-          matchRate: 96 - (i * 2),
-        ),
-      );
-    }
-    return result;
   }
 }

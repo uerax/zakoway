@@ -27,12 +27,14 @@ void main() {
         position: 1035.0, // 17:15
         duration: 1440.0, // 24:00
         updatedAt: 1712000000000,
+        genres: const ['奇幻', '冒险', '治愈'],
       );
 
       expect(item.progress, closeTo(0.718, 0.01));
       expect(item.positionText, equals('17:15 / 24:00'));
       expect(item.pluginName, equals('cycani'));
       expect(item.road, equals(1));
+      expect(item.genres, equals(['奇幻', '冒险', '治愈']));
 
       final json = item.toJson();
       final parsed = WatchHistoryItem.fromJson(json);
@@ -45,6 +47,7 @@ void main() {
       expect(parsed.road, equals(1));
       expect(parsed.position, equals(1035.0));
       expect(parsed.duration, equals(1440.0));
+      expect(parsed.genres, equals(['奇幻', '冒险', '治愈']));
     });
 
     test('getHistory returns empty list on empty cache without injecting mock seeds', () async {
@@ -171,6 +174,56 @@ void main() {
       expect(stats.todayCount, equals(1));
       expect(stats.finishedCount, equals(1));
       expect(stats.totalWatchHours, closeTo(0.67, 0.05));
+    });
+
+    test('userGenreFrequencies aggregates distinct genres by anime', () async {
+      final service = WatchHistoryService.instance;
+      // 记录同一番剧的不同集数与不同番剧
+      await service.recordProgress(
+        const WatchHistoryItem(
+          id: '100::ep1',
+          bangumiId: 100,
+          title: '番剧A 第1集',
+          episode: 1,
+          pluginName: 'cycani',
+          position: 100,
+          duration: 1440,
+          updatedAt: 1000,
+          genres: ['奇幻', '冒险'],
+        ),
+      );
+      await service.recordProgress(
+        const WatchHistoryItem(
+          id: '100::ep2',
+          bangumiId: 100,
+          title: '番剧A 第2集',
+          episode: 2,
+          pluginName: 'cycani',
+          position: 100,
+          duration: 1440,
+          updatedAt: 2000,
+          genres: ['奇幻', '冒险'],
+        ),
+      );
+      await service.recordProgress(
+        const WatchHistoryItem(
+          id: '200::ep1',
+          bangumiId: 200,
+          title: '番剧B',
+          episode: 1,
+          pluginName: 'cycani',
+          position: 100,
+          duration: 1440,
+          updatedAt: 3000,
+          genres: ['奇幻', '日常'],
+        ),
+      );
+
+      final freqs = service.userGenreFrequencies;
+      // 番剧A (按番去重算 1 次) + 番剧B (算 1 次) -> 奇幻: 2, 冒险: 1, 日常: 1
+      expect(freqs['奇幻'], equals(2));
+      expect(freqs['冒险'], equals(1));
+      expect(freqs['日常'], equals(1));
     });
 
     test('remove and clear methods work as expected and notify listeners', () async {

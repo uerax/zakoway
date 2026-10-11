@@ -33,6 +33,20 @@ class WatchHistoryService extends ChangeNotifier {
     return result;
   }
 
+  /// 供个性化推荐系统消费：按番剧聚合用户实际看过的有效题材词频画像
+  Map<String, int> get userGenreFrequencies {
+    final freq = <String, int>{};
+    for (final item in latestByAnime) {
+      for (final genre in item.genres) {
+        final clean = genre.trim();
+        if (clean.isNotEmpty) {
+          freq[clean] = (freq[clean] ?? 0) + 1;
+        }
+      }
+    }
+    return freq;
+  }
+
   /// 预置的 3 部测试数据（供单元测试场景按需引用）
   @visibleForTesting
   static List<WatchHistoryItem> get initialMockSeeds {

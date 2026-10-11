@@ -8,6 +8,7 @@ import '../../../core/network/bangumi_client.dart';
 import '../../../core/services/bangumi_oped_service.dart';
 import '../../../core/services/watch_history_service.dart';
 import '../../../core/services/watched_episodes_service.dart';
+import '../../../core/utils/anime_tag_filter.dart';
 import '../controller/playback_controller.dart';
 import '../danmaku/danmaku.dart';
 import '../services/player_preferences_service.dart';
@@ -365,6 +366,25 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         ? _effectiveBangumiItem!.nameCn
         : (_effectiveBangumiItem?.name ?? widget.title);
 
+    // 提取并清洗有效题材标签，供推荐系统生成偏好词频画像
+    final rawTags = (_fullBangumiItem?.tags.isNotEmpty ?? false)
+        ? _fullBangumiItem!.tags
+        : (widget.bangumiItem?.tags ?? const <BangumiTag>[]);
+    final extractedGenres = rawTags
+        .map((t) => t.name.trim())
+        .where((t) => AnimeTagFilter.isAllowedGenre(t))
+        .toSet()
+        .toList();
+
+    // 容灾处理：若当前拉取的条目尚未填充标签，优先复用同番剧已有历史中记录的有效标签
+    final existingGenres = WatchHistoryService.instance.items
+        .where((e) => e.bangumiId == _effectiveBangumiId && e.genres.isNotEmpty)
+        .firstOrNull
+        ?.genres;
+    final finalGenres = extractedGenres.isNotEmpty
+        ? extractedGenres
+        : (existingGenres ?? const <String>[]);
+
     final item = WatchHistoryItem(
       id: WatchHistoryItem.buildId(_effectiveBangumiId, ep),
       bangumiId: _effectiveBangumiId,
@@ -377,6 +397,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       position: position,
       duration: duration > 0 ? duration : 1440.0,
       updatedAt: DateTime.now().millisecondsSinceEpoch,
+      genres: finalGenres,
     );
 
     WatchHistoryService.instance.recordProgress(item).ignore();

@@ -240,9 +240,16 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
     // 今日推荐算法抓取与调度：带天内幂等、L2 磁盘缓存与三级降级保护
     List<RecommendItem> recommendations = const [];
     try {
+      final watchedSubjectIds = WatchHistoryService.instance.items
+          .map((e) => e.bangumiId)
+          .where((id) => id > 0)
+          .toSet();
+      final userTagFreq = WatchHistoryService.instance.userGenreFrequencies;
+
       recommendations = await DailyRecommendService.getDailyRecommendations(
         client: widget.client,
-        rawUserTagFreq: const {}, // 播放模块就绪后直接注入词频字典
+        rawUserTagFreq: userTagFreq,
+        watchedSubjectIds: watchedSubjectIds,
         forceRefresh: forceRefresh,
       );
     } catch (e) {

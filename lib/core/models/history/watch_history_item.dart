@@ -32,6 +32,7 @@ class WatchHistoryItem {
   final double position; // 当前播放进度（秒）
   final double duration; // 视频总时长（秒）
   final int updatedAt; // 毫秒时间戳
+  final List<String> genres; // 题材标签列表（用于偏好画像分析）
 
   const WatchHistoryItem({
     required this.id,
@@ -47,6 +48,7 @@ class WatchHistoryItem {
     required this.position,
     required this.duration,
     required this.updatedAt,
+    this.genres = const [],
   });
 
   /// 依据 bangumiId 与集数合成标准唯一标识（对齐 animaku: `${bangumiId}::ep${episode}`）
@@ -154,12 +156,17 @@ class WatchHistoryItem {
         'position': position,
         'duration': duration,
         'updatedAt': updatedAt,
+        'genres': genres,
       };
 
   factory WatchHistoryItem.fromJson(Map<String, dynamic> json) {
     final bangumiId = (json['bangumiId'] as num?)?.toInt() ?? 0;
     final episode = (json['episode'] as num?)?.toInt() ?? 1;
     final id = json['id']?.toString() ?? buildId(bangumiId, episode);
+    final rawGenres = json['genres'];
+    final genres = rawGenres is List
+        ? rawGenres.map((e) => e.toString()).toList()
+        : const <String>[];
 
     return WatchHistoryItem(
       id: id,
@@ -175,6 +182,7 @@ class WatchHistoryItem {
       position: (json['position'] as num?)?.toDouble() ?? 0.0,
       duration: (json['duration'] as num?)?.toDouble() ?? 0.0,
       updatedAt: (json['updatedAt'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
+      genres: genres,
     );
   }
 }

@@ -5,25 +5,26 @@ import '../../../core/utils/adaptive_page_route.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
 import '../../history/pages/history_page.dart';
+import '../pages/data_analysis_page.dart';
 
-/// 个人中心核心快捷控制栏（1:1 参考截图规范）：
+/// 个人中心核心快捷控制栏：
 /// 包含 4 个等分弹性胶囊按钮：
 /// 1. 观看历史 (浅蓝) - 点击直达播放历史时间轴
 /// 2. 我的追番 (浅粉) - 追番进度与收藏入口
-/// 3. 离线缓存 (浅绿) - 离线下载与本地缓存管理
-/// 4. 交流吹水 (浅青) - 社区与交流反馈入口
+/// 3. 数据分析 (浅青) - 用户看过番剧的题材算法解析与画像
+/// 4. 离线缓存 (浅绿) - 离线下载与本地缓存管理
 class UserActionControlBar extends StatelessWidget {
   final VoidCallback? onHistoryTap;
   final VoidCallback? onCollectionTap;
+  final VoidCallback? onAnalyticsTap;
   final VoidCallback? onDownloadTap;
-  final VoidCallback? onCommunityTap;
 
   const UserActionControlBar({
     super.key,
     this.onHistoryTap,
     this.onCollectionTap,
+    this.onAnalyticsTap,
     this.onDownloadTap,
-    this.onCommunityTap,
   });
 
   void _showTip(BuildContext context, String message) {
@@ -115,7 +116,30 @@ class UserActionControlBar extends StatelessWidget {
             ),
           ),
 
-          // 3. 离线缓存
+          // 3. 数据分析 (由交流吹水改造，换位至第 3 项)
+          Expanded(
+            child: _ActionItem(
+              title: '数据分析',
+              icon: Icons.insights_rounded,
+              bgColor: isDark
+                  ? const Color(0xFF00838F).withValues(alpha: 0.28)
+                  : const Color(0xFFE0F7FA),
+              iconColor: isDark
+                  ? const Color(0xFF4DD0E1)
+                  : const Color(0xFF00838F),
+              onTap: onAnalyticsTap ??
+                  () {
+                    Navigator.of(context).push(
+                      AdaptivePageRoute.build<void>(
+                        context,
+                        builder: (_) => const DataAnalysisPage(),
+                      ),
+                    );
+                  },
+            ),
+          ),
+
+          // 4. 离线缓存 (换位至第 4 项)
           Expanded(
             child: _ActionItem(
               title: '离线缓存',
@@ -128,22 +152,6 @@ class UserActionControlBar extends StatelessWidget {
                   : const Color(0xFF388E3C),
               onTap: onDownloadTap ??
                   () => _showTip(context, '暂无离线缓存任务'),
-            ),
-          ),
-
-          // 4. 交流吹水
-          Expanded(
-            child: _ActionItem(
-              title: '交流吹水',
-              icon: Icons.groups_rounded,
-              bgColor: isDark
-                  ? const Color(0xFF00838F).withValues(alpha: 0.28)
-                  : const Color(0xFFE0F7FA),
-              iconColor: isDark
-                  ? const Color(0xFF4DD0E1)
-                  : const Color(0xFF00838F),
-              onTap: onCommunityTap ??
-                  () => _showTip(context, '交流社区建设中，欢迎在 GitHub 提交反馈~'),
             ),
           ),
         ],
