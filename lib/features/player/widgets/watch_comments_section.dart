@@ -294,7 +294,7 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: contentChildren,
         ),
       );
@@ -566,6 +566,7 @@ class _CommentCardItemState extends State<_CommentCardItem> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Container(
+        width: double.infinity,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isDark ? Colors.white.withAlpha(10) : Colors.black.withAlpha(6),
@@ -591,49 +592,56 @@ class _CommentCardItemState extends State<_CommentCardItem> {
                   // 顶部作者、B 站星星、收藏状态与发布时间
                   Row(
                     children: [
-                      Flexible(
-                        child: Text(
-                          comment.author.nickname.isNotEmpty ? comment.author.nickname : '匿名用户',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.9),
-                            fontFamily: 'MiSans',
-                            fontFamilyFallback: FontManager.fallbackFontFamilies,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      Expanded(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                comment.author.nickname.isNotEmpty ? comment.author.nickname : '匿名用户',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.9),
+                                  fontFamily: 'MiSans',
+                                  fontFamilyFallback: FontManager.fallbackFontFamilies,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+
+                            // B 站 5 星制评分
+                            if (comment.starScore != null) ...[
+                              const SizedBox(width: 6),
+                              _BiliStarRating(starScore: comment.starScore!),
+                            ],
+
+                            // 观看状态微胶囊 (看过 / 在看 / 想看)
+                            if (comment.collectionTypeLabel != null) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 0.5),
+                                decoration: BoxDecoration(
+                                  color: _resolveStatusBg(comment.collectionType),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  comment.collectionTypeLabel!,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: _resolveStatusColor(comment.collectionType),
+                                    fontFamily: 'MiSans',
+                                    fontFamilyFallback: FontManager.fallbackFontFamilies,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 6),
-
-                      // B 站 5 星制评分
-                      if (comment.starScore != null) ...[
-                        _BiliStarRating(starScore: comment.starScore!),
-                        const SizedBox(width: 6),
-                      ],
-
-                      // 观看状态微胶囊 (看过 / 在看 / 想看)
-                      if (comment.collectionTypeLabel != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 0.5),
-                          decoration: BoxDecoration(
-                            color: _resolveStatusBg(comment.collectionType),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            comment.collectionTypeLabel!,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: _resolveStatusColor(comment.collectionType),
-                              fontFamily: 'MiSans',
-                              fontFamilyFallback: FontManager.fallbackFontFamilies,
-                            ),
-                          ),
-                        ),
-
-                      const Spacer(),
+                      const SizedBox(width: 8),
 
                       // 相对发布时间
                       Text(
