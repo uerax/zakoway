@@ -168,11 +168,12 @@ class ZakowayPlaybackController {
 
         // 5. 特殊处理说明：
         // 必须配置 force-seekable=yes，确保网络 MP4 始终被 libmpv 标记为可寻道流；
-        // 点播网络视频（尤其是 1080P 高码率 MP4）必须将 hr-seek 设置为 no。
-        // 设为 default/yes 会强制从前序关键帧逐帧解码至目标时间，在网络环境下产生严重的解码延迟与转圈冻结；
-        // 设为 no 时，底层直接跳至最近关键帧秒级呈现画面，实现丝滑瞬间拖拽。
+        // hr-seek 保持 default，并在 Seek 时开启 hr-seek-framedrop 丢帧加速。
+        // 若设为 no，底层 Seek 会强行对齐到前序关键帧（造成 8~10 秒误差，使自动跳过 OP/ED、断点续播严重偏离）；
+        // 设为 default 配合 framedrop=yes 既能保证时间戳秒级精确命中，又能快速丢弃中间帧加速出图防卡死。
         await platform.setProperty('force-seekable', 'yes');
-        await platform.setProperty('hr-seek', 'no');
+        await platform.setProperty('hr-seek', 'default');
+        await platform.setProperty('hr-seek-framedrop', 'yes');
 
         // 6. 特殊处理说明：
         // 严禁设置 cache-pause-initial=yes！mpv 官方手册明确注明该选项在每次 Seek 拖动进度条后都会
