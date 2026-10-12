@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/utils/font_manager.dart';
+import 'video_play_tabs.dart';
 
 /// 全屏横屏布局（全宽播放器 + 浮层侧边抽屉面板）
 class VideoPlayerFullscreenLayout extends StatelessWidget {
@@ -25,20 +26,41 @@ class VideoPlayerFullscreenLayout extends StatelessWidget {
   }
 }
 
-/// 桌面端/宽屏分栏并排布局（左侧 16:9 播放器卡片，右侧分段 Tab 栏）
+/// 桌面端/宽屏分栏并排布局
+///
+/// 架构设计与空间分配规范：
+/// 1. 顶部紧凑导航条：左对齐返回键与番剧标题及在播集数徽标，彻底告别居中大标题的笨拙与空旷；
+/// 2. 左栏（主内容区）：等比 16:9 播放器 -> 简介（正下方） -> 吐槽评论（简介正下方）流式排列；
+/// 3. 右栏（控制与发现轨）：[选集 | 视频源] 胶囊控制器 -> Tab 0 选集面板与推荐 / Tab 1 原版完整视频源看板；
+/// 4. 双栏独立滚动：左侧看剧评、右侧选集换源，互不影响；
+/// 5. 黄金比例自适应：侧边轨锁定为 clamp(306, 19.55vw, 357px)，充分利用 1080P/2K/4K 视口。
 class VideoPlayerDesktopLayout extends StatelessWidget {
   const VideoPlayerDesktopLayout({
     super.key,
     required this.title,
+    this.currentEpisode,
     required this.onBackPressed,
     required this.playerWidget,
-    required this.tabSection,
+    this.tabSection,
+    this.introSection,
+    this.commentsSection,
+    this.rightTabController,
+    this.episodePickerSection,
+    this.sourceViewSection,
+    this.recommendSection,
   });
 
   final String title;
+  final int? currentEpisode;
   final VoidCallback onBackPressed;
   final Widget playerWidget;
-  final Widget tabSection;
+  final Widget? tabSection;
+  final Widget? introSection;
+  final Widget? commentsSection;
+  final TabController? rightTabController;
+  final Widget? episodePickerSection;
+  final Widget? sourceViewSection;
+  final Widget? recommendSection;
 
   @override
   Widget build(BuildContext context) {
@@ -46,33 +68,162 @@ class VideoPlayerDesktopLayout extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
 
+    // 优先采用全新分块设计的桌面端布局
+    final isNewDesktopDesign = introSection != null;
+
+    // 方案 1 沉浸式：全新桌面端架构彻底移除外层空白横贯顶栏，左右两栏直接顶格对齐
+    final PreferredSizeWidget? appBar = isNewDesktopDesign
+        ? null
+        : AppBar(
+            title: Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+                fontFamily: 'MiSans',
+                fontFamilyFallback: FontManager.fallbackFontFamilies,
+              ),
+            ),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+              onPressed: onBackPressed,
+            ),
+          );
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.3,
-            fontFamily: 'MiSans',
-            fontFamilyFallback: FontManager.fallbackFontFamilies,
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: onBackPressed,
-        ),
-      ),
+      appBar: appBar,
       body: LayoutBuilder(
         builder: (context, constraints) {
           final totalWidth = constraints.maxWidth;
 
           // 特殊处理说明：
-          // 参照 animaku (DesktopWatchLayout 与 --kz-watch-rail-w: clamp(360px, 23vw, 420px))：
-          // 桌面端右侧控制模块（选集/源/详情）所需黄金宽度为 360~420px，
-          // 严禁使用粗暴的百分比 flex (如 40% 导致 1080p 占用 768px、2K 占用 1000px 的严重空间浪费)；
-          // 将右侧栏锁定为自适应 clamp(360.0, 23vw, 420.0)，其余全部水平空间分配给左侧主播放器。
-          final railWidth = (totalWidth * 0.23).clamp(360.0, 420.0);
+          // 桌面端右侧控制模块（选集/源/详情）宽度按要求在黄金宽度基准上削减 15% (x 0.85)：
+          // 由原 clamp(360.0, 23vw, 420.0) 调整为 clamp(306.0, 19.55vw, 357.0)，
+          // 既收敛了右侧大卡片的横向占比，又让左侧 16:9 主播放器分得更多可用开阔空间。
+          final railWidth = (totalWidth * 0.23).clamp(360.0, 420.0) * 0.85;
 
+          // 1. 全新桌面端分块布局（左右顶格水平对齐）
+          if (isNewDesktopDesign) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 左侧主内容区：播放器 -> 简介（正下方） -> 吐槽评论（简介正下方）
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 16:9 播放器卡片
+                        AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: primaryColor.withValues(alpha: isDark ? 0.22 : 0.12),
+                                  blurRadius: 28,
+                                  spreadRadius: -2,
+                                  offset: const Offset(0, 8),
+                                ),
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.15),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            // 特殊处理说明：
+                            // 必须使用 Clip.antiAliasWithSaveLayer 分配离屏图层，
+                            // 防止子级 BackdropFilter 毛玻璃击穿剪裁边界。
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              clipBehavior: Clip.antiAliasWithSaveLayer,
+                              child: playerWidget,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // 简介（正位于播放器正下方）
+                        introSection!,
+
+                        if (commentsSection != null) ...[
+                          const SizedBox(height: 12),
+                          // 评论（正位于简介下方）
+                          commentsSection!,
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                // 右侧控制轨：[选集 | 视频源] 胶囊切换栏 -> Tab 0 选集+推荐 / Tab 1 原版视频源看板
+                SizedBox(
+                  width: railWidth,
+                  child: rightTabController != null
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 顶部 [选集 | 视频源] 极简滑动胶囊分段控制器 (与移动端同款)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(0, 16.0, 16.0, 8.0),
+                              child: VideoPlaySegmentedTabBar(
+                                tabController: rightTabController!,
+                                tabs: const ['选集', '视频源'],
+                                maxWidth: 220,
+                              ),
+                            ),
+                            // 标签页内容呈现区 (独立滚动)
+                            Expanded(
+                              child: TabBarView(
+                                controller: rightTabController!,
+                                children: [
+                                  // Tab 0: 选集面板与番剧推荐
+                                  SingleChildScrollView(
+                                    padding: const EdgeInsets.fromLTRB(0, 0, 16.0, 24.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        ?episodePickerSection,
+                                        if (recommendSection != null) ...[
+                                          const SizedBox(height: 12),
+                                          recommendSection!,
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  // Tab 1: 原版完整视频源看板
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 16.0),
+                                    child: sourceViewSection ?? const SizedBox.shrink(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        )
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(0, 16.0, 16.0, 24.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ?episodePickerSection,
+                              if (recommendSection != null) ...[
+                                const SizedBox(height: 12),
+                                recommendSection!,
+                              ],
+                            ],
+                          ),
+                        ),
+                ),
+              ],
+            );
+          }
+
+          // 2. 兼容旧版单一 tabSection 的降级分支
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -87,9 +238,6 @@ class VideoPlayerDesktopLayout extends StatelessWidget {
                         return const SizedBox.shrink();
                       }
 
-                      // 16:9 纵向安全 Contain 适配：
-                      // 在可用宽高的包围盒内等比缩放到最大的 16:9 尺寸，
-                      // 既让播放器占满左侧可用空间，又彻底杜绝窗口过矮时出现底部 RenderFlex overflow。
                       double targetW = availableW;
                       double targetH = targetW / (16 / 9);
                       if (targetH > availableH) {
@@ -119,11 +267,6 @@ class VideoPlayerDesktopLayout extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            // 特殊处理说明：
-                            // 必须显式指定 Clip.antiAliasWithSaveLayer，严禁使用默认的 Clip.antiAlias。
-                            // 播放器在暂停或呼出控制条时，内部浮层（如居中暂停卡片、顶栏按钮等）包含 BackdropFilter 毛玻璃，
-                            // 默认剪裁在遇到子级 BackdropFilter 时会被渲染管线击穿导致圆角退化为直角；
-                            // 开启 antiAliasWithSaveLayer 强制分配独立离屏合成层，确保全生命周期严格保持 16px 圆角约束。
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(16),
                               clipBehavior: Clip.antiAliasWithSaveLayer,
@@ -136,10 +279,11 @@ class VideoPlayerDesktopLayout extends StatelessWidget {
                   ),
                 ),
               ),
-              SizedBox(
-                width: railWidth,
-                child: tabSection,
-              ),
+              if (tabSection != null)
+                SizedBox(
+                  width: railWidth,
+                  child: tabSection!,
+                ),
             ],
           );
         },

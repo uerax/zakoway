@@ -16,7 +16,11 @@ class VideoPlayerSurfaceWithControls extends StatelessWidget {
     this.danmakuController,
     this.danmakuCoordinator,
     this.isFullscreen = false,
+    this.isAppFullscreen = false,
+    this.isTrueFullscreen = false,
     required this.onToggleFullscreen,
+    this.onToggleAppFullscreen,
+    this.onToggleTrueFullscreen,
     required this.onBackPressed,
     this.onOpenEpisodePicker,
     this.onOpenSidePanel,
@@ -36,7 +40,11 @@ class VideoPlayerSurfaceWithControls extends StatelessWidget {
   final DanmakuController? danmakuController;
   final DanmakuSessionCoordinator? danmakuCoordinator;
   final bool isFullscreen;
+  final bool isAppFullscreen;
+  final bool isTrueFullscreen;
   final VoidCallback onToggleFullscreen;
+  final VoidCallback? onToggleAppFullscreen;
+  final VoidCallback? onToggleTrueFullscreen;
   final VoidCallback onBackPressed;
   final VoidCallback? onOpenEpisodePicker;
   final ValueChanged<PlayerSidePanelTab>? onOpenSidePanel;
@@ -63,7 +71,11 @@ class VideoPlayerSurfaceWithControls extends StatelessWidget {
             danmakuController: danmakuController,
             danmakuCoordinator: danmakuCoordinator,
             isFullscreen: isFullscreen,
+            isAppFullscreen: isAppFullscreen,
+            isTrueFullscreen: isTrueFullscreen,
             onToggleFullscreen: onToggleFullscreen,
+            onToggleAppFullscreen: onToggleAppFullscreen,
+            onToggleTrueFullscreen: onToggleTrueFullscreen,
             onBackPressed: onBackPressed,
             onOpenEpisodePicker: onOpenEpisodePicker,
             onOpenSidePanel: onOpenSidePanel,

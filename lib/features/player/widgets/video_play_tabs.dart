@@ -16,9 +16,13 @@ class VideoPlaySegmentedTabBar extends StatelessWidget {
   const VideoPlaySegmentedTabBar({
     super.key,
     required this.tabController,
+    this.tabs = const ['简介', '评论'],
+    this.maxWidth = 260,
   });
 
   final TabController tabController;
+  final List<String> tabs;
+  final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +34,7 @@ class VideoPlaySegmentedTabBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 260),
+          constraints: BoxConstraints(maxWidth: maxWidth),
           child: Container(
             height: 38,
             padding: const EdgeInsets.all(3.0),
@@ -77,10 +81,7 @@ class VideoPlaySegmentedTabBar extends StatelessWidget {
                 fontFamily: 'MiSans',
                 fontFamilyFallback: FontManager.fallbackFontFamilies,
               ),
-              tabs: const [
-                Tab(height: 32, text: '简介'),
-                Tab(height: 32, text: '评论'),
-              ],
+              tabs: tabs.map((t) => Tab(height: 32, text: t)).toList(),
             ),
           ),
         ),

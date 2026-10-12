@@ -14,9 +14,13 @@ class WatchCommentsSection extends ConsumerStatefulWidget {
   const WatchCommentsSection({
     super.key,
     this.bangumiId,
+    this.shrinkWrap = false,
+    this.physics,
   });
 
   final int? bangumiId;
+  final bool shrinkWrap;
+  final ScrollPhysics? physics;
 
   @override
   ConsumerState<WatchCommentsSection> createState() => _WatchCommentsSectionState();
@@ -117,10 +121,7 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
 
     final totalPages = max(1, (_total + 9) ~/ 10);
 
-    return ListView(
-      controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      children: [
+    final contentChildren = <Widget>[
         // 1. 顶部标题、总数与筛选类型胶囊栏
         Row(
           children: [
@@ -287,7 +288,23 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
               child: _buildPaginationBar(totalPages, isDark, primaryColor, theme),
             ),
         ],
-      ],
+    ];
+
+    if (widget.shrinkWrap) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: contentChildren,
+        ),
+      );
+    }
+
+    return ListView(
+      controller: _scrollController,
+      physics: widget.physics,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: contentChildren,
     );
   }
 

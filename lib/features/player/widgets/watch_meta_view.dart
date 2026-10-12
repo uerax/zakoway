@@ -18,6 +18,8 @@ class WatchMetaView extends ConsumerStatefulWidget {
     this.coverUrl,
     this.episodeCount = 12,
     this.isLoadingDetails = false,
+    this.shrinkWrap = false,
+    this.physics,
   });
 
   final String title;
@@ -25,6 +27,8 @@ class WatchMetaView extends ConsumerStatefulWidget {
   final String? coverUrl;
   final int episodeCount;
   final bool isLoadingDetails;
+  final bool shrinkWrap;
+  final ScrollPhysics? physics;
 
   @override
   ConsumerState<WatchMetaView> createState() => _WatchMetaViewState();
@@ -141,9 +145,7 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
         ? -1.0 + (activeCollectSliderIndex * (2.0 / (_collectTypes.length - 1)))
         : 0.0;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      children: [
+    final contentChildren = <Widget>[
         // 1. 顶部基础信息（iOS Inset Card: 封面 + 标题 + 评分与排名）
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -552,6 +554,8 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
                     fontSize: 13,
                     height: 1.55,
                     color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.88),
+                    fontFamily: 'MiSans',
+                    fontFamilyFallback: FontManager.fallbackFontFamilies,
                   ),
                 ),
                 secondChild: Text(
@@ -560,6 +564,8 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
                     fontSize: 13,
                     height: 1.55,
                     color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.88),
+                    fontFamily: 'MiSans',
+                    fontFamilyFallback: FontManager.fallbackFontFamilies,
                   ),
                 ),
                 crossFadeState: _isSummaryExpanded
@@ -570,7 +576,22 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
             ],
           ),
         ),
-      ],
+    ];
+
+    if (widget.shrinkWrap) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: contentChildren,
+        ),
+      );
+    }
+
+    return ListView(
+      physics: widget.physics,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: contentChildren,
     );
   }
 }

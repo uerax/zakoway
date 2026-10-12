@@ -108,65 +108,61 @@ class PlayerControlsTopBar extends StatelessWidget {
           builder: (context, constraints) {
             final isCompact = constraints.maxWidth < 720;
             const btnSpacing = 4.0;
-            final showLeadingAndTitle = !isDesktopInline;
 
             return Row(
               children: [
-                if (showLeadingAndTitle) ...[
-                  if (onBackPressed != null) ...[
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.35),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.16),
-                              width: 0.5,
-                            ),
+                if (onBackPressed != null) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.16),
+                            width: 0.5,
                           ),
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: const Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              color: Colors.white,
-                              size: 15,
-                            ),
-                            onPressed: onBackPressed,
+                        ),
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            color: Colors.white,
+                            size: 15,
                           ),
+                          onPressed: onBackPressed,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                  ],
-                  Expanded(
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14.0,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.2,
-                        fontFamily: 'MiSans',
-                        fontFamilyFallback: FontManager.fallbackFontFamilies,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black54,
-                            blurRadius: 6,
-                            offset: Offset(0, 1),
-                          ),
-                        ],
-                      ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14.0,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
+                      fontFamily: 'MiSans',
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black54,
+                          blurRadius: 6,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
                     ),
                   ),
-                ] else
-                  const Spacer(),
+                ),
                 if (onOpenEpisodePicker != null || onOpenSidePanel != null) ...[
                   const SizedBox(width: 6),
                   PlayerPillButton(

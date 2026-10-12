@@ -121,7 +121,11 @@ class PlayerControlsBottomBar extends StatelessWidget {
     this.danmakuController,
     this.opedSegment,
     this.isFullscreen = false,
+    this.isAppFullscreen = false,
+    this.isTrueFullscreen = false,
     this.onToggleFullscreen,
+    this.onToggleAppFullscreen,
+    this.onToggleTrueFullscreen,
     this.onSeekingSliderChanged,
     required this.onUserInteraction,
     this.showSpeedPopup = false,
@@ -141,7 +145,11 @@ class PlayerControlsBottomBar extends StatelessWidget {
   final DanmakuController? danmakuController;
   final EpisodeOpedSegment? opedSegment;
   final bool isFullscreen;
+  final bool isAppFullscreen;
+  final bool isTrueFullscreen;
   final VoidCallback? onToggleFullscreen;
+  final VoidCallback? onToggleAppFullscreen;
+  final VoidCallback? onToggleTrueFullscreen;
   final ValueChanged<bool>? onSeekingSliderChanged;
   final VoidCallback onUserInteraction;
 
@@ -473,8 +481,43 @@ class PlayerControlsBottomBar extends StatelessWidget {
                           },
                         ),
 
-                        // (8) 全屏切换按钮 [⛶]
-                        if (onToggleFullscreen != null) ...[
+                        // (8) 全屏切换按钮
+                        if (onToggleAppFullscreen != null && onToggleTrueFullscreen != null) ...[
+                          // 桌面端支持：应用全屏 + 真全屏 双模式
+                          SizedBox(width: metrics.spacing),
+                          _buildBarButton(
+                            icon: Icon(
+                              isAppFullscreen
+                                  ? Icons.close_fullscreen_rounded
+                                  : Icons.fit_screen_rounded,
+                              color: isAppFullscreen ? primaryColor : Colors.white,
+                              size: metrics.iconSize,
+                            ),
+                            size: metrics.buttonSize,
+                            tooltip: isAppFullscreen ? '退出应用全屏' : '应用全屏',
+                            onTap: () {
+                              onUserInteraction();
+                              onToggleAppFullscreen?.call();
+                            },
+                          ),
+                          SizedBox(width: metrics.spacing),
+                          _buildBarButton(
+                            icon: Icon(
+                              isTrueFullscreen
+                                  ? Icons.fullscreen_exit_rounded
+                                  : Icons.fullscreen_rounded,
+                              color: Colors.white,
+                              size: metrics.iconSize,
+                            ),
+                            size: metrics.buttonSize,
+                            tooltip: isTrueFullscreen ? '退出全屏 (F)' : '全屏 (F)',
+                            onTap: () {
+                              onUserInteraction();
+                              onToggleTrueFullscreen?.call();
+                            },
+                          ),
+                        ] else if (onToggleFullscreen != null) ...[
+                          // 移动端单模式：原生全屏
                           SizedBox(width: metrics.spacing),
                           _buildBarButton(
                             icon: Icon(
@@ -485,7 +528,7 @@ class PlayerControlsBottomBar extends StatelessWidget {
                               size: metrics.iconSize,
                             ),
                             size: metrics.buttonSize,
-                            tooltip: isFullscreen ? '退出全屏 (F)' : '进入全屏 (F)',
+                            tooltip: isFullscreen ? '退出全屏' : '全屏',
                             onTap: () {
                               onUserInteraction();
                               onToggleFullscreen?.call();

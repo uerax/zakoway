@@ -250,5 +250,42 @@ void main() {
       expect(popupRect.right, lessThanOrEqualTo(360.0));
       expect(popupRect.top, greaterThanOrEqualTo(0.0));
     });
+
+    testWidgets('6. 桌面端同时提供应用全屏与真全屏按钮，并能独立触发回调', (tester) async {
+      bool appFullscreenToggled = false;
+      bool trueFullscreenToggled = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: PlayerControls(
+                controller: controller,
+                title: '桌面端全屏测试',
+                onToggleAppFullscreen: () => appFullscreenToggled = true,
+                onToggleTrueFullscreen: () => trueFullscreenToggled = true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 验证存在应用全屏图标与真全屏图标
+      expect(find.byIcon(Icons.fit_screen_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.fullscreen_rounded), findsOneWidget);
+
+      // 点击应用全屏按钮
+      await tester.tap(find.byIcon(Icons.fit_screen_rounded));
+      await tester.pump();
+      expect(appFullscreenToggled, isTrue);
+
+      // 点击真全屏按钮
+      await tester.tap(find.byIcon(Icons.fullscreen_rounded));
+      await tester.pump();
+      expect(trueFullscreenToggled, isTrue);
+    });
   });
 }

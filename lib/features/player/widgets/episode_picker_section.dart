@@ -83,6 +83,7 @@ class EpisodePickerSection extends StatefulWidget {
     this.episodeTitles,
     this.watchedEpisodes = const {},
     this.rangeSize,
+    this.shrinkWrap = false,
   });
 
   final int episodeCount;
@@ -99,6 +100,7 @@ class EpisodePickerSection extends StatefulWidget {
   final Set<int> watchedEpisodes;
   /// 自定义单页集数区间容量（若未指定，移动端默认 28，桌面端默认 50）
   final int? rangeSize;
+  final bool shrinkWrap;
 
   @override
   State<EpisodePickerSection> createState() => _EpisodePickerSectionState();
@@ -426,20 +428,39 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
         const SizedBox(height: 4),
 
         // 4. 选集网格 (iOS / M3 精致轻量卡片，舒适 40px 高度与超椭圆圆角)
-        Expanded(
-          child: epList.isEmpty
-              ? Center(
-                  child: Text(
-                    '暂无可用分集',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: theme.textTheme.bodySmall?.color,
-                      fontFamily: 'MiSans',
-                      fontFamilyFallback: FontManager.fallbackFontFamilies,
-                    ),
-                  ),
-                )
-              : LayoutBuilder(
+        widget.shrinkWrap
+            ? _buildGridContent(context, theme, primaryColor, isDark, epList, hasSlots, slots)
+            : Expanded(
+                child: _buildGridContent(context, theme, primaryColor, isDark, epList, hasSlots, slots),
+              ),
+      ],
+    );
+  }
+
+  Widget _buildGridContent(
+    BuildContext context,
+    ThemeData theme,
+    Color primaryColor,
+    bool isDark,
+    List<int> epList,
+    bool hasSlots,
+    List<PlayableSlot>? slots,
+  ) {
+    if (epList.isEmpty) {
+      return Center(
+        child: Text(
+          '暂无可用分集',
+          style: TextStyle(
+            fontSize: 13,
+            color: theme.textTheme.bodySmall?.color,
+            fontFamily: 'MiSans',
+            fontFamilyFallback: FontManager.fallbackFontFamilies,
+          ),
+        ),
+      );
+    }
+
+    return LayoutBuilder(
                   builder: (context, constraints) {
                     final maxWidth = constraints.maxWidth;
                     final crossAxisCount = maxWidth >= 520
@@ -455,6 +476,8 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                     final childAspectRatio = (itemWidth / 40.0).clamp(1.3, 3.2);
 
                     return GridView.builder(
+                      shrinkWrap: widget.shrinkWrap,
+                      physics: widget.shrinkWrap ? const NeverScrollableScrollPhysics() : null,
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: crossAxisCount,
@@ -467,7 +490,7 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                         final ep = epList[index];
                         final itemIdx = ep - 1;
                         PlayableSlot? slot;
-                        if (hasSlots && itemIdx >= 0 && itemIdx < slots.length) {
+                        if (hasSlots && itemIdx >= 0 && itemIdx < slots!.length) {
                           slot = slots[itemIdx];
                         }
 
@@ -569,9 +592,6 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                       },
                     );
                   },
-                ),
-        ),
-      ],
-    );
+                );
   }
 }

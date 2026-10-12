@@ -4,7 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:zakoway/features/player/pages/video_play_page.dart';
 import 'package:zakoway/features/player/widgets/episode_picker_section.dart';
 import 'package:zakoway/features/player/widgets/episode_source_pod.dart';
+import 'package:zakoway/features/player/widgets/video_player_layouts.dart';
 import 'package:zakoway/features/player/widgets/video_source_view.dart';
+import 'package:zakoway/features/player/widgets/watch_comments_section.dart';
+import 'package:zakoway/features/player/widgets/watch_meta_view.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -30,7 +33,10 @@ void main() {
       expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
     });
 
-    testWidgets('2. 页面包含 2 个主 Tab（简介 / 评论），且默认聚焦「简介」Tab 展示融合舱', (tester) async {
+    testWidgets('2. 移动端页面包含 2 个主 Tab（简介 / 评论），且默认聚焦「简介」Tab 展示融合舱', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
       await tester.pumpWidget(
         const ProviderScope(
           child: MaterialApp(
@@ -77,6 +83,9 @@ void main() {
     });
 
     testWidgets('4. 优化点 1 验证：未探活的非绿色源点击后绝不自动跳转', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
       await tester.pumpWidget(
         const ProviderScope(
           child: MaterialApp(
@@ -261,6 +270,59 @@ void main() {
       expect(find.text('第 29 话'), findsOneWidget);
       expect(find.text('第 56 话'), findsOneWidget);
       expect(find.text('第 1 话'), findsNothing);
+    });
+
+    testWidgets('9. 桌面端 (宽屏 >= 768) 采用全新分块架构：左栏简介与评论、右栏 [选集 | 视频源] 胶囊双 Tab', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: VideoPlayPage(
+              title: '桌面端测试动画',
+              episodeCount: 12,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 验证桌面端渲染 VideoPlayerDesktopLayout 且无外层空白 AppBar
+      expect(find.byType(VideoPlayerDesktopLayout), findsOneWidget);
+      expect(find.byType(AppBar), findsNothing);
+      // 验证左栏包含 WatchMetaView (简介) 与 WatchCommentsSection (评论)
+      expect(find.byType(WatchMetaView), findsOneWidget);
+      expect(find.byType(WatchCommentsSection), findsOneWidget);
+      // 验证右栏包含 [选集 | 视频源] 双 Tab 与 EpisodePickerSection (选集)
+      expect(find.widgetWithText(Tab, '选集'), findsOneWidget);
+      expect(find.widgetWithText(Tab, '视频源'), findsOneWidget);
+      expect(find.byType(EpisodePickerSection), findsOneWidget);
+    });
+
+    testWidgets('10. 桌面端右侧栏 [选集 | 视频源] 胶囊支持切换至原本视频源看板', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: VideoPlayPage(
+              title: '测试切源动画',
+              episodeCount: 12,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 点击切换至「视频源」Tab
+      await tester.tap(find.widgetWithText(Tab, '视频源'));
+      await tester.pumpAndSettle();
+
+      // 验证呈现原本的 VideoSourceView 完整看板
+      expect(find.byType(VideoSourceView), findsOneWidget);
+      expect(find.text('稀饭Next'), findsAtLeastNWidgets(1));
     });
   });
 }

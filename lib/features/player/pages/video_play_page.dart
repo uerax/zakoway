@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import '../../../core/models/bangumi/bangumi_episode.dart';
 import '../../../core/models/bangumi/bangumi_item.dart';
 import '../../../core/models/history/watch_history_item.dart';
@@ -28,6 +30,9 @@ import '../widgets/video_player_placeholder.dart';
 import '../widgets/video_player_surface_with_controls.dart';
 import '../widgets/video_play_tabs.dart';
 import '../widgets/video_source_view.dart';
+import '../widgets/watch_comments_section.dart';
+import '../widgets/watch_meta_view.dart';
+import '../widgets/watch_recommend_section.dart';
 
 /// zakoway 统一多端视频播放页面 (1:1 严格对齐 animaku 完整视频源生命周期与架构规范)
 ///
@@ -80,16 +85,19 @@ class VideoPlayPage extends StatefulWidget {
 }
 
 class _VideoPlayPageState extends State<VideoPlayPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final ZakowayPlaybackController _playbackController;
   late final DanmakuController _danmakuController;
   late final DanmakuPlaybackBridge _danmakuBridge;
   late final DanmakuSessionCoordinator _danmakuCoordinator;
   late final TabController _tabController;
+  late final TabController _desktopRightTabController;
   late final SourceAggregator _aggregator;
   late final AutoSourcePickCoordinator _autoPicker;
 
-  bool _isFullscreen = false;
+  bool _isAppFullscreen = false;
+  bool _isTrueFullscreen = false;
+  bool get _isFullscreen => _isAppFullscreen || _isTrueFullscreen;
   bool _isSidePanelOpen = false;
   PlayerSidePanelTab _sidePanelInitialTab = PlayerSidePanelTab.episodes;
   int? _activeEpisode;
@@ -232,6 +240,9 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         if (_tabController.index != 0) {
           _tabController.animateTo(0);
         }
+        if (_desktopRightTabController.index != 0) {
+          _desktopRightTabController.animateTo(0);
+        }
       },
     );
 
@@ -241,9 +252,29 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       vsync: this,
       initialIndex: 0,
     );
+    // 桌面端右侧栏双 Tab：[ 选集 ] (index: 0) 与 [ 视频源 ] (index: 1)，默认聚焦「选集」
+    _desktopRightTabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: 0,
+    );
     _tabController.addListener(() {
       if (_tabController.index == 0) {
         // 用户切换回「简介」Tab，自动同步嗅探状态
+        _aggregator.syncAndProbe(
+          bangumiId: _effectiveBangumiId,
+          defaultTitle: widget.title,
+          item: _effectiveBangumiItem,
+          activeSourceId: _selectedSourceId,
+          isOpen: true,
+          autoProbeOnFallback: _defaultSearchEmpty,
+          sourceOrder: _sources.map((s) => s.id).toList(),
+        );
+      }
+    });
+    _desktopRightTabController.addListener(() {
+      if (_desktopRightTabController.index == 1) {
+        // 用户切换至「视频源」Tab，激活后台嗅探探测器
         _aggregator.syncAndProbe(
           bangumiId: _effectiveBangumiId,
           defaultTitle: widget.title,
@@ -726,6 +757,9 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       if (_tabController.index != 0) {
         _tabController.animateTo(0);
       }
+      if (_desktopRightTabController.index != 0) {
+        _desktopRightTabController.animateTo(0);
+      }
 
       if (directHit != null && _effectiveBangumiId > 0) {
         SourceBindingService.instance.setBinding(
@@ -753,9 +787,12 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       _playbackController.pause();
     });
 
-    // 确保聚焦在「简介」Tab (选集舱所在页面)
+    // 确保聚焦在「简介」Tab (选集舱所在页面) 与桌面端「选集」Tab
     if (_tabController.index != 0) {
       _tabController.animateTo(0);
+    }
+    if (_desktopRightTabController.index != 0) {
+      _desktopRightTabController.animateTo(0);
     }
 
     try {
@@ -1061,10 +1098,13 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   void dispose() {
     _danmakuBridge.dispose();
     _saveProgressOnExit();
-    if (_isFullscreen) {
-      _exitFullscreen();
+    if (_isTrueFullscreen) {
+      _exitTrueFullscreen();
+    } else if (_isAppFullscreen) {
+      _exitAppFullscreen();
     }
     _tabController.dispose();
+    _desktopRightTabController.dispose();
     _playbackController.timeline.removeListener(_onPlaybackTimelineChanged);
     _playbackController.core.removeListener(_onPlaybackCoreStateChanged);
     _playbackController.dispose();
@@ -1077,36 +1117,88 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     super.dispose();
   }
 
-  void _enterFullscreen() {
-    setState(() => _isFullscreen = true);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+  void _enterAppFullscreen() {
+    setState(() {
+      _isAppFullscreen = true;
+      _isTrueFullscreen = false;
+    });
+  }
+
+  void _exitAppFullscreen() {
+    setState(() {
+      _isAppFullscreen = false;
+      _isSidePanelOpen = false;
+    });
+  }
+
+  void _toggleAppFullscreen() =>
+      _isAppFullscreen ? _exitAppFullscreen() : _enterAppFullscreen();
+
+  Future<void> _enterTrueFullscreen() async {
+    setState(() {
+      _isTrueFullscreen = true;
+    });
+    if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      try {
+        await defaultEnterNativeFullscreen();
+      } catch (_) {}
+    } else {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
+  }
+
+  Future<void> _exitTrueFullscreen() async {
+    setState(() {
+      _isTrueFullscreen = false;
+      _isAppFullscreen = false;
+      _isSidePanelOpen = false;
+    });
+    if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      try {
+        await defaultExitNativeFullscreen();
+      } catch (_) {}
+    } else {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+      ]);
+    }
+  }
+
+  void _toggleTrueFullscreen() {
+    if (_isTrueFullscreen) {
+      _exitTrueFullscreen();
+    } else {
+      _enterTrueFullscreen();
+    }
   }
 
   void _exitFullscreen() {
-    setState(() {
-      _isFullscreen = false;
-      _isSidePanelOpen = false;
-    });
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
+    if (_isTrueFullscreen) {
+      _exitTrueFullscreen();
+    } else if (_isAppFullscreen) {
+      _exitAppFullscreen();
+    }
   }
 
   void _toggleFullscreen() =>
-      _isFullscreen ? _exitFullscreen() : _enterFullscreen();
+      _isFullscreen ? _exitFullscreen() : _enterTrueFullscreen();
 
   void _handleBackPressed() {
     if (_isSidePanelOpen) {
       setState(() => _isSidePanelOpen = false);
       return;
     }
-    if (_isFullscreen) {
-      _exitFullscreen();
+    if (_isTrueFullscreen) {
+      _exitTrueFullscreen();
+      return;
+    }
+    if (_isAppFullscreen) {
+      _exitAppFullscreen();
       return;
     }
     // 进度统一由 dispose 落盘（系统返回键 / 手势返回也走这条路径），这里不再重复写入：
@@ -1159,7 +1251,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   }
 
   /// 顶部播放器或未起播海报占位组件
-  Widget _buildPlayerOrPlaceholder({required bool isFullscreen}) {
+  Widget _buildPlayerOrPlaceholder({required bool isFullscreen, bool isDesktop = false}) {
     if (!_hasStartedPlayback) {
       return VideoPlayerInitialPlaceholder(
         coverUrl: _resolvedCoverUrl,
@@ -1187,7 +1279,11 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       danmakuController: _danmakuController,
       danmakuCoordinator: _danmakuCoordinator,
       isFullscreen: isFullscreen,
+      isAppFullscreen: _isAppFullscreen,
+      isTrueFullscreen: _isTrueFullscreen,
       onToggleFullscreen: _toggleFullscreen,
+      onToggleAppFullscreen: (isDesktop || isFullscreen) ? _toggleAppFullscreen : null,
+      onToggleTrueFullscreen: (isDesktop || isFullscreen) ? _toggleTrueFullscreen : null,
       onBackPressed: _handleBackPressed,
       onOpenEpisodePicker: isFullscreen
           ? () => setState(() {
@@ -1478,13 +1574,82 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     );
   }
 
-  /// 2. 桌面/宽屏并排布局 (左侧 16:9 + 右侧 3 Tab)
+  /// 2. 桌面/宽屏并排布局 (全新分块架构：左栏播放器+简介+评论，右栏视频源展开框+选集+推荐)
   Widget _buildDesktopLayout() {
     return VideoPlayerDesktopLayout(
       title: widget.title,
+      currentEpisode: _activeEpisode,
       onBackPressed: _handleBackPressed,
-      playerWidget: _buildPlayerOrPlaceholder(isFullscreen: false),
-      tabSection: _buildTabSection(),
+      playerWidget: _buildPlayerOrPlaceholder(isFullscreen: false, isDesktop: true),
+      introSection: WatchMetaView(
+        title: widget.title,
+        bangumiItem: _effectiveBangumiItem,
+        isLoadingDetails: _isLoadingAuthorityDetails,
+        coverUrl: _resolvedCoverUrl,
+        episodeCount: _displayEpisodeCount,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+      ),
+      commentsSection: WatchCommentsSection(
+        bangumiId: _effectiveBangumiId,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+      ),
+      rightTabController: _desktopRightTabController,
+      episodePickerSection: ListenableBuilder(
+        listenable: WatchedEpisodesService.instance,
+        builder: (context, _) {
+          final watched =
+              WatchedEpisodesService.instance.getWatchedEpisodes(_effectiveBangumiId);
+          return EpisodePickerSection(
+            episodeCount: _displayEpisodeCount,
+            currentEpisode: _activeEpisode,
+            roads: _roadNames,
+            activeRoadIndex: _selectedRoadIndex,
+            playingRoadIndex:
+                _hasStartedPlayback && _selectedSourceId == _playingSourceId
+                    ? _playingRoadIndex
+                    : null,
+            episodeTitles: _mappedEpisodeTitles,
+            slots: _currentSlots,
+            watchedEpisodes: watched,
+            onRoadSelected: (idx) {
+              if (_selectedRoadIndex == idx) return;
+              setState(() => _selectedRoadIndex = idx);
+            },
+            onRefresh: () => _startDefaultSourceSearch(autoPlayFirst: false),
+            onSelectEpisode: _selectEpisode,
+            onSelectSlot: _selectSlot,
+            shrinkWrap: true,
+          );
+        },
+      ),
+      sourceViewSection: VideoSourceView(
+        sources: _sources,
+        selectedSourceId: _selectedSourceId,
+        onSourceSelected: (src) => _handleSourceSelected(src),
+        onSelectHit: (src, hit, [roads]) => _handleSourceSelected(src, hit, roads),
+        aggregator: _aggregator,
+        hintMessage: _sourceNotice,
+        keywordOptions: _keywordOptions,
+        onUserAction: _autoPicker.onUserAction,
+        currentEpisodeNumber: _activeEpisode,
+      ),
+      recommendSection: WatchRecommendSection(
+        bangumiId: _effectiveBangumiId,
+        bangumiItem: _effectiveBangumiItem,
+        onTapItem: (recItem) {
+          Navigator.of(context).push(
+            AdaptivePageRoute.build<void>(
+              context,
+              builder: (context) => VideoPlayPage(
+                title: recItem.displayName,
+                coverUrl: recItem.cover,
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 

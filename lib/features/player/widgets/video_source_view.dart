@@ -475,15 +475,19 @@ class _VideoSourceViewState extends State<VideoSourceView> {
                             children: [
                               Row(
                                 children: [
-                                  Text(
-                                    src.name,
-                                    style: TextStyle(
-                                      fontFamily: theme.textTheme.titleMedium?.fontFamily,
-                                      fontFamilyFallback: theme.textTheme.titleMedium?.fontFamilyFallback,
-                                      fontSize: 14,
-                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                                      letterSpacing: -0.2,
-                                      color: isSelected ? primaryColor : theme.colorScheme.onSurface,
+                                  Flexible(
+                                    child: Text(
+                                      src.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontFamily: theme.textTheme.titleMedium?.fontFamily,
+                                        fontFamilyFallback: theme.textTheme.titleMedium?.fontFamilyFallback,
+                                        fontSize: 14,
+                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                        letterSpacing: -0.2,
+                                        color: isSelected ? primaryColor : theme.colorScheme.onSurface,
+                                      ),
                                     ),
                                   ),
                                   if (src.isDefault) ...[

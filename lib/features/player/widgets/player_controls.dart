@@ -33,7 +33,11 @@ class PlayerControls extends StatefulWidget {
     this.danmakuController,
     this.danmakuCoordinator,
     this.isFullscreen = false,
+    this.isAppFullscreen = false,
+    this.isTrueFullscreen = false,
     this.onToggleFullscreen,
+    this.onToggleAppFullscreen,
+    this.onToggleTrueFullscreen,
     this.onBackPressed,
     this.onOpenEpisodePicker,
     this.onNextEpisode,
@@ -49,7 +53,11 @@ class PlayerControls extends StatefulWidget {
   final DanmakuController? danmakuController;
   final DanmakuSessionCoordinator? danmakuCoordinator;
   final bool isFullscreen;
+  final bool isAppFullscreen;
+  final bool isTrueFullscreen;
   final VoidCallback? onToggleFullscreen;
+  final VoidCallback? onToggleAppFullscreen;
+  final VoidCallback? onToggleTrueFullscreen;
   final VoidCallback? onBackPressed;
   final VoidCallback? onOpenEpisodePicker;
   final VoidCallback? onNextEpisode;
@@ -417,7 +425,11 @@ class _PlayerControlsState extends State<PlayerControls> {
         _startHideTimer();
         return KeyEventResult.handled;
       } else if (key == LogicalKeyboardKey.keyF) {
-        widget.onToggleFullscreen?.call();
+        if (widget.onToggleTrueFullscreen != null) {
+          widget.onToggleTrueFullscreen?.call();
+        } else {
+          widget.onToggleFullscreen?.call();
+        }
         _startHideTimer();
         return KeyEventResult.handled;
       } else if (key == LogicalKeyboardKey.keyM) {
@@ -431,7 +443,13 @@ class _PlayerControlsState extends State<PlayerControls> {
         _cycleDanmakuMode();
         return KeyEventResult.handled;
       } else if (key == LogicalKeyboardKey.escape && widget.isFullscreen) {
-        widget.onToggleFullscreen?.call();
+        if (widget.isTrueFullscreen && widget.onToggleTrueFullscreen != null) {
+          widget.onToggleTrueFullscreen?.call();
+        } else if (widget.isAppFullscreen && widget.onToggleAppFullscreen != null) {
+          widget.onToggleAppFullscreen?.call();
+        } else {
+          widget.onToggleFullscreen?.call();
+        }
         return KeyEventResult.handled;
       }
     }
@@ -920,7 +938,11 @@ class _PlayerControlsState extends State<PlayerControls> {
                           danmakuController: widget.danmakuController,
                           opedSegment: widget.opedSegment,
                           isFullscreen: widget.isFullscreen,
+                          isAppFullscreen: widget.isAppFullscreen,
+                          isTrueFullscreen: widget.isTrueFullscreen,
                           onToggleFullscreen: widget.onToggleFullscreen,
+                          onToggleAppFullscreen: widget.onToggleAppFullscreen,
+                          onToggleTrueFullscreen: widget.onToggleTrueFullscreen,
                           onSeekingSliderChanged: (val) =>
                               setState(() => _isSeekingSlider = val),
                           onUserInteraction: _startHideTimer,
