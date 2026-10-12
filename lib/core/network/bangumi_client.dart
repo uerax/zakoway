@@ -84,6 +84,16 @@ class BangumiClient {
     maxAge: const Duration(hours: 24),
     maxEntries: 60,
   );
+  // 8.1 续作/前传关联推荐条目：24 小时缓存，最多保留 100 条
+  final _relationCache = TimedKeyedCache<int, BangumiRecommendationItem?>(
+    maxAge: const Duration(hours: 24),
+    maxEntries: 100,
+  );
+  // 8.2 相似推荐候选池：24 小时缓存，最多保留 60 条
+  final _similarPoolCache = TimedKeyedCache<int, List<BangumiRecommendationItem>>(
+    maxAge: const Duration(hours: 24),
+    maxEntries: 60,
+  );
 
   // L2 磁盘持久化缓存池（安全惰性加载，规避无 UI 绑定的测试环境崩溃）
   BangumiDataDiskCacheManager? get _diskCache {
@@ -207,7 +217,9 @@ class BangumiClient {
       _episodesCache.length +
       _commentsCache.length +
       _commentsChunkCache.length +
-      _recommendationsCache.length;
+      _recommendationsCache.length +
+      _relationCache.length +
+      _similarPoolCache.length;
 
   /// O(1) 极速获取当前客户端在内存中缓存的 API 响应数据字节大小，彻底避免在 UI 线程全量 JSON 序列化导致卡顿
   int get dataCacheSizeBytes =>
@@ -218,7 +230,9 @@ class BangumiClient {
       _episodesCache.totalBytes +
       _commentsCache.totalBytes +
       _commentsChunkCache.totalBytes +
-      _recommendationsCache.totalBytes;
+      _recommendationsCache.totalBytes +
+      _relationCache.totalBytes +
+      _similarPoolCache.totalBytes;
 
   void clearCache() {
     _calendarCache.clear();
@@ -229,6 +243,8 @@ class BangumiClient {
     _commentsCache.clear();
     _commentsChunkCache.clear();
     _recommendationsCache.clear();
+    _relationCache.clear();
+    _similarPoolCache.clear();
     _inflight.clear();
     DailyRecommendService.clearCache();
     unawaited(_diskCache?.clearAll() ?? Future.value());
@@ -840,10 +856,6 @@ class BangumiClient {
     }
   }
 
-  /// 番剧关联与相似推荐算法常量 (1:1 对齐 animaku 规范)
-  static const int _defaultRecommendationLimit = 15;
-  static const int _bangumiMaxSearchWindow = 1000;
-
   static final RegExp _noiseTimeRegex = RegExp(
     r'^(\d{4}年?(\d{1,2}月)?|\d{1,2}月|\d{4}s|\d{2}年代|\d{4}(春|夏|秋|冬)|(春|夏|秋|冬)季番|\d{4})$',
     caseSensitive: false,
@@ -862,11 +874,10 @@ class BangumiClient {
     '治愈', '恋爱', '校园', '悬疑', '冒险', '青春',
   ];
 
-  /// Tag 清洗与特征抽取
+  /// Tag 清洗与特征抽取（固定限定日本地区番剧）
   static ({List<String> pickedTags, List<String> searchTags}) _cleanAndPickTags(
     List<String> rawTags, {
     bool isMovie = false,
-    String country = '日本',
   }) {
     final cleaned = <String>[];
     for (final raw in rawTags) {
@@ -887,86 +898,120 @@ class BangumiClient {
       }
     }
 
-    final search = <String>[country, ...picked];
+    final search = <String>['日本', ...picked];
     if (isMovie && !search.contains('剧场版')) {
       search.add('剧场版');
     }
     return (pickedTags: picked, searchTags: search);
   }
 
-  /// 自适应分桶采样计划生成器 (1:1 复刻 animaku buildAdaptiveSamplePlan)
-  static List<({int offset, int limit})> _buildAdaptiveSamplePlan(
-    int total, {
-    int maxRequests = 4,
-    int limitPerBucket = 15,
+  /// 过滤并映射推荐条目（仅保留日本动画、有评分且评分人数 >= 50 的高质量条目）
+  static List<BangumiRecommendationItem> _filterAndMapRecommendations(
+    List<Map<String, dynamic>> rawList, {
+    required int excludeSubjectId,
+    Set<int>? additionalExcludeIds,
   }) {
-    final safeTotal = total.clamp(0, _bangumiMaxSearchWindow);
-    if (safeTotal == 0) return const [];
-    if (safeTotal <= 30) {
-      return [(offset: 0, limit: safeTotal)];
+    final results = <BangumiRecommendationItem>[];
+    final seen = <int>{
+      excludeSubjectId,
+      ...?additionalExcludeIds,
+    };
+
+    for (final item in rawList) {
+      final cid = (item['id'] is num)
+          ? (item['id'] as num).toInt()
+          : (int.tryParse('${item['id']}') ?? 0);
+      if (cid <= 0 || seen.contains(cid)) continue;
+
+      // 1. 过滤非动画类型
+      final type = (item['type'] is num)
+          ? (item['type'] as num).toInt()
+          : (int.tryParse('${item['type']}') ?? 0);
+      if (type != 0 && type != 2) continue;
+
+      // 2. 严格限制仅日本番剧：过滤含非日本地区标签的条目
+      final rawTags = item['tags'];
+      if (rawTags is List) {
+        final tagNames = rawTags
+            .map((t) => t is Map ? (t['name']?.toString() ?? '') : '')
+            .where((t) => t.isNotEmpty)
+            .toSet();
+        if (tagNames.contains('国产') ||
+            tagNames.contains('中国') ||
+            tagNames.contains('欧美') ||
+            tagNames.contains('韩国')) {
+          continue;
+        }
+      }
+
+      // 3. 严格限制：无评分或评分人数少于 50 人的条目不予推荐
+      final rawRating = (item['rating'] is Map) ? (item['rating'] as Map) : const {};
+      final rawScore = rawRating['score'];
+      final score = (rawScore is num)
+          ? rawScore.toDouble()
+          : (double.tryParse('$rawScore') ?? 0.0);
+      final ratingTotal = (rawRating['total'] is num)
+          ? (rawRating['total'] as num).toInt()
+          : (int.tryParse('${rawRating['total']}') ?? 0);
+
+      if (score <= 0.0 || ratingTotal < 50) {
+        continue;
+      }
+
+      final rawImages = (item['images'] is Map) ? (item['images'] as Map) : const {};
+      final cover = rawImages['large']?.toString() ??
+          rawImages['common']?.toString() ??
+          rawImages['medium']?.toString() ??
+          '';
+
+      final airDate = item['air_date']?.toString() ?? item['date']?.toString() ?? '';
+      final year = airDate.length >= 4 ? airDate.substring(0, 4) : '';
+
+      final totalEps = (item['total_episodes'] is num)
+          ? (item['total_episodes'] as num).toInt()
+          : (item['eps'] is num ? (item['eps'] as num).toInt() : 0);
+      final epsLabel = totalEps > 0 ? '全$totalEps话' : '';
+
+      results.add(BangumiRecommendationItem(
+        id: cid,
+        name: item['name']?.toString() ?? '',
+        nameCn: item['name_cn']?.toString() ?? item['name']?.toString() ?? '',
+        cover: cover,
+        score: double.parse(score.toStringAsFixed(1)),
+        year: year,
+        epsLabel: epsLabel,
+      ));
+      seen.add(cid);
     }
 
-    var naturalBuckets = 4;
-    if (safeTotal < limitPerBucket * 3) {
-      naturalBuckets = 2; // 31 ~ 44
-    } else if (safeTotal < limitPerBucket * 5) {
-      naturalBuckets = 3; // 45 ~ 74
-    }
-
-    final bucketCount = min(maxRequests, naturalBuckets);
-    final plans = <({int offset, int limit})>[];
-    final rnd = Random();
-
-    for (var i = 0; i < bucketCount; i++) {
-      final rangeStart = (i * safeTotal) ~/ bucketCount;
-      final rangeEnd = ((i + 1) * safeTotal) ~/ bucketCount;
-      final rangeWidth = rangeEnd - rangeStart;
-
-      final actualLimit = min(limitPerBucket, rangeWidth);
-      final maxOffset = max(rangeStart, rangeEnd - actualLimit);
-
-      final randomOffset = (maxOffset > rangeStart)
-          ? rangeStart + rnd.nextInt(maxOffset - rangeStart + 1)
-          : rangeStart;
-
-      plans.add((offset: randomOffset, limit: actualLimit));
-    }
-
-    return plans;
+    return results;
   }
 
-  /// 获取番剧相似与关联推荐 (1:1 复刻 animaku 自适应分桶与 Slot 0 判定架构，带 24 小时多层缓存)
-  Future<List<BangumiRecommendationItem>> getRecommendations(
+  /// 获取番剧前传/续作/主线故事条目 (Slot 0，单次独立轻量请求，提前返回展示)
+  Future<BangumiRecommendationItem?> getRelationItem(
     int subjectId, {
-    List<String>? tags,
-    String? country,
-    bool? isMovie,
     bool forceRefresh = false,
   }) async {
-    if (subjectId <= 0) return const [];
+    if (subjectId <= 0) return null;
 
-    final diskCacheKey = 'bangumi_rec_$subjectId';
+    final diskCacheKey = 'bangumi_rel_$subjectId';
 
     if (!forceRefresh) {
-      final cached = _recommendationsCache.get(subjectId);
+      final cached = _relationCache.get(subjectId);
       if (cached != null) return cached;
 
       final diskJson = await _diskCache?.getJson(diskCacheKey);
-      if (diskJson is List) {
-        final list = diskJson
-            .whereType<Map<String, dynamic>>()
-            .map((e) => BangumiRecommendationItem.fromJson(e))
-            .toList();
-        if (list.isNotEmpty) {
-          _recommendationsCache.set(subjectId, list, list.length * 800 + 256);
-          return list;
-        }
+      if (diskJson is Map<String, dynamic>) {
+        if (diskJson['none'] == true) return null;
+        final item = BangumiRecommendationItem.fromJson(diskJson);
+        _relationCache.set(subjectId, item, 512);
+        return item;
       }
     }
 
-    final inflightKey = 'rec_$subjectId';
+    final inflightKey = 'rel_$subjectId';
     if (_inflight.containsKey(inflightKey)) {
-      return await (_inflight[inflightKey] as Future<List<BangumiRecommendationItem>>);
+      return await (_inflight[inflightKey] as Future<BangumiRecommendationItem?>);
     }
 
     final future = () async {
@@ -974,292 +1019,103 @@ class BangumiClient {
         final now = DateTime.now();
         final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
-        // 0. 元数据补全 (若外部未传入完整 tags/country/isMovie，读取 subject 详情)
-        var effectiveCountry = (country ?? '').trim();
-        var effectiveTags = tags != null ? List<String>.from(tags) : <String>[];
-        var effectiveIsMovie = isMovie;
-
-        if (effectiveTags.isEmpty || effectiveCountry.isEmpty || effectiveIsMovie == null) {
-          BangumiItem? detail;
-          try {
-            detail = await getSubject(subjectId);
-          } catch (_) {}
-
-          if (detail != null) {
-            if (effectiveTags.isEmpty && detail.tags.isNotEmpty) {
-              effectiveTags = detail.tags.map((t) => t.name).where((t) => t.isNotEmpty).toList();
-            }
-            if (effectiveCountry.isEmpty) {
-              if (detail.tags.any((t) => t.name.contains('国产') || t.name.contains('中国'))) {
-                effectiveCountry = '国产';
-              } else if (detail.tags.any((t) => t.name.contains('欧美'))) {
-                effectiveCountry = '欧美';
-              } else {
-                effectiveCountry = '日本';
-              }
-            }
-            if (effectiveIsMovie == null) {
-              final title = detail.nameCn.isNotEmpty ? detail.nameCn : detail.name;
-              final hasMovieTag = detail.tags.any((t) => t.name.contains('剧场版') || t.name.contains('动画电影'));
-              effectiveIsMovie = hasMovieTag || title.contains('剧场版') || (detail.totalEpisodes == 1 && detail.eps == 1);
-            }
-          }
+        final relRes = await _dio.get('/v0/subjects/$subjectId/subjects');
+        if (relRes.data is! List) {
+          unawaited(_diskCache?.putJson(diskCacheKey, {'none': true}, maxAge: const Duration(hours: 24)) ?? Future.value());
+          return null;
         }
 
-        if (effectiveCountry.isEmpty) effectiveCountry = '日本';
-        effectiveIsMovie ??= false;
+        final relList = (relRes.data as List)
+            .whereType<Map<String, dynamic>>()
+            .where((r) => ((r['type'] is num ? (r['type'] as num).toInt() : int.tryParse('${r['type']}')) == 2))
+            .toList();
 
-        // 1. Slot 0 续作/前传/关联条目判定
-        BangumiRecommendationItem? slot0;
-        final seenSubjectIds = <int>{subjectId};
+        // 优先级 1: 续作 / 主线故事 / 不同演绎
+        Map<String, dynamic>? nextRel = relList.where((r) {
+          final rel = r['relation']?.toString() ?? '';
+          return rel == '续集' || rel == '主线故事' || rel == '不同演绎';
+        }).firstOrNull;
 
+        // 优先级 2: 前传 (当当前为最新季/终季时)
+        Map<String, dynamic>? prevRel;
+        if (nextRel == null) {
+          prevRel = relList.where((r) => r['relation']?.toString() == '前传').firstOrNull;
+        }
+
+        final chosenRel = nextRel ?? prevRel;
+        if (chosenRel == null) {
+          unawaited(_diskCache?.putJson(diskCacheKey, {'none': true}, maxAge: const Duration(hours: 24)) ?? Future.value());
+          return null;
+        }
+
+        final chosenId = (chosenRel['id'] is num)
+            ? (chosenRel['id'] as num).toInt()
+            : (int.tryParse('${chosenRel['id']}') ?? 0);
+
+        if (chosenId <= 0) return null;
+
+        // 读取 Slot 0 条目详情
+        BangumiItem? chosenDetail;
         try {
-          final relRes = await _dio.get('/v0/subjects/$subjectId/subjects');
-          if (relRes.data is List) {
-            final relList = (relRes.data as List)
-                .whereType<Map<String, dynamic>>()
-                .where((r) => ((r['type'] is num ? (r['type'] as num).toInt() : int.tryParse('${r['type']}')) == 2))
-                .toList();
+          chosenDetail = await getSubject(chosenId);
+        } catch (_) {}
 
-            // 优先级 1: 续作 / 主线故事 / 不同演绎
-            Map<String, dynamic>? nextRel = relList.where((r) {
-              final rel = r['relation']?.toString() ?? '';
-              return rel == '续集' || rel == '主线故事' || rel == '不同演绎';
-            }).firstOrNull;
+        final airDate = chosenDetail?.airDate ?? chosenRel['date']?.toString() ?? '';
+        final isFuture = airDate.trim().isNotEmpty &&
+            airDate.trim().length >= 10 &&
+            airDate.trim().substring(0, 10).compareTo(todayStr) > 0;
 
-            // 优先级 2: 前传 (当当前为最新季/终季时)
-            Map<String, dynamic>? prevRel;
-            if (nextRel == null) {
-              prevRel = relList.where((r) => r['relation']?.toString() == '前传').firstOrNull;
-            }
-
-            final chosenRel = nextRel ?? prevRel;
-            if (chosenRel != null) {
-              final chosenId = (chosenRel['id'] is num)
-                  ? (chosenRel['id'] as num).toInt()
-                  : (int.tryParse('${chosenRel['id']}') ?? 0);
-
-              if (chosenId > 0) {
-                // 读取 Slot 0 条目详情
-                BangumiItem? chosenDetail;
-                try {
-                  chosenDetail = await getSubject(chosenId);
-                } catch (_) {}
-
-                final airDate = chosenDetail?.airDate ?? chosenRel['date']?.toString() ?? '';
-                final isFuture = airDate.trim().isNotEmpty && airDate.trim().length >= 10 && airDate.trim().substring(0, 10).compareTo(todayStr) > 0;
-
-                if (!isFuture) {
-                  final relTitle = (chosenRel['name_cn']?.toString().isNotEmpty ?? false)
-                      ? chosenRel['name_cn'].toString()
-                      : (chosenRel['name']?.toString() ?? '');
-                  final isMovieTitle = relTitle.contains('剧场版') || relTitle.contains('电影');
-
-                  var relationBadge = '续作';
-                  if (nextRel != null) {
-                    relationBadge = isMovieTitle ? '剧场版' : '续作';
-                  } else if (prevRel != null) {
-                    relationBadge = '前传';
-                  }
-
-                  final rawImages = (chosenRel['images'] is Map) ? (chosenRel['images'] as Map) : const {};
-                  var cover = rawImages['large']?.toString() ??
-                      rawImages['common']?.toString() ??
-                      rawImages['medium']?.toString() ??
-                      chosenDetail?.coverUrl ??
-                      '';
-
-                  final score = chosenDetail?.ratingScore ?? 0.0;
-                  final totalEps = chosenDetail?.totalEpisodes ?? chosenDetail?.eps ?? 0;
-                  final epsLabel = totalEps > 0 ? '全$totalEps话' : '';
-                  final year = (chosenDetail?.airDate.length ?? 0) >= 4
-                      ? chosenDetail!.airDate.substring(0, 4)
-                      : (airDate.length >= 4 ? airDate.substring(0, 4) : '');
-
-                  slot0 = BangumiRecommendationItem(
-                    id: chosenId,
-                    name: chosenRel['name']?.toString() ?? '',
-                    nameCn: chosenRel['name_cn']?.toString() ?? chosenRel['name']?.toString() ?? '',
-                    cover: cover,
-                    score: score,
-                    year: year,
-                    epsLabel: epsLabel,
-                    relationBadge: relationBadge,
-                  );
-                  seenSubjectIds.add(chosenId);
-                }
-              }
-            }
-          }
-        } catch (_) {
-          // 容错: 关联条目拉取失败静默降级为全量相似推荐
+        if (isFuture) {
+          return null;
         }
 
-        // 2. 标签清洗与抽取
-        final tagPack = _cleanAndPickTags(
-          effectiveTags,
-          isMovie: effectiveIsMovie,
-          country: effectiveCountry,
+        final relTitle = (chosenRel['name_cn']?.toString().isNotEmpty ?? false)
+            ? chosenRel['name_cn'].toString()
+            : (chosenRel['name']?.toString() ?? '');
+        final isMovieTitle = relTitle.contains('剧场版') || relTitle.contains('电影');
+
+        var relationBadge = '续作';
+        if (nextRel != null) {
+          relationBadge = isMovieTitle ? '剧场版' : '续作';
+        } else if (prevRel != null) {
+          relationBadge = '前传';
+        }
+
+        final rawImages = (chosenRel['images'] is Map) ? (chosenRel['images'] as Map) : const {};
+        var cover = rawImages['large']?.toString() ??
+            rawImages['common']?.toString() ??
+            rawImages['medium']?.toString() ??
+            chosenDetail?.coverUrl ??
+            '';
+
+        final score = chosenDetail?.ratingScore ?? 0.0;
+        final totalEps = chosenDetail?.totalEpisodes ?? chosenDetail?.eps ?? 0;
+        final epsLabel = totalEps > 0 ? '全$totalEps话' : '';
+        final year = (chosenDetail?.airDate.length ?? 0) >= 4
+            ? chosenDetail!.airDate.substring(0, 4)
+            : (airDate.length >= 4 ? airDate.substring(0, 4) : '');
+
+        final item = BangumiRecommendationItem(
+          id: chosenId,
+          name: chosenRel['name']?.toString() ?? '',
+          nameCn: chosenRel['name_cn']?.toString() ?? chosenRel['name']?.toString() ?? '',
+          cover: cover,
+          score: score,
+          year: year,
+          epsLabel: epsLabel,
+          relationBadge: relationBadge,
         );
 
-        // 3. 候选池自适应分桶采样检索
-        final targetSimilarCount = slot0 != null
-            ? _defaultRecommendationLimit - 1
-            : _defaultRecommendationLimit;
+        _relationCache.set(subjectId, item, 512);
+        unawaited(_diskCache?.putJson(
+          diskCacheKey,
+          item.toJson(),
+          maxAge: const Duration(hours: 24),
+        ) ?? Future.value());
 
-        Future<({List<Map<String, dynamic>> data, int total})> querySearch(
-          List<String> searchTags,
-          int limit,
-          int offset,
-        ) async {
-          try {
-            final res = await _dio.post(
-              '/v0/search/subjects',
-              queryParameters: {'limit': limit, 'offset': offset},
-              data: {
-                'sort': 'match',
-                'filter': {
-                  'type': [2],
-                  if (searchTags.isNotEmpty) 'tag': searchTags,
-                  'air_date': ['<=$todayStr'],
-                  'nsfw': false,
-                },
-              },
-            );
-            if (res.data is Map<String, dynamic>) {
-              final map = res.data as Map<String, dynamic>;
-              final list = (map['data'] as List?)?.whereType<Map<String, dynamic>>().toList() ?? const [];
-              final tot = (map['total'] is num) ? (map['total'] as num).toInt() : (int.tryParse('${map['total']}') ?? 0);
-              return (data: list, total: tot);
-            }
-          } catch (_) {}
-          return (data: const <Map<String, dynamic>>[], total: 0);
-        }
-
-        Future<List<Map<String, dynamic>>> fetchSampledPool(List<String> searchTags) async {
-          final probe = await querySearch(searchTags, 1, 0);
-          if (probe.total <= 0) return const [];
-
-          final plans = _buildAdaptiveSamplePlan(probe.total, maxRequests: 4, limitPerBucket: 15);
-          if (plans.isEmpty) return const [];
-
-          final chunks = await Future.wait(plans.map((p) => querySearch(searchTags, p.limit, p.offset)));
-          return chunks.expand((c) => c.data).toList();
-        }
-
-        // 尝试 1: 国家 + 2 个抽取标签 (+ 剧场版)
-        var candidatePool = await fetchSampledPool(tagPack.searchTags);
-
-        // 尝试 2: 若候选数量不足且抽取了多个标签，降级回退至 国家 + 首个特征标签
-        if (candidatePool.length < targetSimilarCount && tagPack.pickedTags.length > 1) {
-          final fallbackTags = [effectiveCountry, tagPack.pickedTags[0]];
-          if (effectiveIsMovie) fallbackTags.add('剧场版');
-          final fallbackList = await fetchSampledPool(fallbackTags);
-          if (fallbackList.length > candidatePool.length) {
-            candidatePool = fallbackList;
-          }
-        }
-
-        // 尝试 3: 若依然不足，降级至仅国家 (+ 剧场版) 兜底补充
-        if (candidatePool.length < targetSimilarCount) {
-          final generalTags = [effectiveCountry];
-          if (effectiveIsMovie) generalTags.add('剧场版');
-          final generalList = await fetchSampledPool(generalTags);
-          if (generalList.isNotEmpty) {
-            candidatePool = [...candidatePool, ...generalList];
-          }
-        }
-
-        // 尝试 4: 终极热门兜底（对齐 animaku，确保无标签或冷门番绝对凑满推荐列表）
-        if (candidatePool.length < targetSimilarCount) {
-          try {
-            final res = await _dio.post(
-              '/v0/search/subjects',
-              queryParameters: {'limit': targetSimilarCount * 2, 'offset': 0},
-              data: {
-                'sort': 'heat',
-                'filter': {
-                  'type': [2],
-                  'air_date': ['<=$todayStr'],
-                  'nsfw': false,
-                },
-              },
-            );
-            if (res.data is Map<String, dynamic>) {
-              final list = ((res.data as Map<String, dynamic>)['data'] as List?)
-                      ?.whereType<Map<String, dynamic>>()
-                      .toList() ??
-                  const [];
-              candidatePool = [...candidatePool, ...list];
-            }
-          } catch (_) {}
-        }
-
-        // 过滤已见 ID (自身及 Slot 0)
-        final available = candidatePool.where((c) {
-          final cid = (c['id'] is num) ? (c['id'] as num).toInt() : (int.tryParse('${c['id']}') ?? 0);
-          return cid > 0 && !seenSubjectIds.contains(cid);
-        }).toList();
-
-        // 随机打乱并截取目标数量
-        final shuffled = List<Map<String, dynamic>>.from(available)..shuffle();
-        final selectedSimilar = shuffled.take(targetSimilarCount).toList();
-
-        final similarItems = selectedSimilar.map((item) {
-          final cid = (item['id'] is num) ? (item['id'] as num).toInt() : (int.tryParse('${item['id']}') ?? 0);
-          final rawImages = (item['images'] is Map) ? (item['images'] as Map) : const {};
-          final cover = rawImages['large']?.toString() ??
-              rawImages['common']?.toString() ??
-              rawImages['medium']?.toString() ??
-              '';
-
-          final rawRating = (item['rating'] is Map) ? (item['rating'] as Map) : const {};
-          final rawScore = rawRating['score'];
-          final score = (rawScore is num) ? rawScore.toDouble() : (double.tryParse('$rawScore') ?? 0.0);
-
-          final airDate = item['air_date']?.toString() ?? item['date']?.toString() ?? '';
-          final year = airDate.length >= 4 ? airDate.substring(0, 4) : '';
-
-          final totalEps = (item['total_episodes'] is num)
-              ? (item['total_episodes'] as num).toInt()
-              : (item['eps'] is num ? (item['eps'] as num).toInt() : 0);
-          final epsLabel = totalEps > 0 ? '全$totalEps话' : '';
-
-          return BangumiRecommendationItem(
-            id: cid,
-            name: item['name']?.toString() ?? '',
-            nameCn: item['name_cn']?.toString() ?? item['name']?.toString() ?? '',
-            cover: cover,
-            score: double.parse(score.toStringAsFixed(1)),
-            year: year,
-            epsLabel: epsLabel,
-          );
-        }).toList();
-
-        final result = slot0 != null ? [slot0, ...similarItems] : similarItems;
-
-        if (result.isNotEmpty) {
-          _recommendationsCache.set(subjectId, result, result.length * 800 + 256);
-          unawaited(_diskCache?.putJson(
-            diskCacheKey,
-            result.map((e) => e.toJson()).toList(),
-            maxAge: const Duration(hours: 24),
-          ) ?? Future.value());
-        }
-
-        return result;
-      } catch (e) {
-        final stale = _recommendationsCache.getStale(subjectId);
-        if (stale != null) return stale;
-        final diskJson = await _diskCache?.getJson(diskCacheKey);
-        if (diskJson is List) {
-          final list = diskJson
-              .whereType<Map<String, dynamic>>()
-              .map((e) => BangumiRecommendationItem.fromJson(e))
-              .toList();
-          if (list.isNotEmpty) return list;
-        }
-        return const <BangumiRecommendationItem>[];
+        return item;
+      } catch (_) {
+        return null;
       }
     }();
 
@@ -1269,6 +1125,198 @@ class BangumiClient {
     } finally {
       _inflight.remove(inflightKey);
     }
+  }
+
+  /// 分批获取相似日本番剧推荐（仅日本、评分>0且评价人数>=50，支持流式分页）
+  Future<({List<BangumiRecommendationItem> items, bool hasMore})> getSimilarRecommendations(
+    int subjectId, {
+    List<String>? tags,
+    bool? isMovie,
+    int page = 1,
+    int pageSize = 5,
+    Set<int>? excludeIds,
+    bool forceRefresh = false,
+  }) async {
+    if (subjectId <= 0) return (items: const <BangumiRecommendationItem>[], hasMore: false);
+
+    final diskCacheKey = 'bangumi_similar_pool_$subjectId';
+
+    // 优先检查内存中是否已有缓冲候选池
+    List<BangumiRecommendationItem>? pool;
+    if (!forceRefresh) {
+      pool = _similarPoolCache.get(subjectId);
+      if (pool == null) {
+        final diskJson = await _diskCache?.getJson(diskCacheKey);
+        if (diskJson is List) {
+          pool = diskJson
+              .whereType<Map<String, dynamic>>()
+              .map((e) => BangumiRecommendationItem.fromJson(e))
+              .toList();
+          if (pool.isNotEmpty) {
+            _similarPoolCache.set(subjectId, pool, pool.length * 800 + 256);
+          }
+        }
+      }
+    }
+
+    if (pool == null || pool.isEmpty || forceRefresh) {
+      final inflightKey = 'sim_pool_$subjectId';
+      if (_inflight.containsKey(inflightKey)) {
+        pool = await (_inflight[inflightKey] as Future<List<BangumiRecommendationItem>>);
+      } else {
+        final future = () async {
+          try {
+            final now = DateTime.now();
+            final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+            var effectiveTags = tags != null ? List<String>.from(tags) : <String>[];
+            var effectiveIsMovie = isMovie;
+
+            if (effectiveTags.isEmpty || effectiveIsMovie == null) {
+              BangumiItem? detail;
+              try {
+                detail = await getSubject(subjectId);
+              } catch (_) {}
+              if (detail != null) {
+                if (effectiveTags.isEmpty && detail.tags.isNotEmpty) {
+                  effectiveTags = detail.tags.map((t) => t.name).where((t) => t.isNotEmpty).toList();
+                }
+                if (effectiveIsMovie == null) {
+                  final title = detail.nameCn.isNotEmpty ? detail.nameCn : detail.name;
+                  final hasMovieTag = detail.tags.any((t) => t.name.contains('剧场版') || t.name.contains('动画电影'));
+                  effectiveIsMovie = hasMovieTag || title.contains('剧场版') || (detail.totalEpisodes == 1 && detail.eps == 1);
+                }
+              }
+            }
+            effectiveIsMovie ??= false;
+
+            // 标签清洗（强制限定日本）
+            final tagPack = _cleanAndPickTags(effectiveTags, isMovie: effectiveIsMovie);
+
+            Future<List<Map<String, dynamic>>> querySearchSubjects(List<String> searchTags, {String sort = 'match', int limit = 30}) async {
+              try {
+                final res = await _dio.post(
+                  '/v0/search/subjects',
+                  queryParameters: {'limit': limit, 'offset': 0},
+                  data: {
+                    'sort': sort,
+                    'filter': {
+                      'type': [2],
+                      'tag': searchTags, // 严格包含 '日本'
+                      'air_date': ['<=$todayStr'],
+                      'nsfw': false,
+                    },
+                  },
+                );
+                if (res.data is Map<String, dynamic>) {
+                  final map = res.data as Map<String, dynamic>;
+                  return (map['data'] as List?)?.whereType<Map<String, dynamic>>().toList() ?? const [];
+                }
+              } catch (_) {}
+              return const <Map<String, dynamic>>[];
+            }
+
+            // 尝试 1: 日本 + 抽取特征标签 (+ 剧场版) 一次性拉取候选
+            final raw1 = await querySearchSubjects(tagPack.searchTags, limit: 30);
+            var candidates = _filterAndMapRecommendations(
+              raw1,
+              excludeSubjectId: subjectId,
+              additionalExcludeIds: excludeIds,
+            );
+
+            // 尝试 2: 候选不足时，回退为 日本 + 首个特征标签 补充
+            if (candidates.length < 15 && tagPack.pickedTags.length > 1) {
+              final fallbackTags = ['日本', tagPack.pickedTags[0]];
+              if (effectiveIsMovie) fallbackTags.add('剧场版');
+              final raw2 = await querySearchSubjects(fallbackTags, limit: 20);
+              final filtered2 = _filterAndMapRecommendations(
+                raw2,
+                excludeSubjectId: subjectId,
+                additionalExcludeIds: {
+                  ...?excludeIds,
+                  ...candidates.map((c) => c.id),
+                },
+              );
+              candidates.addAll(filtered2);
+            }
+
+            // 尝试 3: 依然不足时，采用 日本热门榜 兜底保证候选充足
+            if (candidates.length < 15) {
+              final raw3 = await querySearchSubjects(['日本'], sort: 'heat', limit: 25);
+              final filtered3 = _filterAndMapRecommendations(
+                raw3,
+                excludeSubjectId: subjectId,
+                additionalExcludeIds: {
+                  ...?excludeIds,
+                  ...candidates.map((c) => c.id),
+                },
+              );
+              candidates.addAll(filtered3);
+            }
+
+            if (candidates.isNotEmpty) {
+              _similarPoolCache.set(subjectId, candidates, candidates.length * 800 + 256);
+              unawaited(_diskCache?.putJson(
+                diskCacheKey,
+                candidates.map((e) => e.toJson()).toList(),
+                maxAge: const Duration(hours: 24),
+              ) ?? Future.value());
+            }
+
+            return candidates;
+          } catch (_) {
+            return const <BangumiRecommendationItem>[];
+          }
+        }();
+
+        _inflight[inflightKey] = future;
+        try {
+          pool = await future;
+        } finally {
+          _inflight.remove(inflightKey);
+        }
+      }
+    }
+
+    final validPool = pool.where((item) => excludeIds == null || !excludeIds.contains(item.id)).toList();
+    final startIndex = (page - 1) * pageSize;
+    if (startIndex >= validPool.length) {
+      return (items: const <BangumiRecommendationItem>[], hasMore: false);
+    }
+
+    final pageItems = validPool.skip(startIndex).take(pageSize).toList();
+    final hasMore = startIndex + pageItems.length < validPool.length;
+    return (items: pageItems, hasMore: hasMore);
+  }
+
+  /// 获取番剧推荐 (向下兼容旧接口，内部并发拉取前作续作与高分日本推荐)
+  Future<List<BangumiRecommendationItem>> getRecommendations(
+    int subjectId, {
+    List<String>? tags,
+    String? country,
+    bool? isMovie,
+    bool forceRefresh = false,
+  }) async {
+    if (subjectId <= 0) return const [];
+
+    final relationFuture = getRelationItem(subjectId, forceRefresh: forceRefresh);
+    final similarRes = await getSimilarRecommendations(
+      subjectId,
+      tags: tags,
+      isMovie: isMovie,
+      page: 1,
+      pageSize: 15,
+      forceRefresh: forceRefresh,
+    );
+    final relationItem = await relationFuture;
+
+    if (relationItem != null) {
+      return [
+        relationItem,
+        ...similarRes.items.where((it) => it.id != relationItem.id),
+      ];
+    }
+    return similarRes.items;
   }
 
   /// 获取条目吐槽与讨论 Chunk (每 Chunk 30 条 = 3 个标准前端页，1:1 对齐 animaku 规范，带 3 小时多层缓存)

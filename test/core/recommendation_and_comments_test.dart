@@ -106,6 +106,36 @@ void main() {
       final client = BangumiClient();
       final recs = await client.getRecommendations(364450);
       expect(recs.length, greaterThanOrEqualTo(10));
+      for (final item in recs) {
+        expect(item.score, greaterThan(0));
+      }
+    });
+
+    test('getRelationItem returns early and valid slot 0', () async {
+      final client = BangumiClient();
+      final relItem = await client.getRelationItem(364450);
+      // 364450 (葬送的芙莉莲) 可能有关联条目或 null，若有时需有有效名称与封面
+      if (relItem != null) {
+        expect(relItem.id, greaterThan(0));
+        expect(relItem.displayName, isNotEmpty);
+      }
+    });
+
+    test('getSimilarRecommendations paginates and filters score > 0', () async {
+      final client = BangumiClient();
+      final page1 = await client.getSimilarRecommendations(364450, page: 1, pageSize: 5);
+      expect(page1.items.length, lessThanOrEqualTo(5));
+      for (final item in page1.items) {
+        expect(item.score, greaterThan(0));
+      }
+
+      if (page1.hasMore) {
+        final page2 = await client.getSimilarRecommendations(364450, page: 2, pageSize: 5);
+        expect(page2.items, isNotEmpty);
+        for (final item in page2.items) {
+          expect(item.score, greaterThan(0));
+        }
+      }
     });
 
     test('mirror getRecommendations call', () async {

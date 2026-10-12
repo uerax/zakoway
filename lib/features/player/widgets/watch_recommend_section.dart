@@ -7,7 +7,13 @@ import '../../../core/utils/font_manager.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
 import '../../common/widgets/cached_anime_image.dart';
 
-/// 播放页视频推荐区组件 (1:1 复刻 animaku 自适应分桶与 Slot 0 判定算法)
+/// 播放页视频推荐区组件
+///
+/// 特性：
+/// 1. 续作/前传 (Slot 0) 独立极速请求，提前返回并置顶展示，杜绝等待；
+/// 2. 相似推荐仅保留日本番剧、评分 > 0 且评分人数 >= 50；
+/// 3. 首屏默认快速加载前 5 部，避免长耗时旋转等待；
+/// 4. 监听页面滚动，下滑触底时自动懒加载更多推荐。
 class WatchRecommendSection extends ConsumerStatefulWidget {
   const WatchRecommendSection({
     super.key,
@@ -25,14 +31,52 @@ class WatchRecommendSection extends ConsumerStatefulWidget {
 }
 
 class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
-  bool _isLoading = false;
+  // 续作/前传（Slot 0 独立状态，毫秒级快速上屏）
+  BangumiRecommendationItem? _relationItem;
+  bool _isLoadingRelation = false;
+
+  // 相似推荐列表（分批与懒加载）
+  final List<BangumiRecommendationItem> _similarItems = [];
+  bool _isLoadingSimilar = false;
+  bool _isLoadingMore = false;
+  bool _hasMoreSimilar = true;
+  int _currentPage = 1;
   String? _error;
-  List<BangumiRecommendationItem> _items = const [];
+
+  ScrollPosition? _scrollPosition;
 
   @override
   void initState() {
     super.initState();
     _fetchRecommendations();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 监听外部滚动容器的滚动位置，实现平滑触底懒加载
+    final scrollable = Scrollable.maybeOf(context);
+    final position = scrollable?.position;
+    if (_scrollPosition != position) {
+      _scrollPosition?.removeListener(_onScroll);
+      _scrollPosition = position;
+      _scrollPosition?.addListener(_onScroll);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollPosition?.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final pos = _scrollPosition;
+    if (pos == null || !pos.hasContentDimensions) return;
+    // 距离底部不足 300px 时自动预加载下一页
+    if (pos.pixels >= pos.maxScrollExtent - 300) {
+      _loadMoreSimilar();
+    }
   }
 
   @override
@@ -51,37 +95,113 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
     if (subjectId <= 0) return;
 
     setState(() {
-      _isLoading = true;
+      _isLoadingRelation = true;
+      _isLoadingSimilar = true;
       _error = null;
+      _currentPage = 1;
+      _hasMoreSimilar = true;
+      if (forceRefresh) {
+        _relationItem = null;
+        _similarItems.clear();
+      }
     });
 
-    try {
-      final client = ref.read(bangumiClientProvider);
-      final rawTags = widget.bangumiItem?.tags.map((t) => t.name).toList();
-      final isMovie = widget.bangumiItem != null
-          ? (widget.bangumiItem!.totalEpisodes == 1 && widget.bangumiItem!.eps == 1) ||
-              widget.bangumiItem!.name.contains('剧场版') ||
-              widget.bangumiItem!.nameCn.contains('剧场版') ||
-              widget.bangumiItem!.tags.any((t) => t.name.contains('剧场版') || t.name.contains('动画电影'))
-          : null;
+    final client = ref.read(bangumiClientProvider);
 
-      final results = await client.getRecommendations(
+    // 1. 续作/前传请求（单次轻量独立请求，提前返回展示，绝不阻塞）
+    client.getRelationItem(subjectId, forceRefresh: forceRefresh).then((relItem) {
+      if (!mounted) return;
+      setState(() {
+        _relationItem = relItem;
+        _isLoadingRelation = false;
+      });
+    }).catchError((_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingRelation = false;
+      });
+    });
+
+    // 2. 相似推荐首屏请求（默认加载 5 部，快速响应，避免长时间旋转加载）
+    final rawTags = widget.bangumiItem?.tags.map((t) => t.name).toList();
+    final isMovie = widget.bangumiItem != null
+        ? (widget.bangumiItem!.totalEpisodes == 1 && widget.bangumiItem!.eps == 1) ||
+            widget.bangumiItem!.name.contains('剧场版') ||
+            widget.bangumiItem!.nameCn.contains('剧场版') ||
+            widget.bangumiItem!.tags.any((t) => t.name.contains('剧场版') || t.name.contains('动画电影'))
+        : null;
+
+    try {
+      final res = await client.getSimilarRecommendations(
         subjectId,
         tags: rawTags,
         isMovie: isMovie,
+        page: 1,
+        pageSize: 5,
         forceRefresh: forceRefresh,
       );
 
       if (!mounted) return;
       setState(() {
-        _items = results;
-        _isLoading = false;
+        _similarItems.clear();
+        _similarItems.addAll(res.items);
+        _hasMoreSimilar = res.hasMore;
+        _currentPage = 1;
+        _isLoadingSimilar = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _isLoading = false;
+        _isLoadingSimilar = false;
         _error = e.toString();
+      });
+    }
+  }
+
+  Future<void> _loadMoreSimilar() async {
+    if (_isLoadingSimilar || _isLoadingMore || !_hasMoreSimilar) return;
+
+    final subjectId = widget.bangumiId ?? widget.bangumiItem?.id ?? 0;
+    if (subjectId <= 0) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    final client = ref.read(bangumiClientProvider);
+    final nextPage = _currentPage + 1;
+    final rawTags = widget.bangumiItem?.tags.map((t) => t.name).toList();
+    final isMovie = widget.bangumiItem != null
+        ? (widget.bangumiItem!.totalEpisodes == 1 && widget.bangumiItem!.eps == 1) ||
+            widget.bangumiItem!.name.contains('剧场版') ||
+            widget.bangumiItem!.nameCn.contains('剧场版') ||
+            widget.bangumiItem!.tags.any((t) => t.name.contains('剧场版') || t.name.contains('动画电影'))
+        : null;
+
+    try {
+      final res = await client.getSimilarRecommendations(
+        subjectId,
+        tags: rawTags,
+        isMovie: isMovie,
+        page: nextPage,
+        pageSize: 5,
+        excludeIds: {
+          if (_relationItem != null) _relationItem!.id,
+          ..._similarItems.map((e) => e.id),
+        },
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _currentPage = nextPage;
+        _similarItems.addAll(res.items);
+        _hasMoreSimilar = res.hasMore;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingMore = false;
       });
     }
   }
@@ -92,7 +212,16 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
 
-    if (!_isLoading && _error == null && _items.isEmpty) {
+    final displayedItems = [
+      ?_relationItem,
+      ..._similarItems.where((it) => _relationItem == null || it.id != _relationItem!.id),
+    ];
+
+    final isAnyLoading = _isLoadingRelation || _isLoadingSimilar;
+    final hasNoItems = displayedItems.isEmpty;
+
+    // 当且仅当所有网络加载均已彻底结束，且没有报错、确实没有任何推荐条目时，才隐藏整个区域
+    if (!isAnyLoading && _error == null && hasNoItems) {
       return const SizedBox.shrink();
     }
 
@@ -123,21 +252,8 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
                   fontFamilyFallback: FontManager.fallbackFontFamilies,
                 ),
               ),
-              const SizedBox(width: 6),
-              Text(
-                _items.isNotEmpty
-                    ? '(${_items.length} 部精选)'
-                    : '· 同类题材与高分精选',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
-                  fontFamily: 'MiSans',
-                  fontFamilyFallback: FontManager.fallbackFontFamilies,
-                ),
-              ),
               const Spacer(),
-              if (_isLoading)
+              if (isAnyLoading && displayedItems.isEmpty)
                 SizedBox(
                   width: 14,
                   height: 14,
@@ -146,7 +262,7 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
                     color: primaryColor.withValues(alpha: 0.7),
                   ),
                 )
-              else if (_items.isNotEmpty)
+              else if (displayedItems.isNotEmpty)
                 GestureDetector(
                   onTap: () => _fetchRecommendations(forceRefresh: true),
                   child: Padding(
@@ -178,21 +294,103 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
           ),
           const SizedBox(height: 12),
 
-          // 骨架屏加载态
-          if (_isLoading && _items.isEmpty)
+          // 骨架屏加载态（在尚无任何条目就绪且仍在加载时平滑呈现，防止组件闪烁与高度塌陷）
+          if (hasNoItems && isAnyLoading)
             _buildSkeletonList(isDark)
-          else if (_error != null && _items.isEmpty)
+          else if (_error != null && displayedItems.isEmpty)
             _buildErrorState(primaryColor)
-          else
-            _buildRecommendationsList(isDark, primaryColor, theme),
+          else ...[
+            // 已有推荐卡片流
+            _buildRecommendationsList(displayedItems, isDark, primaryColor, theme),
+
+            // 续作已出、相似推荐尚未返回时的局部骨架屏占位
+            if (_isLoadingSimilar && _similarItems.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: _buildSkeletonList(isDark, count: 2),
+              ),
+
+            // 底部懒加载状态或触底指示器
+            _buildBottomIndicator(primaryColor, theme),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildSkeletonList(bool isDark) {
+  Widget _buildBottomIndicator(Color primaryColor, ThemeData theme) {
+    if (_isLoadingMore) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.8,
+                  color: primaryColor.withValues(alpha: 0.7),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '加载更多推荐中...',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                  fontFamily: 'MiSans',
+                  fontFamilyFallback: FontManager.fallbackFontFamilies,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_hasMoreSimilar && _similarItems.isNotEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Center(
+          child: GestureDetector(
+            onTap: _loadMoreSimilar,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '下滑或点击加载更多',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: primaryColor.withValues(alpha: 0.8),
+                      fontWeight: FontWeight.w500,
+                      fontFamily: 'MiSans',
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 16,
+                    color: primaryColor.withValues(alpha: 0.8),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildSkeletonList(bool isDark, {int count = 4}) {
     return Column(
-      children: List.generate(4, (index) {
+      children: List.generate(count, (index) {
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(10),
@@ -294,14 +492,19 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
     );
   }
 
-  Widget _buildRecommendationsList(bool isDark, Color primaryColor, ThemeData theme) {
+  Widget _buildRecommendationsList(
+    List<BangumiRecommendationItem> items,
+    bool isDark,
+    Color primaryColor,
+    ThemeData theme,
+  ) {
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: _items.length,
+      itemCount: items.length,
       separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
-        final item = _items[index];
+        final item = items[index];
         return BouncingScaleCard(
           scaleDown: 0.98,
           immediateTap: true,
