@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 /// 全屏模式下的内置悬浮半透明毛玻璃面板容器外壳
-class PlayerFloatingPanel extends StatelessWidget {
+class PlayerFloatingPanel extends StatefulWidget {
   const PlayerFloatingPanel({
     super.key,
     required this.title,
@@ -17,6 +17,19 @@ class PlayerFloatingPanel extends StatelessWidget {
   final Color primaryColor;
   final Widget child;
   final VoidCallback onClose;
+
+  @override
+  State<PlayerFloatingPanel> createState() => _PlayerFloatingPanelState();
+}
+
+class _PlayerFloatingPanelState extends State<PlayerFloatingPanel> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,13 +70,13 @@ class PlayerFloatingPanel extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      icon,
-                      color: primaryColor,
+                      widget.icon,
+                      color: widget.primaryColor,
                       size: 17,
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      title,
+                      widget.title,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 14,
@@ -78,21 +91,23 @@ class PlayerFloatingPanel extends StatelessWidget {
                           const BoxConstraints(minWidth: 26, minHeight: 26),
                       icon: const Icon(Icons.close_rounded,
                           color: Colors.white70, size: 17),
-                      onPressed: onClose,
+                      onPressed: widget.onClose,
                     ),
                   ],
                 ),
               ),
               const Divider(color: Color(0x22FFFFFF), height: 1, thickness: 0.5),
-              // 面板内容（使用 RawScrollbar 保证可直观顺滑滚动，绝不截断）
+              // 面板内容（绑定明确的 ScrollController，避免 RawScrollbar 在桌面端与 PrimaryScrollController 冲突）
               Flexible(
                 child: RawScrollbar(
+                  controller: _scrollController,
                   thumbColor: Colors.white30,
                   radius: const Radius.circular(4),
                   thickness: 3,
                   child: SingleChildScrollView(
+                    controller: _scrollController,
                     physics: const BouncingScrollPhysics(),
-                    child: child,
+                    child: widget.child,
                   ),
                 ),
               ),

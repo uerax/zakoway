@@ -46,6 +46,8 @@ dependencies:
   flutter_volume_controller: ^2.0.1
   connectivity_plus: ^6.1.0
   crypto: ^3.0.6
+  path_provider: ^2.1.5
+  path: ^1.9.1
 
 dev_dependencies:
   flutter_test:
@@ -71,6 +73,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/shaders/
 
   fonts:
     - family: MiSans

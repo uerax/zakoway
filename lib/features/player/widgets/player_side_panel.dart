@@ -11,6 +11,7 @@ import 'package:zakoway/core/services/watched_episodes_service.dart';
 import 'package:zakoway/core/utils/font_manager.dart';
 import 'package:zakoway/features/player/widgets/episode_picker_section.dart';
 import 'package:zakoway/features/player/widgets/video_source_view.dart';
+import 'controls/super_resolution_dialog_helper.dart';
 
 /// 全屏侧边抽屉 Tab 枚举
 enum PlayerSidePanelTab {
@@ -969,7 +970,15 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => widget.controller?.setSuperResolution(mode),
+        onTap: () {
+          final c = widget.controller;
+          if (c == null) return;
+          SuperResolutionDialogHelper.handleModeSelection(
+            context: context,
+            controller: c,
+            mode: mode,
+          );
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 6),
           alignment: Alignment.center,

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../controller/playback_state.dart';
 import '../danmaku/models/danmaku_item.dart';
 
 /// 播放器底部控制条尺寸规格偏好
@@ -37,12 +38,16 @@ class PlayerPreferencesService extends ChangeNotifier {
   static const String _kDanmakuSettingsKey = 'zakoway_player_danmaku_settings';
   static const String _kAutoPlayNextKey = 'zakoway_player_auto_play_next';
   static const String _kControlBarScaleKey = 'zakoway_player_control_bar_scale';
+  static const String _kSuperResolutionModeKey = 'zakoway_player_super_resolution_mode';
+  static const String _kDisableSuperResolutionWarningKey = 'zakoway_player_disable_super_res_warning';
 
   double _playbackRate = 1.0;
   double _volume = 0.5;
   DanmakuSettings _danmakuSettings = const DanmakuSettings();
   bool _autoPlayNext = true;
   PlayerControlBarScale _controlBarScale = PlayerControlBarScale.auto;
+  SuperResolutionMode _superResolutionMode = SuperResolutionMode.off;
+  bool _disableSuperResolutionWarning = false;
   bool _initialized = false;
 
   double get playbackRate => _playbackRate;
@@ -50,6 +55,8 @@ class PlayerPreferencesService extends ChangeNotifier {
   DanmakuSettings get danmakuSettings => _danmakuSettings;
   bool get autoPlayNext => _autoPlayNext;
   PlayerControlBarScale get controlBarScale => _controlBarScale;
+  SuperResolutionMode get superResolutionMode => _superResolutionMode;
+  bool get disableSuperResolutionWarning => _disableSuperResolutionWarning;
   bool get isInitialized => _initialized;
 
   Future<void> initialize() async {
@@ -61,6 +68,10 @@ class PlayerPreferencesService extends ChangeNotifier {
       _autoPlayNext = sp.getBool(_kAutoPlayNextKey) ?? true;
       final scaleRaw = sp.getString(_kControlBarScaleKey);
       _controlBarScale = PlayerControlBarScale.fromString(scaleRaw);
+
+      final srVal = sp.getInt(_kSuperResolutionModeKey);
+      _superResolutionMode = SuperResolutionMode.fromStorageValue(srVal);
+      _disableSuperResolutionWarning = sp.getBool(_kDisableSuperResolutionWarningKey) ?? false;
 
       final danmakuRaw = sp.getString(_kDanmakuSettingsKey);
       if (danmakuRaw != null && danmakuRaw.isNotEmpty) {
@@ -129,6 +140,28 @@ class PlayerPreferencesService extends ChangeNotifier {
     } catch (_) {}
   }
 
+  Future<void> saveSuperResolutionMode(SuperResolutionMode mode) async {
+    if (_superResolutionMode == mode) return;
+    _superResolutionMode = mode;
+    notifyListeners();
+
+    try {
+      final sp = await SharedPreferences.getInstance();
+      await sp.setInt(_kSuperResolutionModeKey, mode.storageValue);
+    } catch (_) {}
+  }
+
+  Future<void> saveDisableSuperResolutionWarning(bool disabled) async {
+    if (_disableSuperResolutionWarning == disabled) return;
+    _disableSuperResolutionWarning = disabled;
+    notifyListeners();
+
+    try {
+      final sp = await SharedPreferences.getInstance();
+      await sp.setBool(_kDisableSuperResolutionWarningKey, disabled);
+    } catch (_) {}
+  }
+
   /// 重置状态（用于测试隔离）
   @visibleForTesting
   void resetForTest() {
@@ -137,6 +170,8 @@ class PlayerPreferencesService extends ChangeNotifier {
     _danmakuSettings = const DanmakuSettings();
     _autoPlayNext = true;
     _controlBarScale = PlayerControlBarScale.auto;
+    _superResolutionMode = SuperResolutionMode.off;
+    _disableSuperResolutionWarning = false;
     _initialized = false;
   }
 }

@@ -2,17 +2,39 @@ import 'package:flutter/material.dart';
 
 /// 动漫超分辨率画质增强模式 (基于 Anime4K 着色器)
 enum SuperResolutionMode {
-  off(label: '关闭', description: '原画输出'),
-  efficiency(label: '效率档', description: '轻度降噪与快速超分'),
-  quality(label: '质量档', description: '高质量 CNN 重建超分');
+  off(
+    storageValue: 1,
+    label: '关闭',
+    description: '原画输出',
+  ),
+  efficiency(
+    storageValue: 2,
+    label: '效率档',
+    description: '轻度降噪与快速超分',
+  ),
+  quality(
+    storageValue: 3,
+    label: '质量档',
+    description: '高质量 CNN 重建超分',
+  );
 
   const SuperResolutionMode({
+    required this.storageValue,
     required this.label,
     required this.description,
   });
 
+  final int storageValue;
   final String label;
   final String description;
+
+  static SuperResolutionMode fromStorageValue(int? value) {
+    if (value == null) return SuperResolutionMode.off;
+    return SuperResolutionMode.values.firstWhere(
+      (mode) => mode.storageValue == value,
+      orElse: () => SuperResolutionMode.off,
+    );
+  }
 }
 
 /// 播放器低频核心状态（仅在宏观状态变化时触发更新）

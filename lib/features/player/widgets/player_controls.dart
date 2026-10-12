@@ -92,6 +92,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   _ActiveControlPanel _activePanel = _ActiveControlPanel.none;
   bool _showVolumeSlider = false;
   bool _showSpeedPopup = false;
+  bool _isOpeningModalSheet = false;
   final GlobalKey _speedButtonKey = GlobalKey();
   final GlobalKey _volumeButtonKey = GlobalKey();
 
@@ -487,6 +488,9 @@ class _PlayerControlsState extends State<PlayerControls> {
       });
     } else {
       // 非全屏模式下：展开到播放器外部，使用底部抽屉 (showModalBottomSheet)
+      // 防重入保护：避免快速多次点击导致重复堆叠弹出多个 Modal 路由
+      if (_isOpeningModalSheet) return;
+      _isOpeningModalSheet = true;
       _hideTimer?.cancel();
       setState(() {
         _activePanel = _ActiveControlPanel.none;
@@ -577,7 +581,10 @@ class _PlayerControlsState extends State<PlayerControls> {
           );
         },
       ).then((_) {
-        _startHideTimer();
+        _isOpeningModalSheet = false;
+        if (mounted) {
+          _startHideTimer();
+        }
       });
     }
   }

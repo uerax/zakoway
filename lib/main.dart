@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import 'core/utils/appearance_manager.dart';
 import 'core/utils/font_manager.dart';
 import 'core/utils/scroll_behavior.dart';
 import 'features/main_navigation_shell.dart';
+import 'features/player/services/shader_asset_service.dart';
 import 'features/player/source/source_bundle_manager.dart';
 
 void main() async {
@@ -32,6 +34,9 @@ void main() async {
 
   // 1.1 异步初始化动态视频源解析器核心 Bundle
   SourceBundleManager.instance.initialize();
+
+  // 1.15 异步预释放 Anime4K 超分辨率 GLSL 着色器到本地应用目录
+  unawaited(ShaderAssetService.instance.copyShadersToExternalDirectory());
 
   // 2. 依据运行平台动态调优 Flutter 全局 ImageCache 显存水线与图片缓存数量：
   // 移动端：100MB / 200 张，保障滑动流畅并防止显存溢出；

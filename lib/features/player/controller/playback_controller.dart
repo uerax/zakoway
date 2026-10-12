@@ -8,6 +8,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:zakoway/core/services/network_connectivity_service.dart';
 import 'package:zakoway/features/player/controller/playback_state.dart';
 import 'package:zakoway/features/player/services/player_preferences_service.dart';
+import 'package:zakoway/features/player/services/shader_asset_service.dart';
 
 const String _kDefaultUserAgent =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
@@ -116,15 +117,17 @@ class ZakowayPlaybackController {
     // 注入底层 mpv 增强属性
     await _configureNativeMpvProperties();
 
-    // 加载用户上次持久化的播放倍速与音量记忆
+    // 加载用户上次持久化的播放倍速、音量与超分辨率画质记忆
     await PlayerPreferencesService.instance.initialize();
     final savedRate = PlayerPreferencesService.instance.playbackRate;
     final savedVolume = PlayerPreferencesService.instance.volume;
+    final savedSuperRes = PlayerPreferencesService.instance.superResolutionMode;
 
     core.value = core.value.copyWith(
       playbackRate: savedRate,
       volume: savedVolume,
       muted: savedVolume <= 0.001,
+      superResolution: savedSuperRes,
     );
 
     if (savedRate != 1.0) {
@@ -470,18 +473,66 @@ class ZakowayPlaybackController {
   }
 
   /// 切换 Anime4K 超分辨率画质增强模式
-  Future<void> setSuperResolution(SuperResolutionMode mode) async {
+  Future<void> setSuperResolution(SuperResolutionMode mode, {bool persist = true}) async {
     core.value = core.value.copyWith(superResolution: mode);
+    if (persist) {
+      await PlayerPreferencesService.instance.saveSuperResolutionMode(mode);
+    }
     final player = _player;
     if (player == null) return;
+    await _applyShaderToPlayer(player, mode);
+  }
+
+  bool _isApplyingShader = false;
+  SuperResolutionMode? _pendingShaderMode;
+
+  /// 依据所选超分档位向底层 mpv 动态注入或清空 Anime4K 着色器
+  /// 特殊处理说明：
+  /// 1. 采用串行互斥队列保护：避免用户快速连续点击档位时触发多重并发指令，导致 mpv 渲染线程在 D3D/ANGLE 编译期死锁；
+  /// 2. 单次指令加入 4 秒超时熔断保护（.timeout），防止 Direct3D 着色器编译挂起永久阻断 Dart 异步流；
+  /// 3. 当有新请求在执行期间到达，自动合并更新为最新目标档位，等待前次完成后串行处理最新请求。
+  Future<void> _applyShaderToPlayer(Player player, SuperResolutionMode mode) async {
+    _pendingShaderMode = mode;
+    if (_isApplyingShader) return;
+    _isApplyingShader = true;
+
     try {
-      final platform = player.platform;
-      if (platform is NativePlayer) {
-        if (mode == SuperResolutionMode.off) {
-          await platform.command(['change-list', 'glsl-shaders', 'clr', '']);
+      while (_pendingShaderMode != null && !_disposed) {
+        final targetMode = _pendingShaderMode!;
+        _pendingShaderMode = null;
+
+        final platform = player.platform;
+        if (platform is NativePlayer) {
+          if (targetMode == SuperResolutionMode.off) {
+            await platform.command([
+              'change-list',
+              'glsl-shaders',
+              'clr',
+              '',
+            ]).timeout(const Duration(seconds: 3));
+          } else {
+            final isQuality = targetMode == SuperResolutionMode.quality;
+            final shaderPath = await ShaderAssetService.instance.getShadersPathForMode(isQuality: isQuality);
+            if (shaderPath != null && shaderPath.isNotEmpty && !_disposed) {
+              await platform.command([
+                'change-list',
+                'glsl-shaders',
+                'set',
+                shaderPath,
+              ]).timeout(const Duration(seconds: 4));
+              debugPrint('[ZakowayPlayback] 已成功应用 Anime4K 超分滤镜 (${targetMode.label})');
+            }
+          }
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[ZakowayPlayback] 注入 Anime4K 着色器异常: $e');
+    } finally {
+      _isApplyingShader = false;
+      if (_pendingShaderMode != null && !_disposed) {
+        unawaited(_applyShaderToPlayer(player, _pendingShaderMode!));
+      }
+    }
   }
 
   /// 高清截取当前视频帧画面
@@ -637,6 +688,14 @@ class ZakowayPlaybackController {
           firstFrameRendered: true,
           loading: false,
         );
+
+        // 特殊处理说明：
+        // 首帧画面与纹理就绪后，再安全应用用户偏好配置的超分辨率滤镜；
+        // 彻底规避在播放器未加载视频媒体时盲目注入着色器导致的 Direct3D/ANGLE 渲染上下文假死。
+        final player = _player;
+        if (player != null && core.value.superResolution != SuperResolutionMode.off) {
+          unawaited(_applyShaderToPlayer(player, core.value.superResolution));
+        }
       }
     }
   }

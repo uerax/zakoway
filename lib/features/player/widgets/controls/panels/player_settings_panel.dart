@@ -3,6 +3,7 @@ import 'package:zakoway/core/services/bangumi_oped_service.dart';
 import 'package:zakoway/features/player/controller/playback_controller.dart';
 import 'package:zakoway/features/player/controller/playback_state.dart';
 import 'package:zakoway/features/player/services/player_preferences_service.dart';
+import '../super_resolution_dialog_helper.dart';
 import 'player_panel_widgets.dart';
 
 /// 播放器设置面板主体（连播与跳过、播放速度、超分辨率 Anime4K、画幅比例、屏幕亮度）
@@ -174,19 +175,31 @@ class PlayerSettingsPanelBody extends StatelessWidget {
                       label: '关闭',
                       selected: cur == SuperResolutionMode.off,
                       primaryColor: primaryColor,
-                      onTap: () => controller.setSuperResolution(SuperResolutionMode.off),
+                      onTap: () => SuperResolutionDialogHelper.handleModeSelection(
+                        context: context,
+                        controller: controller,
+                        mode: SuperResolutionMode.off,
+                      ),
                     ),
                     PanelOptionChip(
                       label: '效率档',
                       selected: cur == SuperResolutionMode.efficiency,
                       primaryColor: primaryColor,
-                      onTap: () => controller.setSuperResolution(SuperResolutionMode.efficiency),
+                      onTap: () => SuperResolutionDialogHelper.handleModeSelection(
+                        context: context,
+                        controller: controller,
+                        mode: SuperResolutionMode.efficiency,
+                      ),
                     ),
                     PanelOptionChip(
                       label: '质量档',
                       selected: cur == SuperResolutionMode.quality,
                       primaryColor: primaryColor,
-                      onTap: () => controller.setSuperResolution(SuperResolutionMode.quality),
+                      onTap: () => SuperResolutionDialogHelper.handleModeSelection(
+                        context: context,
+                        controller: controller,
+                        mode: SuperResolutionMode.quality,
+                      ),
                     ),
                   ],
                 ),
