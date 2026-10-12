@@ -87,12 +87,12 @@ class _DanmakuViewState extends State<DanmakuView>
   /// 特殊处理说明：
   /// 视口形态敏感的滚动弹幕基准穿越耗时 (毫秒)
   /// 严格依照当前播放器渲染视口物理宽度自适应，杜绝按操作系统 Platform.isWindows 一刀切判断：
-  /// - 宽屏 / 桌面全屏 (viewWidth >= 840): 11.0s (11000ms)，严格对齐桌面大屏适读舒适区，防眩晕；
-  /// - 中等平板视口 (600 <= viewWidth < 840): 约 8.08s (8077ms，原 10.5s 提速 30%：10500 / 1.3 ≈ 8077)；
+  /// - 宽屏 / 桌面全屏 (viewWidth >= 840): 12.5s (12500ms)，严格对齐桌面大屏适读舒适区，防眩晕；
+  /// - 中等平板视口 (600 <= viewWidth < 840): 约 9s (9000ms)；
   /// - 移动端窄屏视口 (viewWidth < 600): 7.5s (7500ms)，保持小屏适读与紧凑轻快的平衡。
   double get _scrollBaseDurationMs {
-    if (_viewWidth >= 840.0) return 11000.0;
-    if (_viewWidth >= 600.0) return 8077.0;
+    if (_viewWidth >= 840.0) return 12500.0;
+    if (_viewWidth >= 600.0) return 9000.0;
     return _kScrollBaseDurationMs;
   }
 
