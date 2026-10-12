@@ -269,34 +269,6 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
                     strokeWidth: 1.8,
                     color: primaryColor.withValues(alpha: 0.7),
                   ),
-                )
-              else if (displayedItems.isNotEmpty)
-                GestureDetector(
-                  onTap: () => _fetchRecommendations(forceRefresh: true),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.refresh_rounded,
-                          size: 13,
-                          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5),
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          '换一批',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
-                            fontFamily: 'MiSans',
-                            fontFamilyFallback: FontManager.fallbackFontFamilies,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
             ],
           ),
