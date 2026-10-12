@@ -1,4 +1,5 @@
 import 'package:zakoway/features/player/danmaku/models/danmaku_item.dart';
+import 'package:zakoway/features/player/danmaku/utils/danmaku_text_normalizer.dart';
 import 'package:zakoway/features/player/danmaku/view/danmaku_text_layout.dart';
 
 /// 屏幕上正在活动的弹幕运行时实体
@@ -14,7 +15,8 @@ class DanmakuEntry {
     required this.baseText,
     required this.layout,
     this.count = 1,
-  });
+    String? normalizedKey,
+  }) : normalizedKey = normalizedKey ?? DanmakuTextNormalizer.normalize(baseText);
 
   /// 原始弹幕数据
   final DanmakuItem item;
@@ -39,6 +41,9 @@ class DanmakuEntry {
 
   /// 原始文本（用于 In-Flight 实时合流比对）
   final String baseText;
+
+  /// 预先归一化的特征 Key（避免合流遍历时重复正则计算与临时字符串分配）
+  final String normalizedKey;
 
   /// 动态合流计数（默认为 1，合流后变为 2, 3...）
   int count;

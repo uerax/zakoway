@@ -251,8 +251,8 @@ void main() {
       // 先运行 100ms
       await tester.pump(const Duration(milliseconds: 100));
 
-      // 模拟 250ms 定时器传入一个 +30ms 的微小漂移
-      controller.syncTime(const Duration(milliseconds: 130));
+      // 模拟传入一个位于 (80ms ~ 2500ms) 纠偏区间的漂移 (+600ms)
+      controller.syncTime(const Duration(milliseconds: 700));
 
       // 下一帧（约 8.3ms 或 16.7ms）走一帧
       await tester.pump(const Duration(milliseconds: 16));
@@ -265,7 +265,7 @@ void main() {
       expect(find.byType(DanmakuView), findsOneWidget);
     });
 
-    testWidgets('超过 1200ms 的 Seek 大漂移走硬重定位并清空待纠偏量', (tester) async {
+    testWidgets('超过 2500ms 的 Seek 大漂移走硬重定位', (tester) async {
       final controller = DanmakuController();
       controller.loadItems([
         DanmakuItem(text: 'Seek测试弹幕1', timeMs: 100),
@@ -293,6 +293,131 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.byType(DanmakuView), findsOneWidget);
+    });
+
+    testWidgets('高密度弹幕过载丢弃反压测试', (tester) async {
+      final controller = DanmakuController();
+      // 在同一时间点载入 300 条弹幕进行极端高潮轰炸
+      final stormItems = List.generate(
+        300,
+        (i) => DanmakuItem(text: '高能轰炸弹幕 #$i', timeMs: 100),
+      );
+      controller.loadItems(stormItems);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(tester.takeException(), isNull);
+      expect(find.byType(DanmakuView), findsOneWidget);
+    });
+  });
+
+  group('DanmakuLayoutPool 排版 LRU 缓存池测试', () {
+    test('重复高频文本命中缓存，避免重复创建 TextPainter', () {
+      final pool = DanmakuLayoutPool(maxEntries: 4);
+      var missCount = 0;
+
+      final layout1 = pool.acquire(
+        text: '2333',
+        color: Colors.white,
+        fontSize: 18.0,
+        strokeWidth: 1.0,
+        onCacheMiss: () => missCount++,
+      );
+
+      expect(missCount, equals(1));
+      expect(layout1.refCount, equals(1));
+
+      // 再次获取完全相同样式的弹幕
+      final layout2 = pool.acquire(
+        text: '2333',
+        color: Colors.white,
+        fontSize: 18.0,
+        strokeWidth: 1.0,
+        onCacheMiss: () => missCount++,
+      );
+
+      // 必须命中缓存：missCount 保持为 1，对象为同一实例
+      expect(missCount, equals(1));
+      expect(identical(layout1, layout2), isTrue);
+      expect(layout1.refCount, equals(2));
+
+      // 归还 1 次引用
+      layout2.dispose();
+      expect(layout1.refCount, equals(1));
+      expect(layout1.isEvicted, isFalse);
+
+      // 彻底归还
+      layout1.dispose();
+      expect(layout1.refCount, equals(0));
+    });
+
+    test('超出容量限制触发 LRU 淘汰', () {
+      final pool = DanmakuLayoutPool(maxEntries: 2);
+      final l1 = pool.acquire(
+        text: '文本1',
+        color: Colors.white,
+        fontSize: 18.0,
+        strokeWidth: 1.0,
+      );
+      final l2 = pool.acquire(
+        text: '文本2',
+        color: Colors.white,
+        fontSize: 18.0,
+        strokeWidth: 1.0,
+      );
+      expect(l1.isEvicted, isFalse);
+
+      // 插入第 3 个，导致最旧的 l1 被淘汰标记
+      pool.acquire(
+        text: '文本3',
+        color: Colors.white,
+        fontSize: 18.0,
+        strokeWidth: 1.0,
+      );
+      expect(l1.isEvicted, isTrue);
+      expect(l2.isEvicted, isFalse);
+
+      l1.dispose();
+      l2.dispose();
+      pool.clear();
+    });
+  });
+
+  group('DanmakuEntry 预缓存 normalizedKey 验证', () {
+    test('Entry 构造时预先固化归一化键', () {
+      final item = DanmakuItem(text: '！！！Hello？？？', timeMs: 0);
+      final layout = DanmakuTextLayout(
+        text: item.text,
+        color: Colors.white,
+        fontSize: 18.0,
+        strokeWidth: 1.0,
+      );
+      final entry = DanmakuEntry(
+        item: item,
+        track: 0,
+        startMs: 0,
+        durationMs: 7000,
+        speed: 0.1,
+        x: 800,
+        y: 0,
+        baseText: item.text,
+        layout: layout,
+      );
+
+      expect(entry.normalizedKey, equals('hello'));
+      entry.dispose();
     });
   });
 }
