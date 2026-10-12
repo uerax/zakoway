@@ -218,47 +218,54 @@ class DailyRecommendService {
     required Set<int> watchedSubjectIds,
     required bool isColdStart,
   }) async {
-    // 质数散列步进常数：保证各槽位翻页深度相隔拉远，杜绝在同一局部区间抓取连号邻近条目
-    const primes = [17, 37, 53, 71, 89];
-    const bases = [0, 19, 31, 47, 63];
+    // 排序错落交替：热度流行与口碑经典错落交融
     const sortModes = ['heat', 'score', 'heat', 'score', 'heat'];
 
     final futures = <Future<List<BangumiItem>>>[];
+    int prevOffset = -999;
+
     for (var i = 0; i < 5; i++) {
       final targetTag = i < slotTags.length ? slotTags[i] : null;
-      final prime = primes[i % primes.length];
-      final base = bases[i % bases.length];
-      // 深度大跨度散落：每个槽位 offset 在 0 ~ 45 不同的质数区间分布，绝不挨着
-      final slotOffset = ((seed * prime + base) & 0x7FFFFFFF) % 45;
       final sortMode = sortModes[i % sortModes.length];
 
-      if (targetTag != null) {
-        futures.add(
-          client
-              .searchWithTotal(
-                '',
-                tags: [targetTag, '日本'],
-                sort: sortMode,
-                limit: 8,
-                offset: slotOffset,
-              )
-              .then((res) => res.items)
-              .catchError((_) => <BangumiItem>[]),
-        );
-      } else {
-        futures.add(
-          client
-              .searchWithTotal(
-                '',
-                tags: const ['日本'],
-                sort: sortMode,
-                limit: 8,
-                offset: slotOffset,
-              )
-              .then((res) => res.items)
-              .catchError((_) => <BangumiItem>[]),
-        );
+      // 广域全库大纵深真随机漫游：读取题材持久化容量 total，在 0 ~ (total - 8) 范围内基于天命种子散列跳跃
+      final effectiveTag = targetTag ?? '日本';
+      final tagTotal = await client.getTagTotal(effectiveTag);
+      final maxOffset = max(0, tagTotal - 8);
+      var slotOffset = maxOffset > 0 ? rng.nextInt(maxOffset + 1) : 0;
+
+      // 确保槽位之间大跨度散落，绝不相邻连号
+      if ((slotOffset - prevOffset).abs() <= 1 && maxOffset > 10) {
+        slotOffset = (slotOffset + 17) % (maxOffset + 1);
       }
+      prevOffset = slotOffset;
+
+      final searchTags = targetTag != null ? [targetTag, '日本'] : const ['日本'];
+
+      futures.add(
+        () async {
+          var res = await client.searchWithTotal(
+            '',
+            tags: searchTags,
+            sort: sortMode,
+            limit: 8,
+            offset: slotOffset,
+          );
+
+          // 自适应防空保底：若冷门题材因大 offset 返回空，平滑退回 offset: 0
+          if (res.items.isEmpty && slotOffset > 0) {
+            res = await client.searchWithTotal(
+              '',
+              tags: searchTags,
+              sort: sortMode,
+              limit: 8,
+              offset: 0,
+            );
+          }
+
+          return res.items;
+        }().catchError((_) => <BangumiItem>[]),
+      );
     }
 
     final slotResults = await Future.wait(futures);

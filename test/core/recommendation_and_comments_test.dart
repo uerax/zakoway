@@ -83,6 +83,26 @@ void main() {
         ).collectionTypeLabel,
         '在看',
       );
+      expect(
+        const BangumiCommentItem(
+          id: 3,
+          author: BangumiUser(id: 1, username: 'u', nickname: 'n'),
+          content: 'c',
+          updatedAt: '',
+          collectionType: 4,
+        ).collectionTypeLabel,
+        '搁置',
+      );
+      expect(
+        const BangumiCommentItem(
+          id: 4,
+          author: BangumiUser(id: 1, username: 'u', nickname: 'n'),
+          content: 'c',
+          updatedAt: '',
+          collectionType: 5,
+        ).collectionTypeLabel,
+        '抛弃',
+      );
     });
   });
 
@@ -136,6 +156,19 @@ void main() {
           expect(item.score, greaterThan(0));
         }
       }
+    });
+
+    test('getSimilarRecommendations with different refreshIndex produces scattered candidates', () async {
+      final client = BangumiClient();
+      final batch0 = await client.getSimilarRecommendations(364450, page: 1, pageSize: 5, refreshIndex: 0);
+      final batch1 = await client.getSimilarRecommendations(364450, page: 1, pageSize: 5, refreshIndex: 1, forceRefresh: true);
+      expect(batch0.items, isNotEmpty);
+      expect(batch1.items, isNotEmpty);
+      final ids0 = batch0.items.map((e) => e.id).toSet();
+      final ids1 = batch1.items.map((e) => e.id).toSet();
+      // 换一批后两批条目具有显著离散差异
+      final overlap = ids0.intersection(ids1);
+      expect(overlap.length, lessThan(batch0.items.length));
     });
 
     test('mirror getRecommendations call', () async {

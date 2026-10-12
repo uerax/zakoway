@@ -7,6 +7,7 @@ import '../../../core/utils/comment_censor_engine.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
 import '../../common/widgets/cached_anime_image.dart';
+import '../../common/widgets/instant_dropdown_button.dart';
 
 /// 播放页评论区/吐槽区组件 (1:1 复刻 animaku 块级分页、B 站评分星与黑幕审查引擎)
 class WatchCommentsSection extends ConsumerStatefulWidget {
@@ -36,6 +37,8 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
     (label: '看过', type: 2),
     (label: '在看', type: 3),
     (label: '想看', type: 1),
+    (label: '搁置', type: 4),
+    (label: '抛弃', type: 5),
   ];
 
   @override
@@ -144,59 +147,116 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
                 ),
               ),
             const Spacer(),
-            // 筛选类型胶囊
-            Container(
-              padding: const EdgeInsets.all(2.5),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white.withAlpha(12) : Colors.black.withAlpha(8),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                children: _typeFilters.map((filter) {
-                  final isSelected = _selectedType == filter.type;
-                  return BouncingScaleCard(
-                    scaleDown: 0.94,
-                    immediateTap: true,
-                    onTap: () {
-                      if (_selectedType == filter.type) return;
-                      setState(() {
-                        _selectedType = filter.type;
-                        _page = 1;
-                      });
-                      _fetchPage(1);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? (isDark ? Colors.white.withValues(alpha: 0.18) : Colors.white)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Text(
+            // 筛选类型极速下拉菜单 (支持全部/看过/在看/想看/搁置/抛弃，彻底消除外圈方形阴影，自带微弹性)
+            InstantDropdownButton<int?>(
+              selectedValue: _selectedType,
+              items: _typeFilters.map((f) => f.type).toList(),
+              menuWidth: 124,
+              maxMenuHeight: 260,
+              alignRight: true,
+              onSelected: (newType) {
+                if (_selectedType == newType) return;
+                setState(() {
+                  _selectedType = newType;
+                  _page = 1;
+                });
+                _fetchPage(1);
+              },
+              itemBuilder: (context, typeVal, isSelected) {
+                final filter = _typeFilters.firstWhere(
+                  (f) => f.type == typeVal,
+                  orElse: () => _typeFilters.first,
+                );
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  color: isSelected
+                      ? primaryColor.withValues(alpha: isDark ? 0.20 : 0.10)
+                      : Colors.transparent,
+                  child: Row(
+                    children: [
+                      Text(
                         filter.label,
                         style: TextStyle(
-                          fontSize: 11.0,
+                          fontSize: 12.5,
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                           color: isSelected
-                              ? (isDark ? Colors.white : primaryColor)
-                              : theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                              ? primaryColor
+                              : (isDark ? Colors.white.withValues(alpha: 0.85) : Colors.black87),
                           fontFamily: 'MiSans',
                           fontFamilyFallback: FontManager.fallbackFontFamilies,
                         ),
                       ),
+                      const Spacer(),
+                      if (isSelected)
+                        Icon(
+                          Icons.check_rounded,
+                          size: 15,
+                          color: primaryColor,
+                        ),
+                    ],
+                  ),
+                );
+              },
+              child: BouncingScaleCard(
+                scaleDown: 0.95,
+                immediateTap: true,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    height: 28,
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: _selectedType != null
+                          ? primaryColor.withValues(alpha: isDark ? 0.22 : 0.12)
+                          : (isDark ? Colors.white.withAlpha(12) : Colors.black.withAlpha(8)),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: _selectedType != null
+                            ? primaryColor.withValues(alpha: 0.35)
+                            : (isDark ? Colors.white.withAlpha(18) : Colors.black.withAlpha(12)),
+                        width: 0.8,
+                      ),
                     ),
-                  );
-                }).toList(),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.filter_list_rounded,
+                          size: 13,
+                          color: _selectedType != null
+                              ? primaryColor
+                              : theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _typeFilters.firstWhere(
+                            (f) => f.type == _selectedType,
+                            orElse: () => _typeFilters.first,
+                          ).label,
+                          style: TextStyle(
+                            fontSize: 12.0,
+                            fontWeight: _selectedType != null ? FontWeight.w700 : FontWeight.w500,
+                            color: _selectedType != null
+                                ? primaryColor
+                                : theme.textTheme.bodySmall?.color?.withValues(alpha: 0.85),
+                            fontFamily: 'MiSans',
+                            fontFamilyFallback: FontManager.fallbackFontFamilies,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 16,
+                          color: _selectedType != null
+                              ? primaryColor
+                              : theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -628,6 +688,8 @@ class _CommentCardItemState extends State<_CommentCardItem> {
       2 => const Color(0xFF10B981).withValues(alpha: 0.15),
       3 => const Color(0xFF0EA5E9).withValues(alpha: 0.15),
       1 => const Color(0xFFF59E0B).withValues(alpha: 0.15),
+      4 => const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+      5 => const Color(0xFFEF4444).withValues(alpha: 0.15),
       _ => Colors.grey.withValues(alpha: 0.15),
     };
   }
@@ -637,6 +699,8 @@ class _CommentCardItemState extends State<_CommentCardItem> {
       2 => const Color(0xFF10B981),
       3 => const Color(0xFF0EA5E9),
       1 => const Color(0xFFF59E0B),
+      4 => const Color(0xFF8B5CF6),
+      5 => const Color(0xFFEF4444),
       _ => Colors.grey,
     };
   }

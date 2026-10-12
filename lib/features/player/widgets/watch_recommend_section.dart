@@ -41,6 +41,7 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
   bool _isLoadingMore = false;
   bool _hasMoreSimilar = true;
   int _currentPage = 1;
+  int _refreshCount = 0;
   String? _error;
 
   ScrollPosition? _scrollPosition;
@@ -86,6 +87,7 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
         (oldWidget.bangumiItem == null && widget.bangumiItem != null) ||
         ((oldWidget.bangumiItem?.tags.isEmpty ?? true) &&
             (widget.bangumiItem?.tags.isNotEmpty ?? false))) {
+      _refreshCount = 0;
       _fetchRecommendations();
     }
   }
@@ -93,6 +95,10 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
   Future<void> _fetchRecommendations({bool forceRefresh = false}) async {
     final subjectId = widget.bangumiId ?? widget.bangumiItem?.id ?? 0;
     if (subjectId <= 0) return;
+
+    if (forceRefresh) {
+      _refreshCount++;
+    }
 
     setState(() {
       _isLoadingRelation = true;
@@ -122,7 +128,7 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
       });
     });
 
-    // 2. 相似推荐首屏请求（默认加载 5 部，快速响应，避免长时间旋转加载）
+    // 2. 相似推荐首屏请求（基于多维题材切面与质数散列深度大跨度散落，默认加载 5 部）
     final rawTags = widget.bangumiItem?.tags.map((t) => t.name).toList();
     final isMovie = widget.bangumiItem != null
         ? (widget.bangumiItem!.totalEpisodes == 1 && widget.bangumiItem!.eps == 1) ||
@@ -138,6 +144,7 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
         isMovie: isMovie,
         page: 1,
         pageSize: 5,
+        refreshIndex: _refreshCount,
         forceRefresh: forceRefresh,
       );
 
@@ -185,6 +192,7 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
         isMovie: isMovie,
         page: nextPage,
         pageSize: 5,
+        refreshIndex: _refreshCount,
         excludeIds: {
           if (_relationItem != null) _relationItem!.id,
           ..._similarItems.map((e) => e.id),

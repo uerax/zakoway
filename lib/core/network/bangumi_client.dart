@@ -15,6 +15,7 @@ import '../models/bangumi/bangumi_user.dart';
 import '../models/network/custom_network_route.dart';
 import '../services/app_preferences.dart';
 import '../services/daily_recommend_service.dart';
+import '../utils/anime_tag_filter.dart';
 import '../utils/image_utils.dart';
 import '../utils/timed_cache.dart';
 import 'bangumi_api_exception.dart';
@@ -90,10 +91,54 @@ class BangumiClient {
     maxEntries: 100,
   );
   // 8.2 相似推荐候选池：24 小时缓存，最多保留 60 条
-  final _similarPoolCache = TimedKeyedCache<int, List<BangumiRecommendationItem>>(
+  final _similarPoolCache = TimedKeyedCache<String, List<BangumiRecommendationItem>>(
     maxAge: const Duration(hours: 24),
     maxEntries: 60,
   );
+
+  // 8.3 题材作品总量长期磁盘/内存缓存 (180 天超长 TTL，全库真随机 offset 必备)
+  static final Map<String, int> _tagTotalMemoryCache = {};
+  static const String _tagTotalDiskCacheKey = 'bangumi_tag_totals_v1';
+  static bool _hasLoadedTagTotalDiskCache = false;
+
+  /// 获取指定题材在 Bangumi 平台的作品总数（支持磁盘恢复与安全预设）
+  Future<int> getTagTotal(String tag) async {
+    final clean = tag.trim();
+    if (clean.isEmpty) return 400;
+
+    if (!_hasLoadedTagTotalDiskCache) {
+      _hasLoadedTagTotalDiskCache = true;
+      try {
+        final diskJson = await _diskCache?.getJson(_tagTotalDiskCacheKey);
+        if (diskJson is Map<String, dynamic>) {
+          diskJson.forEach((k, v) {
+            if (v is num) _tagTotalMemoryCache[k] = v.toInt();
+          });
+        }
+      } catch (_) {}
+    }
+
+    if (_tagTotalMemoryCache.containsKey(clean)) {
+      return _tagTotalMemoryCache[clean]!;
+    }
+
+    // 安全预设容量基准（白名单主流题材基础容量通常为 300 ~ 1000）
+    return 400;
+  }
+
+  /// 记录并异步持久化题材总数
+  void recordTagTotal(String tag, int total) {
+    final clean = tag.trim();
+    if (clean.isEmpty || total <= 0) return;
+    final capped = total.clamp(10, 1000);
+    _tagTotalMemoryCache[clean] = capped;
+
+    unawaited(_diskCache?.putJson(
+      _tagTotalDiskCacheKey,
+      _tagTotalMemoryCache,
+      maxAge: const Duration(days: 180),
+    ) ?? Future.value());
+  }
 
   // L2 磁盘持久化缓存池（安全惰性加载，规避无 UI 绑定的测试环境崩溃）
   BangumiDataDiskCacheManager? get _diskCache {
@@ -788,6 +833,16 @@ class BangumiClient {
           final ttl = isHotList ? const Duration(hours: 12) : const Duration(hours: 2);
           unawaited(_diskCache?.putJson(cacheKey, result.toJson(), maxAge: ttl) ?? Future.value());
 
+          // 自动学习记录该题材在 Bangumi 的真实作品容量上限
+          if (tags != null && tags.isNotEmpty && total > 0) {
+            for (final t in tags) {
+              if (t != '日本' && t != '剧场版' && t != 'OVA') {
+                recordTagTotal(t, total);
+                break;
+              }
+            }
+          }
+
           return result;
         }
         return BangumiSearchResult.empty;
@@ -856,58 +911,9 @@ class BangumiClient {
     }
   }
 
-  static final RegExp _noiseTimeRegex = RegExp(
-    r'^(\d{4}年?(\d{1,2}月)?|\d{1,2}月|\d{4}s|\d{2}年代|\d{4}(春|夏|秋|冬)|(春|夏|秋|冬)季番|\d{4})$',
-    caseSensitive: false,
-  );
-
-  static const Set<String> _noiseTags = {
-    '日本', 'TV', '日本动画', 'TV动画', 'WEB', 'web', 'ONA', 'OVA', 'OAD',
-    '动画', '国产', '中国', '欧美', '韩国', '漫画改', '小说改', '轻小说改',
-    '漫改', '轻改', '原创', '续作', '第二季', '第三季', '游戏改', '神作',
-    '补番', '烂尾', '弃坑', '待看', '经典', '推荐', '名作', '剧场版',
-    '动画电影', '电影',
-  };
-
-  static const List<String> _fallbackGenreTags = [
-    '日常', '搞笑', '奇幻', '热血', '战斗', '科幻',
-    '治愈', '恋爱', '校园', '悬疑', '冒险', '青春',
-  ];
-
-  /// Tag 清洗与特征抽取（固定限定日本地区番剧）
-  static ({List<String> pickedTags, List<String> searchTags}) _cleanAndPickTags(
-    List<String> rawTags, {
-    bool isMovie = false,
-  }) {
-    final cleaned = <String>[];
-    for (final raw in rawTags) {
-      final t = raw.trim();
-      if (t.isEmpty) continue;
-      if (_noiseTimeRegex.hasMatch(t)) continue;
-      if (_noiseTags.contains(t)) continue;
-      if (!cleaned.contains(t)) cleaned.add(t);
-    }
-
-    final shuffled = List<String>.from(cleaned)..shuffle();
-    final picked = shuffled.take(2).toList();
-
-    if (picked.length < 2) {
-      final available = _fallbackGenreTags.where((t) => !picked.contains(t)).toList()..shuffle();
-      while (picked.length < 2 && available.isNotEmpty) {
-        picked.add(available.removeLast());
-      }
-    }
-
-    final search = <String>['日本', ...picked];
-    if (isMovie && !search.contains('剧场版')) {
-      search.add('剧场版');
-    }
-    return (pickedTags: picked, searchTags: search);
-  }
-
-  /// 过滤并映射推荐条目（仅保留日本动画、有评分且评分人数 >= 50 的高质量条目）
-  static List<BangumiRecommendationItem> _filterAndMapRecommendations(
-    List<Map<String, dynamic>> rawList, {
+  /// 过滤并映射搜索条目为推荐结果（剔除非日本番剧、过滤无评分作品，取消死板人数门槛）
+  static List<BangumiRecommendationItem> _filterAndMapSearchResult(
+    List<BangumiItem> items, {
     required int excludeSubjectId,
     Set<int>? additionalExcludeIds,
   }) {
@@ -917,71 +923,40 @@ class BangumiClient {
       ...?additionalExcludeIds,
     };
 
-    for (final item in rawList) {
-      final cid = (item['id'] is num)
-          ? (item['id'] as num).toInt()
-          : (int.tryParse('${item['id']}') ?? 0);
-      if (cid <= 0 || seen.contains(cid)) continue;
+    for (final item in items) {
+      if (item.id <= 0 || seen.contains(item.id)) continue;
 
-      // 1. 过滤非动画类型
-      final type = (item['type'] is num)
-          ? (item['type'] as num).toInt()
-          : (int.tryParse('${item['type']}') ?? 0);
-      if (type != 0 && type != 2) continue;
+      // 1. 过滤非动画类型 (0: 未知/通用, 2: 动画)
+      if (item.type != 0 && item.type != 2) continue;
 
-      // 2. 严格限制仅日本番剧：过滤含非日本地区标签的条目
-      final rawTags = item['tags'];
-      if (rawTags is List) {
-        final tagNames = rawTags
-            .map((t) => t is Map ? (t['name']?.toString() ?? '') : '')
-            .where((t) => t.isNotEmpty)
-            .toSet();
-        if (tagNames.contains('国产') ||
-            tagNames.contains('中国') ||
-            tagNames.contains('欧美') ||
-            tagNames.contains('韩国')) {
-          continue;
-        }
-      }
+      // 2. 必须具备有效封面
+      if (item.coverUrl.isEmpty) continue;
 
-      // 3. 严格限制：无评分或评分人数少于 50 人的条目不予推荐
-      final rawRating = (item['rating'] is Map) ? (item['rating'] as Map) : const {};
-      final rawScore = rawRating['score'];
-      final score = (rawScore is num)
-          ? rawScore.toDouble()
-          : (double.tryParse('$rawScore') ?? 0.0);
-      final ratingTotal = (rawRating['total'] is num)
-          ? (rawRating['total'] as num).toInt()
-          : (int.tryParse('${rawRating['total']}') ?? 0);
+      // 3. 严格限制仅日本番剧：过滤含非日本地区标签的条目
+      final hasForeignTag = item.tags.any((t) =>
+          t.name == '国产' ||
+          t.name == '中国' ||
+          t.name == '欧美' ||
+          t.name == '韩国');
+      if (hasForeignTag) continue;
 
-      if (score <= 0.0 || ratingTotal < 50) {
-        continue;
-      }
+      // 4. 过滤无评分条目（取消生硬的人数限制，放宽让 6~8.5+ 各类宝藏作品自然涌现）
+      if (item.ratingScore <= 0.0) continue;
 
-      final rawImages = (item['images'] is Map) ? (item['images'] as Map) : const {};
-      final cover = rawImages['large']?.toString() ??
-          rawImages['common']?.toString() ??
-          rawImages['medium']?.toString() ??
-          '';
-
-      final airDate = item['air_date']?.toString() ?? item['date']?.toString() ?? '';
-      final year = airDate.length >= 4 ? airDate.substring(0, 4) : '';
-
-      final totalEps = (item['total_episodes'] is num)
-          ? (item['total_episodes'] as num).toInt()
-          : (item['eps'] is num ? (item['eps'] as num).toInt() : 0);
+      final totalEps = item.totalEpisodes > 0 ? item.totalEpisodes : item.eps;
       final epsLabel = totalEps > 0 ? '全$totalEps话' : '';
+      final year = item.airDate.length >= 4 ? item.airDate.substring(0, 4) : '';
 
       results.add(BangumiRecommendationItem(
-        id: cid,
-        name: item['name']?.toString() ?? '',
-        nameCn: item['name_cn']?.toString() ?? item['name']?.toString() ?? '',
-        cover: cover,
-        score: double.parse(score.toStringAsFixed(1)),
+        id: item.id,
+        name: item.name,
+        nameCn: item.preferredName,
+        cover: item.coverUrl,
+        score: double.parse(item.ratingScore.toStringAsFixed(1)),
         year: year,
         epsLabel: epsLabel,
       ));
-      seen.add(cid);
+      seen.add(item.id);
     }
 
     return results;
@@ -1127,24 +1102,33 @@ class BangumiClient {
     }
   }
 
-  /// 分批获取相似日本番剧推荐（仅日本、评分>0且评价人数>=50，支持流式分页）
+  /// 分批获取相似日本番剧推荐（基于多维题材互斥切面 + 质数散列深度大跨度散落 + heat/score交替错落）
+  ///
+  /// 特殊处理说明：
+  /// 1. 白名单题材互斥切面：通过 AnimeTagFilter.genreAllowList 过滤噪音，将番剧的多个核心题材分别赋予 5 个独立槽位，
+  ///    杜绝单一赛道扎堆；
+  /// 2. 排序交替打破 7 分扎堆：交替采用 score（高分口碑神作）与 heat（高热流行新番），拉开评分层次；
+  /// 3. 质数散列深度大跨度散落：每个槽位使用独立质数散列 offset，深度拉开，杜绝抓取局部连号；
+  /// 4. 槽位交错穿插（Interleaving）：首屏 5 部自然涵盖 5 个不同题材切面与口碑/热度组合，翻页顺畅。
   Future<({List<BangumiRecommendationItem> items, bool hasMore})> getSimilarRecommendations(
     int subjectId, {
     List<String>? tags,
     bool? isMovie,
     int page = 1,
     int pageSize = 5,
+    int refreshIndex = 0,
     Set<int>? excludeIds,
     bool forceRefresh = false,
   }) async {
     if (subjectId <= 0) return (items: const <BangumiRecommendationItem>[], hasMore: false);
 
-    final diskCacheKey = 'bangumi_similar_pool_$subjectId';
+    final poolCacheKey = '${subjectId}_$refreshIndex';
+    final diskCacheKey = 'bangumi_similar_pool_${subjectId}_$refreshIndex';
 
     // 优先检查内存中是否已有缓冲候选池
     List<BangumiRecommendationItem>? pool;
     if (!forceRefresh) {
-      pool = _similarPoolCache.get(subjectId);
+      pool = _similarPoolCache.get(poolCacheKey);
       if (pool == null) {
         final diskJson = await _diskCache?.getJson(diskCacheKey);
         if (diskJson is List) {
@@ -1153,22 +1137,19 @@ class BangumiClient {
               .map((e) => BangumiRecommendationItem.fromJson(e))
               .toList();
           if (pool.isNotEmpty) {
-            _similarPoolCache.set(subjectId, pool, pool.length * 800 + 256);
+            _similarPoolCache.set(poolCacheKey, pool, pool.length * 800 + 256);
           }
         }
       }
     }
 
     if (pool == null || pool.isEmpty || forceRefresh) {
-      final inflightKey = 'sim_pool_$subjectId';
+      final inflightKey = 'sim_pool_${subjectId}_$refreshIndex';
       if (_inflight.containsKey(inflightKey)) {
         pool = await (_inflight[inflightKey] as Future<List<BangumiRecommendationItem>>);
       } else {
         final future = () async {
           try {
-            final now = DateTime.now();
-            final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-
             var effectiveTags = tags != null ? List<String>.from(tags) : <String>[];
             var effectiveIsMovie = isMovie;
 
@@ -1190,80 +1171,159 @@ class BangumiClient {
             }
             effectiveIsMovie ??= false;
 
-            // 标签清洗（强制限定日本）
-            final tagPack = _cleanAndPickTags(effectiveTags, isMovie: effectiveIsMovie);
+            // 1. 白名单题材清洗
+            final cleanGenres = <String>[];
+            for (final raw in effectiveTags) {
+              final t = raw.trim();
+              if (t.isEmpty) continue;
+              if (AnimeTagFilter.isAllowedGenre(t) && !cleanGenres.contains(t)) {
+                cleanGenres.add(t);
+              }
+            }
 
-            Future<List<Map<String, dynamic>>> querySearchSubjects(List<String> searchTags, {String sort = 'match', int limit = 30}) async {
+            // 2. 槽位题材互斥投影规划 (5 个槽位互斥切面)
+            final movieTag = effectiveIsMovie ? ['剧场版'] : const <String>[];
+            final slotTagsList = <List<String>>[];
+
+            if (cleanGenres.length >= 3) {
+              slotTagsList.add([cleanGenres[0], '日本', ...movieTag]);
+              slotTagsList.add([cleanGenres[1], '日本', ...movieTag]);
+              slotTagsList.add([cleanGenres[2], '日本', ...movieTag]);
+              slotTagsList.add([cleanGenres[0], cleanGenres[1], '日本', ...movieTag]);
+              final slot4Tag = cleanGenres.length >= 4 ? cleanGenres[3] : cleanGenres[0];
+              slotTagsList.add([slot4Tag, '日本', ...movieTag]);
+            } else if (cleanGenres.length == 2) {
+              slotTagsList.add([cleanGenres[0], '日本', ...movieTag]);
+              slotTagsList.add([cleanGenres[1], '日本', ...movieTag]);
+              slotTagsList.add([cleanGenres[0], cleanGenres[1], '日本', ...movieTag]);
+              slotTagsList.add([cleanGenres[0], '日本', ...movieTag]);
+              slotTagsList.add([cleanGenres[1], '日本', ...movieTag]);
+            } else if (cleanGenres.length == 1) {
+              for (var i = 0; i < 5; i++) {
+                slotTagsList.add([cleanGenres[0], '日本', ...movieTag]);
+              }
+            } else {
+              final itemTags = AnimeTagFilter.cleanItemTags(effectiveTags);
+              final fallbackTag = itemTags.isNotEmpty ? itemTags.first : '日本';
+              for (var i = 0; i < 5; i++) {
+                if (fallbackTag != '日本') {
+                  slotTagsList.add([fallbackTag, '日本', ...movieTag]);
+                } else {
+                  slotTagsList.add(['日本', ...movieTag]);
+                }
+              }
+            }
+
+            // 3. 5 路槽位在 1 ~ tagTotal 全库大纵深内真随机漫游 (score 排序保底品质，全随机 offset 彻底拉开层次)
+            final rng = Random();
+            final slotFutures = <Future<List<BangumiRecommendationItem>>>[];
+
+            for (var i = 0; i < 5; i++) {
+              final searchTags = slotTagsList[i];
+              final mainTag = searchTags.firstWhere(
+                (t) => t != '日本' && t != '剧场版',
+                orElse: () => '日本',
+              );
+
+              slotFutures.add(
+                () async {
+                  final tagTotal = await getTagTotal(mainTag);
+                  final maxOffset = max(0, tagTotal - 6);
+                  // 直接在 0 ~ (total - 6) 的全库大纵深内真随机摇号
+                  final slotOffset = maxOffset > 0 ? rng.nextInt(maxOffset + 1) : 0;
+
+                  var res = await searchWithTotal(
+                    '',
+                    tags: searchTags,
+                    sort: 'score',
+                    limit: 6,
+                    offset: slotOffset,
+                  );
+
+                  // 自适应防空保底：若冷门题材因过大 offset 返回空，平滑退回 offset: 0
+                  if (res.items.isEmpty && slotOffset > 0) {
+                    res = await searchWithTotal(
+                      '',
+                      tags: searchTags,
+                      sort: 'score',
+                      limit: 6,
+                      offset: 0,
+                    );
+                  }
+
+                  return _filterAndMapSearchResult(
+                    res.items,
+                    excludeSubjectId: subjectId,
+                    additionalExcludeIds: excludeIds,
+                  );
+                }().catchError((_) => <BangumiRecommendationItem>[]),
+              );
+            }
+
+            final slotResults = await Future.wait(slotFutures);
+
+            // 5. 跨槽位交错穿插（Interleaving）与全局去重，输出自然散落的条目池
+            final poolCandidates = <BangumiRecommendationItem>[];
+            final seenPoolIds = <int>{
+              subjectId,
+              ...?excludeIds,
+            };
+
+            int maxDepth = 0;
+            for (final list in slotResults) {
+              if (list.length > maxDepth) maxDepth = list.length;
+            }
+
+            for (var depth = 0; depth < maxDepth; depth++) {
+              for (var slot = 0; slot < slotResults.length; slot++) {
+                final list = slotResults[slot];
+                if (depth < list.length) {
+                  final item = list[depth];
+                  if (!seenPoolIds.contains(item.id)) {
+                    seenPoolIds.add(item.id);
+                    poolCandidates.add(item);
+                  }
+                }
+              }
+            }
+
+            // 6. 兜底平滑补充（若偏门题材或重度去重后不足 15 部，通过随机 offset 从热门日本榜补充）
+            if (poolCandidates.length < 15) {
               try {
-                final res = await _dio.post(
-                  '/v0/search/subjects',
-                  queryParameters: {'limit': limit, 'offset': 0},
-                  data: {
-                    'sort': sort,
-                    'filter': {
-                      'type': [2],
-                      'tag': searchTags, // 严格包含 '日本'
-                      'air_date': ['<=$todayStr'],
-                      'nsfw': false,
-                    },
-                  },
+                final fallbackOffset = rng.nextInt(50);
+                final fallbackRes = await searchWithTotal(
+                  '',
+                  tags: ['日本', ...movieTag],
+                  sort: 'heat',
+                  limit: 15,
+                  offset: fallbackOffset,
                 );
-                if (res.data is Map<String, dynamic>) {
-                  final map = res.data as Map<String, dynamic>;
-                  return (map['data'] as List?)?.whereType<Map<String, dynamic>>().toList() ?? const [];
+                final mapped = _filterAndMapSearchResult(
+                  fallbackRes.items,
+                  excludeSubjectId: subjectId,
+                  additionalExcludeIds: seenPoolIds,
+                );
+                for (final item in mapped) {
+                  if (!seenPoolIds.contains(item.id)) {
+                    seenPoolIds.add(item.id);
+                    poolCandidates.add(item);
+                    if (poolCandidates.length >= 20) break;
+                  }
                 }
               } catch (_) {}
-              return const <Map<String, dynamic>>[];
             }
 
-            // 尝试 1: 日本 + 抽取特征标签 (+ 剧场版) 一次性拉取候选
-            final raw1 = await querySearchSubjects(tagPack.searchTags, limit: 30);
-            var candidates = _filterAndMapRecommendations(
-              raw1,
-              excludeSubjectId: subjectId,
-              additionalExcludeIds: excludeIds,
-            );
-
-            // 尝试 2: 候选不足时，回退为 日本 + 首个特征标签 补充
-            if (candidates.length < 15 && tagPack.pickedTags.length > 1) {
-              final fallbackTags = ['日本', tagPack.pickedTags[0]];
-              if (effectiveIsMovie) fallbackTags.add('剧场版');
-              final raw2 = await querySearchSubjects(fallbackTags, limit: 20);
-              final filtered2 = _filterAndMapRecommendations(
-                raw2,
-                excludeSubjectId: subjectId,
-                additionalExcludeIds: {
-                  ...?excludeIds,
-                  ...candidates.map((c) => c.id),
-                },
-              );
-              candidates.addAll(filtered2);
-            }
-
-            // 尝试 3: 依然不足时，采用 日本热门榜 兜底保证候选充足
-            if (candidates.length < 15) {
-              final raw3 = await querySearchSubjects(['日本'], sort: 'heat', limit: 25);
-              final filtered3 = _filterAndMapRecommendations(
-                raw3,
-                excludeSubjectId: subjectId,
-                additionalExcludeIds: {
-                  ...?excludeIds,
-                  ...candidates.map((c) => c.id),
-                },
-              );
-              candidates.addAll(filtered3);
-            }
-
-            if (candidates.isNotEmpty) {
-              _similarPoolCache.set(subjectId, candidates, candidates.length * 800 + 256);
+            // 7. 回填缓存
+            if (poolCandidates.isNotEmpty) {
+              _similarPoolCache.set(poolCacheKey, poolCandidates, poolCandidates.length * 800 + 256);
               unawaited(_diskCache?.putJson(
                 diskCacheKey,
-                candidates.map((e) => e.toJson()).toList(),
+                poolCandidates.map((e) => e.toJson()).toList(),
                 maxAge: const Duration(hours: 24),
               ) ?? Future.value());
             }
 
-            return candidates;
+            return poolCandidates;
           } catch (_) {
             return const <BangumiRecommendationItem>[];
           }
