@@ -479,6 +479,7 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
           episodeTitles: widget.episodeTitles,
           slots: widget.slots,
           watchedEpisodes: watched,
+          isLoading: widget.isLoadingEpisodes,
           onRoadSelected: widget.onRoadSelected,
           onRefresh: widget.onRefreshEpisodes,
           onSelectEpisode: (ep) {

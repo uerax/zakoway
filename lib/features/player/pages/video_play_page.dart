@@ -1613,6 +1613,8 @@ class _VideoPlayPageState extends State<VideoPlayPage>
             episodeTitles: _mappedEpisodeTitles,
             slots: _currentSlots,
             watchedEpisodes: watched,
+            isLoading: _isLoadingChapters,
+            loadingMessage: '正在从「$_selectedSourceName」解析分集...',
             onRoadSelected: (idx) {
               if (_selectedRoadIndex == idx) return;
               setState(() => _selectedRoadIndex = idx);

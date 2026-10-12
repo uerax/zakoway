@@ -324,6 +324,31 @@ void main() {
       expect(find.byType(VideoSourceView), findsOneWidget);
       expect(find.text('稀饭Next'), findsAtLeastNWidgets(1));
     });
+
+    testWidgets('11. 分集正在加载 (isLoading == true) 时展示骨架与提示，绝不提前暴露虚假上千集卡片与分页胶囊', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EpisodePickerSection(
+              episodeCount: 1100, // 模拟外部传入的长篇占位总集数
+              isLoading: true,
+              loadingMessage: '正在从「稀饭Next」解析分集...',
+              onSelectEpisode: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // 验证展示加载中提示文案
+      expect(find.text('正在从「稀饭Next」解析分集...'), findsOneWidget);
+      expect(find.text('加载中...'), findsOneWidget);
+
+      // 验证绝不提前渲染 1-50 等基于 1100 虚假集数计算的分页胶囊与第 1 话虚假卡片
+      expect(find.text('1-50'), findsNothing);
+      expect(find.text('共 1100 话'), findsNothing);
+      expect(find.text('第 1 话'), findsNothing);
+    });
   });
 }
 

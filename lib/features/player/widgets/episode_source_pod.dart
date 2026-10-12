@@ -242,6 +242,8 @@ class EpisodeSourcePod extends StatelessWidget {
                                 activeRoadIndex: selectedRoadIndex,
                                 playingRoadIndex: playingRoadIndex,
                                 episodeTitles: mappedEpisodeTitles,
+                                isLoading: isLoadingChapters,
+                                loadingMessage: '正在从「$selectedSourceName」解析分集...',
                                 onRoadSelected: onRoadSelected,
                                 onSelectEpisode: (ep) {
                                   onSelectEpisode(ep);

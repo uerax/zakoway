@@ -84,6 +84,8 @@ class EpisodePickerSection extends StatefulWidget {
     this.watchedEpisodes = const {},
     this.rangeSize,
     this.shrinkWrap = false,
+    this.isLoading = false,
+    this.loadingMessage,
   });
 
   final int episodeCount;
@@ -98,6 +100,10 @@ class EpisodePickerSection extends StatefulWidget {
   final ValueChanged<int>? onRoadSelected;
   final List<String>? episodeTitles;
   final Set<int> watchedEpisodes;
+  /// 是否正处于分集加载检索中
+  final bool isLoading;
+  /// 加载中文案提示
+  final String? loadingMessage;
   /// 自定义单页集数区间容量（若未指定，移动端默认 28，桌面端默认 50）
   final int? rangeSize;
   final bool shrinkWrap;
@@ -162,7 +168,14 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
 
     final slots = widget.slots;
     final hasSlots = slots != null && slots.isNotEmpty;
-    final total = hasSlots ? slots.length : widget.episodeCount;
+    // 特殊处理说明：
+    // 当分集尚在检索解析且可播放槽位 (slots) 尚未就绪时，处于等待加载态；
+    // 此时绝不可盲目回退并采用外部传入的占位 episodeCount（例如长篇动画传入的 1000+ 集或新番总集数），
+    // 否则会导致桌面端进入播放页的一瞬间将未核实的占位数渲染成大量卡片和分页胶囊，
+    // 待真实视频源就绪后突变缩水产生剧烈跳变闪烁；
+    // 因此在 isPendingLoading 下锁定为骨架与加载状态，严防虚假集数提前暴露。
+    final isPendingLoading = widget.isLoading && !hasSlots;
+    final total = hasSlots ? slots.length : (isPendingLoading ? 0 : widget.episodeCount);
     final rangeSize = _rangeSize;
     final isMultiRange = total > rangeSize;
     final numRanges = isMultiRange ? (total / rangeSize).ceil() : 1;
@@ -191,9 +204,11 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
       epList = epList.reversed.toList();
     }
 
-    final currentEpLabel = widget.currentEpisode != null
-        ? '${widget.currentEpisode}/$total 话'
-        : '共 $total 话';
+    final currentEpLabel = isPendingLoading
+        ? '加载中...'
+        : (widget.currentEpisode != null
+            ? '${widget.currentEpisode}/$total 话'
+            : '共 $total 话');
 
     return Column(
       children: [
@@ -291,8 +306,8 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
           ),
         ),
 
-        // 2. 多线路切换 iOS 胶囊条 (Roads Pills)
-        if (widget.roads.length > 1)
+        // 2. 多线路切换 iOS 胶囊条 (Roads Pills，仅在分集已就绪且有 2 条以上线路时展示)
+        if (!isPendingLoading && widget.roads.length > 1)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
@@ -356,8 +371,8 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
             ),
           ),
 
-        // 3. 长番剧区间分页胶囊 (移动端 1-28, 29-56...; 桌面端 1-50, 51-100...)
-        if (isMultiRange && numRanges > 1)
+        // 3. 长番剧区间分页胶囊 (仅在分集已就绪且多区间时展示)
+        if (!isPendingLoading && isMultiRange && numRanges > 1)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
@@ -427,11 +442,15 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
 
         const SizedBox(height: 4),
 
-        // 4. 选集网格 (iOS / M3 精致轻量卡片，舒适 40px 高度与超椭圆圆角)
+        // 4. 选集网格 (iOS / M3 精致轻量卡片，舒适 40px 高度与超椭圆圆角 / 加载骨架态)
         widget.shrinkWrap
-            ? _buildGridContent(context, theme, primaryColor, isDark, epList, hasSlots, slots)
+            ? (isPendingLoading
+                ? _buildLoadingContent(context, theme, primaryColor, isDark)
+                : _buildGridContent(context, theme, primaryColor, isDark, epList, hasSlots, slots))
             : Expanded(
-                child: _buildGridContent(context, theme, primaryColor, isDark, epList, hasSlots, slots),
+                child: isPendingLoading
+                    ? _buildLoadingContent(context, theme, primaryColor, isDark)
+                    : _buildGridContent(context, theme, primaryColor, isDark, epList, hasSlots, slots),
               ),
       ],
     );
@@ -593,5 +612,92 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                     );
                   },
                 );
+  }
+
+  /// 分集加载骨架态与状态提示 (严格对齐 Material 3 规范与字体保护)
+  Widget _buildLoadingContent(
+    BuildContext context,
+    ThemeData theme,
+    Color primaryColor,
+    bool isDark,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        final crossAxisCount = maxWidth >= 520
+            ? (maxWidth / 90).floor().clamp(4, 8)
+            : 4;
+        const double spacing = 8.0;
+        const double horizontalPadding = 32.0; // 16 * 2
+        final itemWidth = (maxWidth -
+                horizontalPadding -
+                (crossAxisCount - 1) * spacing) /
+            crossAxisCount;
+        final childAspectRatio = (itemWidth / 40.0).clamp(1.3, 3.2);
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 状态提示行
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                alignment: Alignment.center,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 13,
+                      height: 13,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.8,
+                        color: primaryColor,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      widget.loadingMessage ?? '正在解析分集列表...',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.textTheme.bodySmall?.color,
+                        fontWeight: FontWeight.w500,
+                        fontFamily: 'MiSans',
+                        fontFamilyFallback: FontManager.fallbackFontFamilies,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              // 骨架卡片网格 (2 行骨架卡片)
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  mainAxisSpacing: spacing,
+                  crossAxisSpacing: spacing,
+                  childAspectRatio: childAspectRatio,
+                ),
+                itemCount: crossAxisCount * 2,
+                itemBuilder: (context, index) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withAlpha(8) : Colors.black.withAlpha(5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark ? Colors.white.withAlpha(12) : Colors.black.withAlpha(7),
+                        width: 0.5,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
