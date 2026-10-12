@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:zakoway/core/models/bangumi/bangumi_item.dart';
+import 'package:zakoway/core/models/bangumi/bangumi_recommendation_item.dart';
 import 'package:zakoway/core/utils/font_manager.dart';
 import 'package:zakoway/features/player/source/models/source_models.dart';
 import 'package:zakoway/features/player/source/source_aggregator.dart';
@@ -154,7 +155,7 @@ class VideoPlayTabContentView extends StatelessWidget {
   final VoidCallback onRefreshEpisodes;
   final ValueChanged<int> onSelectEpisode;
   final ValueChanged<PlayableSlot> onSelectSlot;
-  final ValueChanged<String>? onTapRecommendItem;
+  final ValueChanged<BangumiRecommendationItem>? onTapRecommendItem;
 
   @override
   Widget build(BuildContext context) {
@@ -199,15 +200,19 @@ class VideoPlayTabContentView extends StatelessWidget {
               onRefreshEpisodes: onRefreshEpisodes,
             ),
 
-            // 3. 视频推荐区 (猜你喜欢仿真卡片流)
+            // 3. 视频推荐区 (1:1 复刻 animaku 推荐算法卡片流)
             WatchRecommendSection(
+              bangumiId: bangumiItem?.id,
+              bangumiItem: bangumiItem,
               onTapItem: onTapRecommendItem,
             ),
           ],
         ),
 
         // Tab 1: 评论讨论区长列表 (独立滚动)
-        const WatchCommentsSection(),
+        WatchCommentsSection(
+          bangumiId: bangumiItem?.id,
+        ),
       ],
     );
   }

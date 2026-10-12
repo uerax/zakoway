@@ -1,65 +1,110 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/models/bangumi/bangumi_comment_item.dart';
+import '../../../core/providers/bangumi_providers.dart';
+import '../../../core/utils/comment_censor_engine.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
+import '../../common/widgets/cached_anime_image.dart';
 
-/// 播放页评论区/吐槽区占位组件 (高仿真热评与长流式讨论区，预留真实 Bangumi 评论接入)
-class WatchCommentsSection extends StatefulWidget {
-  const WatchCommentsSection({super.key});
+/// 播放页评论区/吐槽区组件 (1:1 复刻 animaku 块级分页、B 站评分星与黑幕审查引擎)
+class WatchCommentsSection extends ConsumerStatefulWidget {
+  const WatchCommentsSection({
+    super.key,
+    this.bangumiId,
+  });
+
+  final int? bangumiId;
 
   @override
-  State<WatchCommentsSection> createState() => _WatchCommentsSectionState();
+  ConsumerState<WatchCommentsSection> createState() => _WatchCommentsSectionState();
 }
 
-class _WatchCommentsSectionState extends State<WatchCommentsSection> {
-  int _selectedSortIndex = 0; // 0: 热门, 1: 最新
+class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
+  int _page = 1;
+  int? _selectedType; // null: 全部, 2: 看过, 3: 在看, 1: 想看
+  bool _isLoading = false;
+  String? _error;
+  List<BangumiCommentItem> _comments = const [];
+  int _total = 0;
 
-  static const List<Map<String, dynamic>> _placeholderComments = [
-    {
-      'name': '辛美尔的迷弟',
-      'avatarColor': Color(0xFF6750A4),
-      'score': 5,
-      'time': '2小时前',
-      'content': '「如果是辛美尔的话，他一定会这么做的吧。」分镜和台词真的封神了，那种淡淡的哀伤和释怀让人回味无穷！',
-      'likes': 382,
-      'replies': 24,
-    },
-    {
-      'name': '魔法使芙莉莲',
-      'avatarColor': Color(0xFF006C50),
-      'score': 5,
-      'time': '5小时前',
-      'content': '作画质量完全是剧场版级别的，战斗部分的魔法粒子特效太炸裂了，MADHOUSE 这一次真的拿出了全盛期的水准。',
-      'likes': 219,
-      'replies': 16,
-    },
-    {
-      'name': '旅人菲伦',
-      'avatarColor': Color(0xFF8F4C38),
-      'score': 4,
-      'time': '昨天',
-      'content': '节奏很慢，但这种公路片般的温吞感正是这部作品最大的魅力所在，非常适合下班后静下心来看。',
-      'likes': 145,
-      'replies': 8,
-    },
-    {
-      'name': '修塔尔克小跟班',
-      'avatarColor': Color(0xFF3B5998),
-      'score': 5,
-      'time': '前天',
-      'content': 'OP 和 ED 都好好听！Evan Call 的配乐无敌了，每次小提琴一响浑身起鸡皮疙瘩。年度霸权无悬念！',
-      'likes': 96,
-      'replies': 5,
-    },
-    {
-      'name': '动漫考古学家',
-      'avatarColor': Color(0xFF7A5700),
-      'score': 4,
-      'time': '3天前',
-      'content': '对时间流逝的刻画非常深刻，凡人的几十年在长生种眼里不过是一瞬，但那一瞬却改变了芙莉莲的整个世界。',
-      'likes': 64,
-      'replies': 2,
-    },
+  final ScrollController _scrollController = ScrollController();
+
+  static const List<({String label, int? type})> _typeFilters = [
+    (label: '全部', type: null),
+    (label: '看过', type: 2),
+    (label: '在看', type: 3),
+    (label: '想看', type: 1),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPage(_page);
+  }
+
+  @override
+  void didUpdateWidget(covariant WatchCommentsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.bangumiId != widget.bangumiId) {
+      _page = 1;
+      _fetchPage(1);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchPage(int page, {bool forceRefresh = false}) async {
+    final subjectId = widget.bangumiId ?? 0;
+    if (subjectId <= 0) return;
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final client = ref.read(bangumiClientProvider);
+      final res = await client.getCommentsPage(
+        subjectId,
+        page: page,
+        pageSize: 10,
+        type: _selectedType,
+        forceRefresh: forceRefresh,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _page = page;
+        _comments = res.items;
+        _total = res.total;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _error = e.toString();
+      });
+    }
+  }
+
+  void _onPageChanged(int newPage) {
+    if (newPage == _page || _isLoading) return;
+    _fetchPage(newPage);
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,14 +112,17 @@ class _WatchCommentsSectionState extends State<WatchCommentsSection> {
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
 
+    final totalPages = max(1, (_total + 9) ~/ 10);
+
     return ListView(
+      controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
-        // 1. 顶部排序与总数统计栏
+        // 1. 顶部标题、总数与筛选类型胶囊栏
         Row(
           children: [
             const Text(
-              '讨论吐槽',
+              '吐槽',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -84,18 +132,19 @@ class _WatchCommentsSectionState extends State<WatchCommentsSection> {
               ),
             ),
             const SizedBox(width: 6),
-            Text(
-              '892 条',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
-                fontFamily: 'MiSans',
-                fontFamilyFallback: FontManager.fallbackFontFamilies,
+            if (_total > 0)
+              Text(
+                '$_total 条',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                  fontFamily: 'MiSans',
+                  fontFamilyFallback: FontManager.fallbackFontFamilies,
+                ),
               ),
-            ),
             const Spacer(),
-            // 排序切换 (热门 / 最新)
+            // 筛选类型胶囊
             Container(
               padding: const EdgeInsets.all(2.5),
               decoration: BoxDecoration(
@@ -103,228 +152,683 @@ class _WatchCommentsSectionState extends State<WatchCommentsSection> {
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
-                children: [
-                  _buildSortTab('按热度', 0, isDark, primaryColor),
-                  _buildSortTab('按最新', 1, isDark, primaryColor),
-                ],
+                children: _typeFilters.map((filter) {
+                  final isSelected = _selectedType == filter.type;
+                  return BouncingScaleCard(
+                    scaleDown: 0.94,
+                    immediateTap: true,
+                    onTap: () {
+                      if (_selectedType == filter.type) return;
+                      setState(() {
+                        _selectedType = filter.type;
+                        _page = 1;
+                      });
+                      _fetchPage(1);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? (isDark ? Colors.white.withValues(alpha: 0.18) : Colors.white)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Text(
+                        filter.label,
+                        style: TextStyle(
+                          fontSize: 11.0,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected
+                              ? (isDark ? Colors.white : primaryColor)
+                              : theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                          fontFamily: 'MiSans',
+                          fontFamilyFallback: FontManager.fallbackFontFamilies,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
               ),
             ),
           ],
         ),
         const SizedBox(height: 14),
 
-        // 2. 发吐槽快捷占位栏
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withAlpha(10) : Colors.black.withAlpha(6),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(8),
-              width: 0.5,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.edit_note_rounded,
-                size: 18,
-                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '发一条友善的吐槽吧 (支持 Bangumi 同步)...',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5),
-                    fontFamily: 'MiSans',
-                    fontFamilyFallback: FontManager.fallbackFontFamilies,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
+        // 2. 评论内容呈现区
+        if (_isLoading && _comments.isEmpty)
+          _buildLoadingSkeleton(isDark)
+        else if (_error != null && _comments.isEmpty)
+          _buildErrorView(primaryColor)
+        else if (_comments.isEmpty)
+          _buildEmptyView(theme)
+        else ...[
+          // 评论卡片列表
+          ..._comments.map((comment) => _CommentCardItem(
+                key: ValueKey(comment.id),
+                comment: comment,
+                isDark: isDark,
+                primaryColor: primaryColor,
+                theme: theme,
+              )),
 
-        // 3. 评论列表
-        ..._placeholderComments.map((comment) {
-          final name = comment['name'] as String;
-          final avatarColor = comment['avatarColor'] as Color;
-          final score = comment['score'] as int;
-          final time = comment['time'] as String;
-          final content = comment['content'] as String;
-          final likes = comment['likes'] as int;
-          final replies = comment['replies'] as int;
-
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 用户头像圆角徽章
-                CircleAvatar(
-                  radius: 17,
-                  backgroundColor: avatarColor,
-                  child: Text(
-                    name.isNotEmpty ? name.characters.first : 'U',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      fontFamily: 'MiSans',
-                      fontFamilyFallback: FontManager.fallbackFontFamilies,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // 评论主体
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 用户名与评分
-                      Row(
-                        children: [
-                          Text(
-                            name,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.9),
-                              fontFamily: 'MiSans',
-                              fontFamilyFallback: FontManager.fallbackFontFamilies,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Row(
-                            children: List.generate(
-                              score,
-                              (_) => const Icon(
-                                Icons.star_rounded,
-                                size: 12,
-                                color: Color(0xFFFFB300),
-                              ),
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            time,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5),
-                              fontFamily: 'MiSans',
-                              fontFamilyFallback: FontManager.fallbackFontFamilies,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 5),
-                      // 评论正文
-                      Text(
-                        content,
-                        style: TextStyle(
-                          fontSize: 13,
-                          height: 1.45,
-                          letterSpacing: -0.1,
-                          color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.88),
-                          fontFamily: 'MiSans',
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      // 底部互动行
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.thumb_up_alt_outlined,
-                            size: 13,
-                            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$likes',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
-                              fontFamily: 'MiSans',
-                              fontFamilyFallback: FontManager.fallbackFontFamilies,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Icon(
-                            Icons.chat_bubble_outline_rounded,
-                            size: 13,
-                            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$replies 回复',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
-                              fontFamily: 'MiSans',
-                              fontFamilyFallback: FontManager.fallbackFontFamilies,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Divider(
-                        height: 1,
-                        thickness: 0.5,
-                        color: isDark ? Colors.white.withAlpha(12) : Colors.black.withAlpha(8),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+          // 3. 底部优雅数字分页栏
+          if (totalPages > 1)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: _buildPaginationBar(totalPages, isDark, primaryColor, theme),
             ),
-          );
-        }),
+        ],
       ],
     );
   }
 
-  Widget _buildSortTab(String label, int index, bool isDark, Color primaryColor) {
-    final isSelected = _selectedSortIndex == index;
-    return BouncingScaleCard(
-      scaleDown: 0.94,
-      immediateTap: true,
-      onTap: () => setState(() => _selectedSortIndex = index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark ? Colors.white.withValues(alpha: 0.18) : Colors.white)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected
-                ? (isDark ? Colors.white : primaryColor)
-                : Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.6),
-            fontFamily: 'MiSans',
-            fontFamilyFallback: FontManager.fallbackFontFamilies,
+  Widget _buildLoadingSkeleton(bool isDark) {
+    return Column(
+      children: List.generate(4, (index) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withAlpha(8) : Colors.black.withAlpha(5),
+            borderRadius: BorderRadius.circular(14),
           ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withAlpha(12) : Colors.black.withAlpha(8),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 90,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withAlpha(12) : Colors.black.withAlpha(8),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withAlpha(10) : Colors.black.withAlpha(6),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildEmptyView(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(
+              Icons.chat_bubble_outline_rounded,
+              size: 36,
+              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.3),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '暂无相关吐槽评论',
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                fontFamily: 'MiSans',
+                fontFamilyFallback: FontManager.fallbackFontFamilies,
+              ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildErrorView(Color primaryColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 36),
+      child: Center(
+        child: Column(
+          children: [
+            Text(
+              '吐槽列表加载暂不可用',
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                fontFamily: 'MiSans',
+                fontFamilyFallback: FontManager.fallbackFontFamilies,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => _fetchPage(_page, forceRefresh: true),
+              child: Text(
+                '点击重试',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: primaryColor,
+                  fontFamily: 'MiSans',
+                  fontFamilyFallback: FontManager.fallbackFontFamilies,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaginationBar(int totalPages, bool isDark, Color primaryColor, ThemeData theme) {
+    final canPrev = _page > 1;
+    final canNext = _page < totalPages;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // 上一页
+        BouncingScaleCard(
+          scaleDown: 0.94,
+          onTap: canPrev ? () => _onPageChanged(_page - 1) : null,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: canPrev
+                  ? (isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(8))
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.chevron_left_rounded,
+                  size: 16,
+                  color: canPrev
+                      ? theme.textTheme.bodyMedium?.color
+                      : theme.textTheme.bodySmall?.color?.withValues(alpha: 0.25),
+                ),
+                const SizedBox(width: 2),
+                Text(
+                  '上一页',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: canPrev
+                        ? theme.textTheme.bodyMedium?.color
+                        : theme.textTheme.bodySmall?.color?.withValues(alpha: 0.25),
+                    fontFamily: 'MiSans',
+                    fontFamilyFallback: FontManager.fallbackFontFamilies,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(width: 14),
+
+        // 当前页码胶囊
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withAlpha(8) : Colors.black.withAlpha(5),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            '$_page / $totalPages',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'MiSans',
+              fontFamilyFallback: FontManager.fallbackFontFamilies,
+              color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+            ),
+          ),
+        ),
+
+        const SizedBox(width: 14),
+
+        // 下一页
+        BouncingScaleCard(
+          scaleDown: 0.94,
+          onTap: canNext ? () => _onPageChanged(_page + 1) : null,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: canNext
+                  ? (isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(8))
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  '下一页',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: canNext
+                        ? theme.textTheme.bodyMedium?.color
+                        : theme.textTheme.bodySmall?.color?.withValues(alpha: 0.25),
+                    fontFamily: 'MiSans',
+                    fontFamilyFallback: FontManager.fallbackFontFamilies,
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 16,
+                  color: canNext
+                      ? theme.textTheme.bodyMedium?.color
+                      : theme.textTheme.bodySmall?.color?.withValues(alpha: 0.25),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 评论单卡片组件 (带 B 站星星、黑幕遮掩与 2 行截断展开)
+class _CommentCardItem extends StatefulWidget {
+  const _CommentCardItem({
+    super.key,
+    required this.comment,
+    required this.isDark,
+    required this.primaryColor,
+    required this.theme,
+  });
+
+  final BangumiCommentItem comment;
+  final bool isDark;
+  final Color primaryColor;
+  final ThemeData theme;
+
+  @override
+  State<_CommentCardItem> createState() => _CommentCardItemState();
+}
+
+class _CommentCardItemState extends State<_CommentCardItem> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final comment = widget.comment;
+    final theme = widget.theme;
+    final isDark = widget.isDark;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withAlpha(10) : Colors.black.withAlpha(6),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(8),
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 用户头像
+            _buildAvatar(comment.author.avatarUrl, comment.author.nickname),
+
+            const SizedBox(width: 12),
+
+            // 评论主体
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 顶部作者、B 站星星、收藏状态与发布时间
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          comment.author.nickname.isNotEmpty ? comment.author.nickname : '匿名用户',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.9),
+                            fontFamily: 'MiSans',
+                            fontFamilyFallback: FontManager.fallbackFontFamilies,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+
+                      // B 站 5 星制评分
+                      if (comment.starScore != null) ...[
+                        _BiliStarRating(starScore: comment.starScore!),
+                        const SizedBox(width: 6),
+                      ],
+
+                      // 观看状态微胶囊 (看过 / 在看 / 想看)
+                      if (comment.collectionTypeLabel != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 0.5),
+                          decoration: BoxDecoration(
+                            color: _resolveStatusBg(comment.collectionType),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            comment.collectionTypeLabel!,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: _resolveStatusColor(comment.collectionType),
+                              fontFamily: 'MiSans',
+                              fontFamilyFallback: FontManager.fallbackFontFamilies,
+                            ),
+                          ),
+                        ),
+
+                      const Spacer(),
+
+                      // 相对发布时间
+                      Text(
+                        comment.relativeTimeLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5),
+                          fontFamily: 'MiSans',
+                          fontFamilyFallback: FontManager.fallbackFontFamilies,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // 评论正文 (仅有内容时展示)
+                  if (comment.content.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    _CommentContentWithCensor(
+                      content: comment.content,
+                      isExpanded: _expanded,
+                      isDark: isDark,
+                      theme: theme,
+                      onToggleExpand: () => setState(() => _expanded = !_expanded),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar(String avatarUrl, String nickname) {
+    if (avatarUrl.isNotEmpty) {
+      return ClipOval(
+        child: SizedBox(
+          width: 34,
+          height: 34,
+          child: CachedAnimeImage(
+            imageUrl: avatarUrl,
+            width: 34,
+            height: 34,
+            fit: BoxFit.cover,
+          ),
+        ),
+      );
+    }
+
+    return CircleAvatar(
+      radius: 17,
+      backgroundColor: widget.primaryColor.withValues(alpha: 0.2),
+      child: Text(
+        nickname.isNotEmpty ? nickname.characters.first : 'U',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: widget.primaryColor,
+          fontFamily: 'MiSans',
+          fontFamilyFallback: FontManager.fallbackFontFamilies,
+        ),
+      ),
+    );
+  }
+
+  Color _resolveStatusBg(int? type) {
+    return switch (type) {
+      2 => const Color(0xFF10B981).withValues(alpha: 0.15),
+      3 => const Color(0xFF0EA5E9).withValues(alpha: 0.15),
+      1 => const Color(0xFFF59E0B).withValues(alpha: 0.15),
+      _ => Colors.grey.withValues(alpha: 0.15),
+    };
+  }
+
+  Color _resolveStatusColor(int? type) {
+    return switch (type) {
+      2 => const Color(0xFF10B981),
+      3 => const Color(0xFF0EA5E9),
+      1 => const Color(0xFFF59E0B),
+      _ => Colors.grey,
+    };
+  }
+}
+
+/// B 站 5 星评分渲染组件 (1:1 复刻 animaku 规范，正金橙色 #FFAA04)
+class _BiliStarRating extends StatelessWidget {
+  const _BiliStarRating({required this.starScore});
+
+  final double starScore;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (i) {
+        final fillAmount = (starScore - i).clamp(0.0, 1.0);
+        if (fillAmount >= 0.75) {
+          // 全满星
+          return const Icon(
+            Icons.star_rounded,
+            size: 12,
+            color: Color(0xFFFFAA04),
+          );
+        } else if (fillAmount >= 0.25) {
+          // 半星
+          return const Icon(
+            Icons.star_half_rounded,
+            size: 12,
+            color: Color(0xFFFFAA04),
+          );
+        } else {
+          // 空星
+          return Icon(
+            Icons.star_rounded,
+            size: 12,
+            color: Colors.grey.withValues(alpha: 0.3),
+          );
+        }
+      }),
+    );
+  }
+}
+
+/// 评论正文呈现组件 (集成 CommentCensorEngine 黑幕遮掩分词与展开/折叠)
+class _CommentContentWithCensor extends StatefulWidget {
+  const _CommentContentWithCensor({
+    required this.content,
+    required this.isExpanded,
+    required this.isDark,
+    required this.theme,
+    required this.onToggleExpand,
+  });
+
+  final String content;
+  final bool isExpanded;
+  final bool isDark;
+  final ThemeData theme;
+  final VoidCallback onToggleExpand;
+
+  @override
+  State<_CommentContentWithCensor> createState() => _CommentContentWithCensorState();
+}
+
+class _CommentContentWithCensorState extends State<_CommentContentWithCensor> {
+  // 记录已被用户点击解密的 Token 索引集合
+  final Set<int> _revealedTokens = {};
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = CommentCensorEngine.tokenize(widget.content);
+    final theme = widget.theme;
+    final isDark = widget.isDark;
+
+    // 若无被遮蔽的 token 且文字较短，直接用常规 Text 提升渲染效率
+    final hasRedacted = tokens.any((t) => t.redacted);
+
+    final contentWidget = Wrap(
+      spacing: 1.5,
+      runSpacing: 2.0,
+      children: tokens.asMap().entries.map((entry) {
+        final index = entry.key;
+        final token = entry.value;
+
+        if (!token.redacted || token.type == CommentTokenType.text) {
+          return Text(
+            token.raw,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.45,
+              letterSpacing: -0.1,
+              color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.88),
+              fontFamily: 'MiSans',
+              fontFamilyFallback: FontManager.fallbackFontFamilies,
+            ),
+          );
+        }
+
+        final isRevealed = _revealedTokens.contains(index);
+
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              if (isRevealed) {
+                _revealedTokens.remove(index);
+              } else {
+                _revealedTokens.add(index);
+              }
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+            decoration: BoxDecoration(
+              color: isRevealed
+                  ? (isDark ? Colors.white.withAlpha(16) : Colors.black.withAlpha(10))
+                  : (isDark ? const Color(0xFF1E1E24) : const Color(0xFF323238)),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: isRevealed
+                    ? (isDark ? Colors.white.withAlpha(20) : Colors.black.withAlpha(14))
+                    : Colors.transparent,
+                width: 0.5,
+              ),
+            ),
+            child: Text(
+              isRevealed ? token.raw : '█ ${token.label ?? '黑幕'} 点击查看',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: isRevealed ? FontWeight.w500 : FontWeight.w600,
+                color: isRevealed
+                    ? (isDark ? Colors.white70 : Colors.black87)
+                    : (isDark ? Colors.white54 : Colors.white70),
+                fontFamily: 'MiSans',
+                fontFamilyFallback: FontManager.fallbackFontFamilies,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+
+    final isLong = widget.content.length > 70 || widget.content.contains('\n');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (!widget.isExpanded && isLong && !hasRedacted)
+          Text(
+            widget.content,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.45,
+              letterSpacing: -0.1,
+              color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.88),
+              fontFamily: 'MiSans',
+              fontFamilyFallback: FontManager.fallbackFontFamilies,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          )
+        else
+          contentWidget,
+
+        if (isLong)
+          GestureDetector(
+            onTap: widget.onToggleExpand,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    widget.isExpanded ? '收起' : '展开',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.primary,
+                      fontFamily: 'MiSans',
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  Icon(
+                    widget.isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    size: 14,
+                    color: theme.colorScheme.primary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

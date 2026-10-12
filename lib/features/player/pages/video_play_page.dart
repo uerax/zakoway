@@ -8,6 +8,7 @@ import '../../../core/network/bangumi_client.dart';
 import '../../../core/services/bangumi_oped_service.dart';
 import '../../../core/services/watch_history_service.dart';
 import '../../../core/services/watched_episodes_service.dart';
+import '../../../core/utils/adaptive_page_route.dart';
 import '../../../core/utils/anime_tag_filter.dart';
 import '../../../core/utils/font_manager.dart';
 import '../controller/playback_controller.dart';
@@ -1422,6 +1423,17 @@ class _VideoPlayPageState extends State<VideoPlayPage>
                 _startDefaultSourceSearch(autoPlayFirst: false),
             onSelectEpisode: _selectEpisode,
             onSelectSlot: _selectSlot,
+            onTapRecommendItem: (recItem) {
+              Navigator.of(context).push(
+                AdaptivePageRoute.build<void>(
+                  context,
+                  builder: (context) => VideoPlayPage(
+                    title: recItem.displayName,
+                    coverUrl: recItem.cover,
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],

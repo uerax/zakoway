@@ -306,7 +306,7 @@ class EpisodeSourcePod extends StatelessWidget {
     ThemeData theme,
   ) {
     final totalEpisodes = currentSlots.isNotEmpty ? currentSlots.length : 0;
-    final epLabel = totalEpisodes > 0 ? '正片 (全 $totalEpisodes 话)' : '剧集列表';
+    final epLabel = totalEpisodes > 0 ? '全 $totalEpisodes 话' : '剧集列表';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
