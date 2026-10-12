@@ -607,56 +607,14 @@ class EpisodeSourcePod extends StatelessWidget {
     ThemeData theme,
   ) {
     final slots = currentSlots;
-    final total = slots.length;
 
     return SizedBox(
       height: 42,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: total + 1, // 末尾追加 [展开全部 ⤢]
+        itemCount: slots.length,
         separatorBuilder: (_, _) => const SizedBox(width: 7),
         itemBuilder: (context, index) {
-          if (index == total) {
-            // 展开全部入口胶囊
-            return BouncingScaleCard(
-              scaleDown: 0.94,
-              immediateTap: true,
-              onTap: () => _openFullSheet(context, initialTab: 0),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(8),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isDark ? Colors.white.withAlpha(18) : Colors.black.withAlpha(12),
-                    width: 0.5,
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: Row(
-                  children: [
-                    Text(
-                      '全部',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-                        fontFamily: 'MiSans',
-                        fontFamilyFallback: FontManager.fallbackFontFamilies,
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    Icon(
-                      Icons.grid_view_rounded,
-                      size: 13,
-                      color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
           final slot = slots[index];
           final isPlaying = currentEpisode != null && slot.canonicalEp == currentEpisode;
           final isRoadPlaying = playingRoadIndex == null || playingRoadIndex == selectedRoadIndex;

@@ -567,28 +567,34 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
                       ),
                       const SizedBox(height: 5),
 
-                      // 第 2 行: 评分与关系徽章 (续作/前传/剧场版)
-                      Row(
+                      // 第 2 行: 评分与关系徽章 (续作/前传/剧场版，使用 Wrap 自适应杜绝极窄视口溢出)
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 2,
                         children: [
-                          if (item.score > 0) ...[
-                            const Icon(
-                              Icons.star_rounded,
-                              size: 14,
-                              color: Color(0xFFFFB300),
+                          if (item.score > 0)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.star_rounded,
+                                  size: 14,
+                                  color: Color(0xFFFFB300),
+                                ),
+                                const SizedBox(width: 2),
+                                Text(
+                                  item.score.toStringAsFixed(1),
+                                  style: const TextStyle(
+                                    fontSize: 12.0,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFFFFB300),
+                                    fontFamily: 'MiSans',
+                                    fontFamilyFallback: FontManager.fallbackFontFamilies,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 2),
-                            Text(
-                              item.score.toStringAsFixed(1),
-                              style: const TextStyle(
-                                fontSize: 12.0,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFFFFB300),
-                                fontFamily: 'MiSans',
-                                fontFamilyFallback: FontManager.fallbackFontFamilies,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
                           if (item.relationBadge != null && item.relationBadge!.isNotEmpty)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),

@@ -221,88 +221,97 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
                     ),
                   ],
                   const SizedBox(height: 10),
-                  // 评分与排名胶囊
-                  Row(
-                    children: [
-                      if (item != null && item.ratingScore > 0) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 7, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.amber.withValues(alpha: 0.16),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: Colors.amber.withValues(alpha: 0.3),
-                              width: 0.5,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.star_rounded,
-                                  color: Colors.amber, size: 14),
-                              const SizedBox(width: 3),
-                              Text(
-                                item.ratingScore.toStringAsFixed(1),
-                                style: const TextStyle(
-                                  color: Colors.amber,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  fontFamily: 'MiSans',
-                                  fontFamilyFallback: FontManager.fallbackFontFamilies,
-                                ),
+                  // 评分与排名胶囊（独立一行使用 Wrap，空间充裕且自适应防溢出）
+                  if ((item != null && item.ratingScore > 0) || (item != null && item.rank > 0)) ...[
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (item.ratingScore > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7.5, vertical: 3.5),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: Colors.amber.withValues(alpha: 0.3),
+                                width: 0.5,
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      if (item != null && item.rank > 0) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 7, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: primaryColor.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: primaryColor.withValues(alpha: 0.3),
-                              width: 0.5,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.star_rounded,
+                                    color: Colors.amber, size: 14),
+                                const SizedBox(width: 3),
+                                Text(
+                                  item.ratingScore.toStringAsFixed(1),
+                                  style: const TextStyle(
+                                    color: Colors.amber,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    fontFamily: 'MiSans',
+                                    fontFamilyFallback: FontManager.fallbackFontFamilies,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          child: Text(
-                            '#${item.rank}',
-                            style: TextStyle(
-                              color: primaryColor,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              fontFamily: 'MiSans',
-                              fontFamilyFallback: FontManager.fallbackFontFamilies,
+                        if (item.rank > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7.5, vertical: 3.5),
+                            decoration: BoxDecoration(
+                              color: primaryColor.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: primaryColor.withValues(alpha: 0.3),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Text(
+                              '#${item.rank}',
+                              style: TextStyle(
+                                color: primaryColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'MiSans',
+                                fontFamilyFallback: FontManager.fallbackFontFamilies,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
                       ],
-                      Text(
-                        '共 ${item?.eps != null && item!.eps > 0 ? item.eps : widget.episodeCount} 话',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.textTheme.bodySmall?.color,
-                          fontWeight: FontWeight.w500,
-                          fontFamily: 'MiSans',
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
-                        ),
-                      ),
-                    ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  // 话数与放送日期单独分行，充分利用纵向高度，避免拥挤与溢出
+                  Text(
+                    '话数: 全 ${item?.eps != null && item!.eps > 0 ? item.eps : widget.episodeCount} 话',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.85),
+                      fontWeight: FontWeight.w500,
+                      fontFamily: 'MiSans',
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   if (item != null && item.airDate.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 5),
                     Text(
                       '放送日期: ${item.airDate}',
                       style: TextStyle(
                         fontSize: 12,
-                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.8),
+                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.85),
                         fontWeight: FontWeight.w500,
+                        fontFamily: 'MiSans',
+                        fontFamilyFallback: FontManager.fallbackFontFamilies,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ],
