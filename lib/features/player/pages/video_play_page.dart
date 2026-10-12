@@ -9,6 +9,7 @@ import '../../../core/services/bangumi_oped_service.dart';
 import '../../../core/services/watch_history_service.dart';
 import '../../../core/services/watched_episodes_service.dart';
 import '../../../core/utils/anime_tag_filter.dart';
+import '../../../core/utils/font_manager.dart';
 import '../controller/playback_controller.dart';
 import '../danmaku/danmaku.dart';
 import '../services/player_preferences_service.dart';
@@ -19,6 +20,7 @@ import '../source/source_aggregator.dart';
 import '../source/source_bundle_manager.dart';
 import '../source/source_keyword_matcher.dart';
 import '../source/utils/playable_slot_engine.dart';
+import '../widgets/episode_picker_section.dart';
 import '../widgets/player_side_panel.dart';
 import '../widgets/video_player_layouts.dart';
 import '../widgets/video_player_placeholder.dart';
@@ -226,20 +228,21 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       onAllFallbacksFailed: () {
         if (!mounted) return;
         _showHudToast('所有备用源自动检索完毕，请在面板中换词重搜');
-        _tabController.animateTo(1);
+        if (_tabController.index != 0) {
+          _tabController.animateTo(0);
+        }
       },
     );
 
-    // 默认聚焦第 3 个 Tab「选集」(index: 2)
+    // 全新双主 Tab 架构：[ 简介 ] (index: 0) 与 [ 评论 ] (index: 1)，默认聚焦「简介」
     _tabController = TabController(
-      length: 3,
+      length: 2,
       vsync: this,
-      initialIndex: 2,
+      initialIndex: 0,
     );
     _tabController.addListener(() {
-      if (_tabController.index == 1) {
-        // 用户切换到「视频源」Tab，触发互斥锁避免自动抢占
-        _autoPicker.onUserAction();
+      if (_tabController.index == 0) {
+        // 用户切换回「简介」Tab，自动同步嗅探状态
         _aggregator.syncAndProbe(
           bangumiId: _effectiveBangumiId,
           defaultTitle: widget.title,
@@ -684,7 +687,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         defaultTitle: widget.title,
         item: _effectiveBangumiItem,
         activeSourceId: _selectedSourceId,
-        isOpen: _tabController.index == 1,
+        isOpen: true,
         autoProbeOnFallback: true,
         sourceOrder: _sources.map((s) => s.id).toList(),
       );
@@ -719,7 +722,9 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         _defaultSearchEmpty = false;
       });
 
-      _tabController.animateTo(2);
+      if (_tabController.index != 0) {
+        _tabController.animateTo(0);
+      }
 
       if (directHit != null && _effectiveBangumiId > 0) {
         SourceBindingService.instance.setBinding(
@@ -747,8 +752,10 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       _playbackController.pause();
     });
 
-    // 自动切回选集 Tab (index: 2)
-    _tabController.animateTo(2);
+    // 确保聚焦在「简介」Tab (选集舱所在页面)
+    if (_tabController.index != 0) {
+      _tabController.animateTo(0);
+    }
 
     try {
       if (Platform.environment.containsKey('FLUTTER_TEST')) {
@@ -1214,7 +1221,164 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       },
       onSwitchSource: () {
         _autoPicker.onUserAction();
-        _tabController.animateTo(1);
+        _showFullSourceSheet();
+      },
+    );
+  }
+
+  /// 呼出全功能选集与多视频源看板抽屉
+  /// 呼出全功能选集与多视频源看板抽屉
+  void _showFullSourceSheet() {
+    _autoPicker.onUserAction();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: isDark ? 0.65 : 0.45),
+      builder: (bottomSheetContext) {
+        final screenHeight = MediaQuery.of(bottomSheetContext).size.height;
+        return GestureDetector(
+          // 点击半透明空白背景立即秒关
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.of(bottomSheetContext).pop(),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: GestureDetector(
+              // 阻断内容区点击冒泡
+              behavior: HitTestBehavior.opaque,
+              onTap: () {},
+              child: SizedBox(
+                height: screenHeight * 0.82,
+                child: DefaultTabController(
+                  length: 2,
+                  initialIndex: 1, // 直接定位至视频源看板
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF16161A) : Colors.white,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
+                          blurRadius: 20,
+                          offset: const Offset(0, -4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 10),
+                        Container(
+                          width: 36,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white24 : Colors.black12,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  height: 36,
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(8),
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                  child: TabBar(
+                                    splashFactory: NoSplash.splashFactory,
+                                    overlayColor: WidgetStateProperty.all(Colors.transparent),
+                                    dividerColor: Colors.transparent,
+                                    indicatorSize: TabBarIndicatorSize.tab,
+                                    indicator: BoxDecoration(
+                                      color: isDark ? Colors.white.withValues(alpha: 0.16) : Colors.white,
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                    labelColor: isDark ? Colors.white : Theme.of(context).colorScheme.primary,
+                                    unselectedLabelColor: Theme.of(context).textTheme.bodySmall?.color,
+                                    labelStyle: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      fontFamily: 'MiSans',
+                                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                                    ),
+                                    unselectedLabelStyle: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      fontFamily: 'MiSans',
+                                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                                    ),
+                                    tabs: const [
+                                      Tab(text: '选集网格'),
+                                      Tab(text: '切换视频源'),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              IconButton(
+                                icon: const Icon(Icons.close_rounded, size: 20),
+                                onPressed: () => Navigator.of(bottomSheetContext).pop(),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Divider(height: 12, thickness: 0.5),
+                        Expanded(
+                          child: TabBarView(
+                            children: [
+                              EpisodePickerSection(
+                                episodeCount: _displayEpisodeCount,
+                                currentEpisode: _activeEpisode,
+                                slots: _currentSlots,
+                                roads: _roadNames,
+                                activeRoadIndex: _selectedRoadIndex,
+                                playingRoadIndex: _hasStartedPlayback && _selectedSourceId == _playingSourceId ? _playingRoadIndex : null,
+                                episodeTitles: _mappedEpisodeTitles,
+                                onRoadSelected: (idx) {
+                                  if (_selectedRoadIndex == idx) return;
+                                  setState(() => _selectedRoadIndex = idx);
+                                },
+                                onSelectEpisode: (ep) {
+                                  _selectEpisode(ep);
+                                  Navigator.of(bottomSheetContext).pop();
+                                },
+                                onSelectSlot: (slot) {
+                                  _selectSlot(slot);
+                                  Navigator.of(bottomSheetContext).pop();
+                                },
+                                onRefresh: () => _startDefaultSourceSearch(autoPlayFirst: false),
+                              ),
+                              VideoSourceView(
+                                sources: _sources,
+                                selectedSourceId: _selectedSourceId,
+                                aggregator: _aggregator,
+                                keywordOptions: _keywordOptions,
+                                onSourceSelected: (src) {
+                                  _handleSourceSelected(src);
+                                  Navigator.of(bottomSheetContext).pop();
+                                },
+                                onSelectHit: (src, hit, [roads]) {
+                                  _handleSourceSelected(src, hit, roads);
+                                  Navigator.of(bottomSheetContext).pop();
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
       },
     );
   }

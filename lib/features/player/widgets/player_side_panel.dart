@@ -8,6 +8,7 @@ import 'package:zakoway/features/player/danmaku/danmaku.dart';
 import 'package:zakoway/features/player/source/source_aggregator.dart';
 import 'package:zakoway/features/player/source/utils/playable_slot_engine.dart';
 import 'package:zakoway/core/services/watched_episodes_service.dart';
+import 'package:zakoway/core/utils/font_manager.dart';
 import 'package:zakoway/features/player/widgets/episode_picker_section.dart';
 import 'package:zakoway/features/player/widgets/video_source_view.dart';
 
@@ -180,11 +181,11 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
                             onSurfaceVariant: Colors.white.withValues(alpha: 0.7),
                           ),
                           textTheme: const TextTheme(
-                            bodyLarge: TextStyle(color: Colors.white),
-                            bodyMedium: TextStyle(color: Colors.white),
-                            bodySmall: TextStyle(color: Colors.white70),
-                            titleMedium: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                            titleSmall: TextStyle(color: Colors.white),
+                            bodyLarge: TextStyle(color: Colors.white, fontFamily: 'MiSans', fontFamilyFallback: FontManager.fallbackFontFamilies),
+                            bodyMedium: TextStyle(color: Colors.white, fontFamily: 'MiSans', fontFamilyFallback: FontManager.fallbackFontFamilies),
+                            bodySmall: TextStyle(color: Colors.white70, fontFamily: 'MiSans', fontFamilyFallback: FontManager.fallbackFontFamilies),
+                            titleMedium: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontFamily: 'MiSans', fontFamilyFallback: FontManager.fallbackFontFamilies),
+                            titleSmall: TextStyle(color: Colors.white, fontFamily: 'MiSans', fontFamilyFallback: FontManager.fallbackFontFamilies),
                           ),
                         ),
                         child: SafeArea(
@@ -298,8 +299,10 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
                                     ? Colors.white
                                     : Colors.white.withValues(alpha: 0.65),
                                 fontSize: 12,
-                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                                 letterSpacing: -0.2,
+                                fontFamily: 'MiSans',
+                                fontFamilyFallback: FontManager.fallbackFontFamilies,
                               ),
                               child: Text(t.label),
                             ),
@@ -368,7 +371,12 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
             SizedBox(height: 12),
             Text(
               '正在加载分集列表...',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontFamily: 'MiSans',
+                fontFamilyFallback: FontManager.fallbackFontFamilies,
+              ),
             ),
           ],
         ),
@@ -514,7 +522,12 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
       return const Center(
         child: Text(
           '当前播放器未挂载弹幕组件',
-          style: TextStyle(color: Colors.white54, fontSize: 13),
+          style: TextStyle(
+            color: Colors.white54,
+            fontSize: 13,
+            fontFamily: 'MiSans',
+            fontFamilyFallback: FontManager.fallbackFontFamilies,
+          ),
         ),
       );
     }
@@ -723,6 +736,8 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
           fontSize: 12,
           fontWeight: FontWeight.bold,
           letterSpacing: -0.2,
+          fontFamily: 'MiSans',
+          fontFamilyFallback: FontManager.fallbackFontFamilies,
         ),
       ),
     );
@@ -750,6 +765,8 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
                     color: Colors.white,
                     fontSize: 13.5,
                     fontWeight: FontWeight.w600,
+                    fontFamily: 'MiSans',
+                    fontFamilyFallback: FontManager.fallbackFontFamilies,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -758,6 +775,8 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.5),
                     fontSize: 11,
+                    fontFamily: 'MiSans',
+                    fontFamilyFallback: FontManager.fallbackFontFamilies,
                   ),
                 ),
               ],
@@ -796,6 +815,8 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
                   color: Colors.white,
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
+                  fontFamily: 'MiSans',
+                  fontFamilyFallback: FontManager.fallbackFontFamilies,
                 ),
               ),
               Text(
@@ -805,6 +826,8 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
                   fontSize: 12.5,
                   fontWeight: FontWeight.bold,
                   fontFeatures: const [FontFeature.tabularFigures()],
+                  fontFamily: 'MiSans',
+                  fontFamilyFallback: FontManager.fallbackFontFamilies,
                 ),
               ),
             ],
@@ -857,6 +880,8 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
               color: isSelected ? Colors.white : Colors.white60,
               fontSize: 11.5,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              fontFamily: 'MiSans',
+              fontFamilyFallback: FontManager.fallbackFontFamilies,
             ),
           ),
         ),
@@ -871,12 +896,23 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
     required ValueChanged<bool> onSelected,
   }) {
     return FilterChip(
-      label: Text(label),
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          color: isFiltered ? Colors.white : Colors.white70,
+          fontWeight: isFiltered ? FontWeight.bold : FontWeight.normal,
+          fontFamily: 'MiSans',
+          fontFamilyFallback: FontManager.fallbackFontFamilies,
+        ),
+      ),
       selected: isFiltered,
       labelStyle: TextStyle(
         fontSize: 12,
         color: isFiltered ? Colors.white : Colors.white70,
         fontWeight: isFiltered ? FontWeight.bold : FontWeight.normal,
+        fontFamily: 'MiSans',
+        fontFamilyFallback: FontManager.fallbackFontFamilies,
       ),
       backgroundColor: Colors.white.withValues(alpha: 0.1),
       selectedColor: primaryColor.withValues(alpha: 0.65),
@@ -915,6 +951,8 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
               color: isSelected ? Colors.white : Colors.white60,
               fontSize: 11.5,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              fontFamily: 'MiSans',
+              fontFamilyFallback: FontManager.fallbackFontFamilies,
             ),
           ),
         ),
@@ -945,6 +983,8 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
               color: isSelected ? Colors.white : Colors.white60,
               fontSize: 11.5,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              fontFamily: 'MiSans',
+              fontFamilyFallback: FontManager.fallbackFontFamilies,
             ),
           ),
         ),

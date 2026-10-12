@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zakoway/features/player/pages/video_play_page.dart';
 import 'package:zakoway/features/player/widgets/episode_picker_section.dart';
+import 'package:zakoway/features/player/widgets/episode_source_pod.dart';
 import 'package:zakoway/features/player/widgets/video_source_view.dart';
 
 void main() {
@@ -10,11 +12,13 @@ void main() {
   group('VideoPlayPage 功能与交互设计测试', () {
     testWidgets('1. 点开番剧不默认播放第一集，展示占位引导', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: VideoPlayPage(
-            title: '测试动画',
-            episodeCount: 12,
-            currentEpisode: null, // 未起播
+        const ProviderScope(
+          child: MaterialApp(
+            home: VideoPlayPage(
+              title: '测试动画',
+              episodeCount: 12,
+              currentEpisode: null, // 未起播
+            ),
           ),
         ),
       );
@@ -26,24 +30,25 @@ void main() {
       expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
     });
 
-    testWidgets('2. 页面包含 3 个 Tab，且默认聚焦第 3 个「选集」Tab', (tester) async {
+    testWidgets('2. 页面包含 2 个主 Tab（简介 / 评论），且默认聚焦「简介」Tab 展示融合舱', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: VideoPlayPage(
-            title: '测试动画',
-            episodeCount: 12,
+        const ProviderScope(
+          child: MaterialApp(
+            home: VideoPlayPage(
+              title: '测试动画',
+              episodeCount: 12,
+            ),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      // 验证存在 3 个 Tab
-      expect(find.widgetWithText(Tab, '番剧详情'), findsOneWidget);
-      expect(find.widgetWithText(Tab, '视频源'), findsOneWidget);
-      expect(find.widgetWithText(Tab, '选集'), findsOneWidget);
+      // 验证存在 2 个主 Tab
+      expect(find.widgetWithText(Tab, '简介'), findsOneWidget);
+      expect(find.widgetWithText(Tab, '评论'), findsOneWidget);
 
-      // 验证默认显示的是 EpisodePickerSection（选集）
-      expect(find.byType(EpisodePickerSection), findsOneWidget);
+      // 验证默认显示的是 EpisodeSourcePod（选集与视频源融合舱）
+      expect(find.byType(EpisodeSourcePod), findsOneWidget);
     });
 
     testWidgets('3. 选集组件支持正序/倒序切换', (tester) async {
@@ -71,19 +76,25 @@ void main() {
       expect(find.text('倒序'), findsOneWidget);
     });
 
-    testWidgets('4. 优化点 1 验证：未探活的非绿色源点击后绝不跳转选集 Tab', (tester) async {
+    testWidgets('4. 优化点 1 验证：未探活的非绿色源点击后绝不自动跳转', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: VideoPlayPage(
-            title: '测试动画',
-            episodeCount: 12,
+        const ProviderScope(
+          child: MaterialApp(
+            home: VideoPlayPage(
+              title: '测试动画',
+              episodeCount: 12,
+            ),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      // 切换到「视频源」Tab
-      await tester.tap(find.text('视频源'));
+      // 点击源药丸打开全功能抽屉
+      await tester.tap(find.text('稀饭Next'));
+      await tester.pumpAndSettle();
+
+      // 切换到抽屉内的「切换视频源」Tab
+      await tester.tap(find.text('切换视频源'));
       await tester.pumpAndSettle();
 
       expect(find.byType(VideoSourceView), findsOneWidget);
@@ -93,9 +104,8 @@ void main() {
       await tester.tap(find.text('girigiri'));
       await tester.pumpAndSettle();
 
-      // 严格验证：绝不跳转选集 Tab，仍然保持在视频源看板！
+      // 严格验证：绝不跳转，仍然保持在视频源看板！
       expect(find.byType(VideoSourceView), findsOneWidget);
-      expect(find.byType(EpisodePickerSection), findsNothing);
     });
 
     testWidgets('5. 多线路选集播放态隔离：线路 1 正在播放第 1 集时，切换查看线路 2 不会把线路 2 的第 1 集标为正在播放', (tester) async {

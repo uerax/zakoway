@@ -1,17 +1,16 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:zakoway/core/models/bangumi/bangumi_item.dart';
-import 'package:zakoway/core/services/watched_episodes_service.dart';
 import 'package:zakoway/core/utils/font_manager.dart';
-import 'package:zakoway/features/common/widgets/bouncing_scale_card.dart';
 import 'package:zakoway/features/player/source/models/source_models.dart';
 import 'package:zakoway/features/player/source/source_aggregator.dart';
 import 'package:zakoway/features/player/source/utils/playable_slot_engine.dart';
-import 'episode_picker_section.dart';
+import 'episode_source_pod.dart';
 import 'video_source_view.dart';
-import 'watch_meta_view.dart';
+import 'watch_comments_section.dart';
+import 'watch_meta_header.dart';
+import 'watch_recommend_section.dart';
 
-/// iOS / M3 风格极简精致滑动胶囊分段控制器
+/// iOS / M3 风格极简精致滑动胶囊分段控制器 (全新 2-Tab: 简介 / 评论)
 class VideoPlaySegmentedTabBar extends StatelessWidget {
   const VideoPlaySegmentedTabBar({
     super.key,
@@ -30,7 +29,7 @@ class VideoPlaySegmentedTabBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360),
+          constraints: const BoxConstraints(maxWidth: 260),
           child: Container(
             height: 38,
             padding: const EdgeInsets.all(3.0),
@@ -72,15 +71,14 @@ class VideoPlaySegmentedTabBar extends StatelessWidget {
               ),
               unselectedLabelStyle: const TextStyle(
                 fontSize: 13.0,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 letterSpacing: -0.2,
                 fontFamily: 'MiSans',
                 fontFamilyFallback: FontManager.fallbackFontFamilies,
               ),
               tabs: const [
-                Tab(height: 32, text: '番剧详情'),
-                Tab(height: 32, text: '视频源'),
-                Tab(height: 32, text: '选集'),
+                Tab(height: 32, text: '简介'),
+                Tab(height: 32, text: '评论'),
               ],
             ),
           ),
@@ -90,7 +88,10 @@ class VideoPlaySegmentedTabBar extends StatelessWidget {
   }
 }
 
-/// 播放页核心 3-Tab 内容切换视图（详情、源列表、选集）
+/// 播放页双主 Tab 内容视图
+///
+/// Tab 0 [简介]: 垂直流式排列（番剧精简头部 -> 选集选源融合舱 -> 视频推荐卡片流）
+/// Tab 1 [评论]: 纵向长流式吐槽与讨论区
 class VideoPlayTabContentView extends StatelessWidget {
   const VideoPlayTabContentView({
     super.key,
@@ -121,6 +122,7 @@ class VideoPlayTabContentView extends StatelessWidget {
     required this.onRefreshEpisodes,
     required this.onSelectEpisode,
     required this.onSelectSlot,
+    this.onTapRecommendItem,
   });
 
   final TabController tabController;
@@ -152,191 +154,61 @@ class VideoPlayTabContentView extends StatelessWidget {
   final VoidCallback onRefreshEpisodes;
   final ValueChanged<int> onSelectEpisode;
   final ValueChanged<PlayableSlot> onSelectSlot;
+  final ValueChanged<String>? onTapRecommendItem;
 
   @override
   Widget build(BuildContext context) {
     return TabBarView(
       controller: tabController,
       children: [
-        WatchMetaView(
-          title: title,
-          bangumiItem: bangumiItem,
-          isLoadingDetails: isLoadingAuthorityDetails,
-          coverUrl: coverUrl,
-          episodeCount: episodeCount,
-        ),
-        VideoSourceView(
-          sources: sources,
-          selectedSourceId: selectedSourceId,
-          onSourceSelected: onSourceSelected,
-          onSelectHit: (src, hit, [List<SourceChapterRoad>? cachedRoads]) =>
-              onSourceSelected(src, hit, cachedRoads),
-          aggregator: aggregator,
-          hintMessage: sourceNotice,
-          keywordOptions: keywordOptions,
-          onUserAction: onUserAction,
-          currentEpisodeNumber: currentEpisode,
-        ),
-        _buildEpisodeSection(context),
-      ],
-    );
-  }
-
-  Widget _buildEpisodeSection(BuildContext context) {
-    if (isLoadingChapters) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        // Tab 0: 简介垂直流 (信息头部 + 选集选源融合舱 + 推荐列表)
+        ListView(
+          padding: EdgeInsets.zero,
           children: [
-            const CupertinoActivityIndicator(radius: 12),
-            const SizedBox(height: 12),
-            Text(
-              '正在加载并校准分集信息...',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 12.5,
-                letterSpacing: -0.2,
-              ),
+            // 1. 番剧头部 (标题 + 评分 + 追番 + 详情入口)
+            WatchMetaHeader(
+              title: title,
+              bangumiItem: bangumiItem,
+              coverUrl: coverUrl,
+              episodeCount: episodeCount,
+            ),
+            const SizedBox(height: 4),
+
+            // 2. 选集与视频源融合舱 (源药丸 + 线路胶囊 + 横向选集滑轨)
+            EpisodeSourcePod(
+              selectedSourceId: selectedSourceId,
+              selectedSourceName: selectedSourceName,
+              sources: sources,
+              onSourceSelected: onSourceSelected,
+              onSelectHit: (src, hit, [roads]) => onSourceSelected(src, hit, roads),
+              aggregator: aggregator,
+              keywordOptions: keywordOptions,
+              onUserAction: onUserAction,
+              currentEpisode: currentEpisode,
+              playingRoadIndex: playingRoadIndex,
+              isLoadingChapters: isLoadingChapters,
+              resolveError: resolveError,
+              hasEpisodes: hasEpisodes,
+              currentSlots: currentSlots,
+              roadNames: roadNames,
+              selectedRoadIndex: selectedRoadIndex,
+              mappedEpisodeTitles: mappedEpisodeTitles ?? const [],
+              onRoadSelected: onRoadSelected,
+              onSelectEpisode: onSelectEpisode,
+              onSelectSlot: onSelectSlot,
+              onRefreshEpisodes: onRefreshEpisodes,
+            ),
+
+            // 3. 视频推荐区 (猜你喜欢仿真卡片流)
+            WatchRecommendSection(
+              onTapItem: onTapRecommendItem,
             ),
           ],
         ),
-      );
-    }
 
-    if (!hasEpisodes) {
-      final isError = resolveError != null && resolveError!.isNotEmpty;
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isError ? Icons.error_outline_rounded : Icons.search_off_rounded,
-                size: 48,
-                color: isError ? Colors.amber : Colors.grey,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                isError
-                    ? '「$selectedSourceName」分集解析失败'
-                    : '「$selectedSourceName」暂未检索到该番剧分集',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: Theme.of(context).textTheme.titleSmall?.fontFamily,
-                  fontFamilyFallback: Theme.of(context).textTheme.titleSmall?.fontFamilyFallback,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.2,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                isError
-                    ? resolveError!
-                    : '建议切换到其他备用视频源查找资源',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: Theme.of(context).textTheme.bodySmall?.fontFamily,
-                  fontFamilyFallback: Theme.of(context).textTheme.bodySmall?.fontFamilyFallback,
-                  fontSize: 12,
-                  color: isError ? Colors.redAccent.withValues(alpha: 0.85) : Colors.grey,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (isError) ...[
-                    BouncingScaleCard(
-                      scaleDown: 0.95,
-                      onTap: onRefreshEpisodes,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.refresh_rounded, size: 16),
-                            const SizedBox(width: 4),
-                            Text(
-                              '重试',
-                              style: TextStyle(
-                                fontFamily: Theme.of(context).textTheme.labelMedium?.fontFamily,
-                                fontFamilyFallback: Theme.of(context).textTheme.labelMedium?.fontFamilyFallback,
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                  ],
-                  BouncingScaleCard(
-                    scaleDown: 0.95,
-                    onTap: () {
-                      onUserAction();
-                      tabController.animateTo(1);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.swap_horiz_rounded, size: 17, color: Colors.white),
-                          const SizedBox(width: 6),
-                          Text(
-                            '前往「视频源」选择',
-                            style: TextStyle(
-                              fontFamily: Theme.of(context).textTheme.labelMedium?.fontFamily,
-                              fontFamilyFallback: Theme.of(context).textTheme.labelMedium?.fontFamilyFallback,
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return ListenableBuilder(
-      listenable: WatchedEpisodesService.instance,
-      builder: (context, _) {
-        final watched = WatchedEpisodesService.instance.getWatchedEpisodes(bangumiItem?.id ?? 0);
-        return EpisodePickerSection(
-          episodeCount: currentSlots.isNotEmpty ? currentSlots.length : episodeCount,
-          currentEpisode: currentEpisode,
-          roads: roadNames,
-          activeRoadIndex: selectedRoadIndex,
-          playingRoadIndex: playingRoadIndex,
-          episodeTitles: mappedEpisodeTitles,
-          slots: currentSlots,
-          watchedEpisodes: watched,
-          onRoadSelected: onRoadSelected,
-          onRefresh: onRefreshEpisodes,
-          onSelectEpisode: onSelectEpisode,
-          onSelectSlot: onSelectSlot,
-        );
-      },
+        // Tab 1: 评论讨论区长列表 (独立滚动)
+        const WatchCommentsSection(),
+      ],
     );
   }
 }
