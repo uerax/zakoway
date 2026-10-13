@@ -95,6 +95,9 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   late final SourceAggregator _aggregator;
   late final AutoSourcePickCoordinator _autoPicker;
 
+  /// 跨布局保活 Key：确保在全屏/桌面/移动端布局切换时复用同一 Element 节点，防止播放器和弹幕被卸载重建
+  final GlobalKey _playerSubtreeKey = GlobalKey();
+
   bool _isAppFullscreen = false;
   bool _isTrueFullscreen = false;
   bool get _isFullscreen => _isAppFullscreen || _isTrueFullscreen;
@@ -1539,7 +1542,10 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   /// 1. 全屏横屏布局 (带 iOS/Kazumi 风格磨砂悬浮抽屉 PlayerSidePanel)
   Widget _buildFullscreenLayout() {
     return VideoPlayerFullscreenLayout(
-      playerWidget: _buildPlayerOrPlaceholder(isFullscreen: true),
+      playerWidget: KeyedSubtree(
+        key: _playerSubtreeKey,
+        child: _buildPlayerOrPlaceholder(isFullscreen: true),
+      ),
       sidePanelWidget: PlayerSidePanel(
         isOpen: _isSidePanelOpen,
         initialTab: _sidePanelInitialTab,
@@ -1580,7 +1586,10 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       title: widget.title,
       currentEpisode: _activeEpisode,
       onBackPressed: _handleBackPressed,
-      playerWidget: _buildPlayerOrPlaceholder(isFullscreen: false, isDesktop: true),
+      playerWidget: KeyedSubtree(
+        key: _playerSubtreeKey,
+        child: _buildPlayerOrPlaceholder(isFullscreen: false, isDesktop: true),
+      ),
       introSection: WatchMetaView(
         title: widget.title,
         bangumiItem: _effectiveBangumiItem,
@@ -1658,7 +1667,10 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   /// 3. 移动端竖屏布局 (上方 16:9 + 下方 iOS 风格 3 Tab)
   Widget _buildMobileLayout() {
     return VideoPlayerMobileLayout(
-      playerWidget: _buildPlayerOrPlaceholder(isFullscreen: false),
+      playerWidget: KeyedSubtree(
+        key: _playerSubtreeKey,
+        child: _buildPlayerOrPlaceholder(isFullscreen: false),
+      ),
       tabSection: _buildTabSection(),
     );
   }

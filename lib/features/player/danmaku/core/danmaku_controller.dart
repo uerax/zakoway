@@ -51,8 +51,27 @@ class DanmakuController extends ChangeNotifier {
   List<DanmakuCompiledRule> _compiledFilters = const [];
   bool _disposed = false;
 
+  Duration? _lastPosition;
+  final Stopwatch _syncStopwatch = Stopwatch();
+
   /// 控制器是否已销毁
   bool get isDisposed => _disposed;
+
+  /// 最近一次同步的视频时间轴位置
+  Duration? get lastPosition => _lastPosition;
+
+  /// 计算基于最近一次采样时刻估算的当前视频位置：
+  /// - 若播放中：初始时钟 = lastPosition + 距采样已过时间 × 倍速；
+  /// - 若暂停：直接使用 lastPosition。
+  Duration? get estimatedCurrentPosition {
+    if (_lastPosition == null) return null;
+    if (!_playing || !_syncStopwatch.isRunning) {
+      return _lastPosition;
+    }
+    final elapsedUs = _syncStopwatch.elapsedMicroseconds;
+    final progressUs = (elapsedUs * _playbackRate).round();
+    return _lastPosition! + Duration(microseconds: progressUs);
+  }
 
   /// 当前所有已就绪并排序的弹幕列表
   List<DanmakuItem> get items => List.unmodifiable(_items);
@@ -110,12 +129,23 @@ class DanmakuController extends ChangeNotifier {
   /// 同步视频时间轴
   void syncTime(Duration position) {
     if (_disposed) return;
+    _lastPosition = position;
+    _syncStopwatch
+      ..reset()
+      ..start();
     _listener?.onDanmakuTimeSync(position);
   }
 
   /// 播放倍速联动
   void setPlaybackRate(double rate) {
     if (_disposed || _playbackRate == rate) return;
+    if (_playing && _syncStopwatch.isRunning && _lastPosition != null) {
+      final elapsedUs = _syncStopwatch.elapsedMicroseconds;
+      final progressUs = (elapsedUs * _playbackRate).round();
+      _lastPosition = _lastPosition! + Duration(microseconds: progressUs);
+      _syncStopwatch.reset();
+      _syncStopwatch.start();
+    }
     _playbackRate = math.max(0.1, rate);
     _listener?.onDanmakuPlaybackRateChanged(_playbackRate);
     notifyListeners();
@@ -125,6 +155,9 @@ class DanmakuController extends ChangeNotifier {
   void resume() {
     if (_disposed) return;
     _playing = true;
+    if (_lastPosition != null && !_syncStopwatch.isRunning) {
+      _syncStopwatch.start();
+    }
     _listener?.onDanmakuResume();
     notifyListeners();
   }
@@ -133,6 +166,14 @@ class DanmakuController extends ChangeNotifier {
   void pause() {
     if (_disposed) return;
     _playing = false;
+    if (_syncStopwatch.isRunning) {
+      final elapsedUs = _syncStopwatch.elapsedMicroseconds;
+      final progressUs = (elapsedUs * _playbackRate).round();
+      if (_lastPosition != null) {
+        _lastPosition = _lastPosition! + Duration(microseconds: progressUs);
+      }
+      _syncStopwatch.reset();
+    }
     _listener?.onDanmakuPause();
     notifyListeners();
   }
@@ -140,6 +181,8 @@ class DanmakuController extends ChangeNotifier {
   /// 清空当前屏幕与状态
   void reset() {
     if (_disposed) return;
+    _lastPosition = null;
+    _syncStopwatch.reset();
     _listener?.onDanmakuReset();
   }
 
@@ -167,6 +210,7 @@ class DanmakuController extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    _syncStopwatch.stop();
     _listener = null;
     super.dispose();
   }

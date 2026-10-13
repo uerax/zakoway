@@ -229,7 +229,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('小漂移平滑衰减纠偏，单帧无突跳瞬移', (tester) async {
+    testWidgets('小漂移平滑衰减纠偏，单帧无突跳瞬移 (正负对称)', (tester) async {
       final controller = DanmakuController();
       controller.loadItems([
         DanmakuItem(text: '平滑测试弹幕', timeMs: 0),
@@ -251,10 +251,13 @@ void main() {
       // 先运行 100ms
       await tester.pump(const Duration(milliseconds: 100));
 
-      // 模拟传入一个位于 (80ms ~ 2500ms) 纠偏区间的漂移 (+600ms)
-      controller.syncTime(const Duration(milliseconds: 700));
+      // 模拟传入一个位于 (40ms ~ 600ms) 纠偏区间的正向漂移 (+200ms)
+      controller.syncTime(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(tester.takeException(), isNull);
 
-      // 下一帧（约 8.3ms 或 16.7ms）走一帧
+      // 模拟传入一个位于 (40ms ~ 600ms) 纠偏区间的负向微退漂移 (-150ms)
+      controller.syncTime(const Duration(milliseconds: 150));
       await tester.pump(const Duration(milliseconds: 16));
       expect(tester.takeException(), isNull);
 
@@ -265,7 +268,7 @@ void main() {
       expect(find.byType(DanmakuView), findsOneWidget);
     });
 
-    testWidgets('超过 2500ms 的 Seek 大漂移走硬重定位', (tester) async {
+    testWidgets('超过 600ms 的 Seek 大漂移走硬重定位', (tester) async {
       final controller = DanmakuController();
       controller.loadItems([
         DanmakuItem(text: 'Seek测试弹幕1', timeMs: 100),
@@ -287,7 +290,7 @@ void main() {
       controller.resume();
       await tester.pump(const Duration(milliseconds: 100));
 
-      // 触发超过 1.2s 的大 Seek（直接跳到 5 秒）
+      // 触发超过 600ms 的大 Seek（直接跳到 5 秒）
       controller.syncTime(const Duration(milliseconds: 5000));
       await tester.pump(const Duration(milliseconds: 16));
 
@@ -418,6 +421,218 @@ void main() {
 
       expect(entry.normalizedKey, equals('hello'));
       entry.dispose();
+    });
+  });
+
+  group('DanmakuView 屏幕重建与状态保持测试', () {
+    testWidgets('控制器记住位置：首次布局从控制器记忆位置开始重建，不从 0 开始', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '弹幕1 (1s)', timeMs: 1000),
+        DanmakuItem(text: '弹幕2 (2s)', timeMs: 2000),
+        DanmakuItem(text: '弹幕3 (3s)', timeMs: 3000),
+        DanmakuItem(text: '弹幕4 (4s)', timeMs: 4000),
+      ]);
+
+      // 控制器提前同步到 3500ms
+      controller.syncTime(const Duration(milliseconds: 3500));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 600,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(find.byType(DanmakuView), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('模拟单次 Seek 往回 1 秒：前沿 0 延迟原子重建，无 200ms 空白闪烁', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '弹幕A (1s)', timeMs: 1000),
+        DanmakuItem(text: '弹幕B (2s)', timeMs: 2000),
+        DanmakuItem(text: '弹幕C (3s)', timeMs: 3000),
+        DanmakuItem(text: '弹幕D (4s)', timeMs: 4000),
+        DanmakuItem(text: '弹幕E (5s)', timeMs: 5000),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 600,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      // 连续播放到 5000ms
+      controller.syncTime(const Duration(milliseconds: 5000));
+      await tester.pump(const Duration(milliseconds: 350));
+
+      // 单次向后大跳转 1 秒 (5000ms -> 4000ms, drift = -1000ms > 600ms Seek 阈值)
+      controller.syncTime(const Duration(milliseconds: 4000));
+      // 0ms 立即原子完成重建，下一帧直接可见，无需等待 200ms
+      await tester.pump(const Duration(milliseconds: 16));
+
+      expect(find.byType(DanmakuView), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('连续密集 Seek 拖拽：后沿防抖稳定 180ms 后完成最终重建', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '弹幕A (1s)', timeMs: 1000),
+        DanmakuItem(text: '弹幕B (2s)', timeMs: 2000),
+        DanmakuItem(text: '弹幕C (3s)', timeMs: 3000),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 600,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      await tester.pump(const Duration(milliseconds: 350));
+
+      // 模拟第 1 次 Seek（前沿触发）
+      controller.syncTime(const Duration(milliseconds: 2000));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // 紧接着连续快速 Seek 拖拽（间隔 < 300ms）
+      controller.syncTime(const Duration(milliseconds: 2500));
+      await tester.pump(const Duration(milliseconds: 50));
+      controller.syncTime(const Duration(milliseconds: 3000));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // 拖拽停止后，等待 180ms 防抖结束 (50ms + 150ms = 200ms > 180ms)
+      await tester.pump(const Duration(milliseconds: 150));
+
+      expect(find.byType(DanmakuView), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('连续多次尺寸变化防抖：稳定 180ms 后完成重建', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '弹幕1', timeMs: 500),
+        DanmakuItem(text: '弹幕2', timeMs: 1000),
+      ]);
+
+      var width = 800.0;
+      late StateSetter setStateCallback;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                setStateCallback = setState;
+                return SizedBox(
+                  width: width,
+                  height: 600,
+                  child: DanmakuView(controller: controller),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // 连续在 180ms 内改变尺寸 3 次
+      setStateCallback(() => width = 820.0);
+      await tester.pump(const Duration(milliseconds: 50));
+      setStateCallback(() => width = 840.0);
+      await tester.pump(const Duration(milliseconds: 50));
+      setStateCallback(() => width = 860.0);
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // 此时距最后一次尺寸变化仅过去 50ms，防抖未超时
+      // 继续推进 150ms（总计 200ms > 180ms），触发稳定重建
+      await tester.pump(const Duration(milliseconds: 150));
+
+      expect(find.byType(DanmakuView), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('KeyedSubtree 跨父容器保活：移动到新父树时 State 实例与控制器绑定不丢失', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '保活测试弹幕', timeMs: 500),
+      ]);
+
+      final subtreeKey = GlobalKey();
+      var isFullscreen = false;
+      late StateSetter setStateCallback;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                setStateCallback = setState;
+                if (isFullscreen) {
+                  return Container(
+                    color: Colors.black,
+                    child: KeyedSubtree(
+                      key: subtreeKey,
+                      child: SizedBox(
+                        width: 1920,
+                        height: 1080,
+                        child: DanmakuView(controller: controller),
+                      ),
+                    ),
+                  );
+                } else {
+                  return Container(
+                    color: Colors.white,
+                    child: KeyedSubtree(
+                      key: subtreeKey,
+                      child: SizedBox(
+                        width: 800,
+                        height: 450,
+                        child: DanmakuView(controller: controller),
+                      ),
+                    ),
+                  );
+                }
+              },
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // 切换布局至全屏
+      setStateCallback(() => isFullscreen = true);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(find.byType(DanmakuView), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 }

@@ -20,17 +20,15 @@ const double _kBottomDurationMs = 5000.0;
 const double _kScrollBaseDurationMs = 7500.0;
 
 /// 特殊处理说明：
-/// 1:1 对齐 animaku 工业级分级时钟漂移治理模型 (Tiered Drift Policy)：
-/// 1. 黄金死区 (-20ms ~ 80ms)：80ms 完美吸收 24/30fps 视频解码步进 (约 41.7ms) 与硬件晶振离散采样噪声，
-///    完全不干预，保证在 4K 120Hz/144Hz 超高刷屏下弹幕 100% 保持绝对匀速单调前进，杜绝周期性拉扯；
-/// 2. 平滑微调 (80ms ~ 2500ms)：采用一阶 EMA 低通滤波 (alpha = 0.06)，每次仅温和吸收 6% 的漂移量，
-///    既能在数秒内将时钟平稳拉回视频进度，又不会产生肉眼可见的速度跳变；
-/// 3. 硬寻道 (> 2500ms)：只有当用户手动拖动进度条发生大跨度 Seek 时，才触发重对齐与重排轨，
-///    严禁在正常播放过程中执行清屏重定位。
-const double _kSeekThresholdMs = 2500.0;
-const double _kSyncDeadbandMaxMs = 80.0;
-const double _kSyncDeadbandMinMs = -20.0;
-const double _kSyncEmaAlpha = 0.06;
+/// 分级时钟漂移治理模型 (Tiered Drift Policy)：
+/// 1. 正负对称死区 (|drift| <= 40ms)：吸收 24/30fps 视频解码步进 (约 33~42ms) 与硬件采样抖动，
+///    完全不干预，保证弹幕匀速单调前进，杜绝微小拉扯抖动；
+/// 2. 平滑微调 (40ms < |drift| <= 600ms)：采用一阶 EMA 低通滤波 (alpha = 0.15)，
+///    正负双向温和吸收漂移，数秒内平稳追平进度且消除向后快退死锁；
+/// 3. 硬寻道 (|drift| > 600ms)：超过 600ms 视为 Seek 跳转，触发时钟重置、清屏与重定位游标。
+const double _kSeekThresholdMs = 600.0;
+const double _kSyncDeadbandMs = 40.0;
+const double _kSyncEmaAlpha = 0.15;
 
 /// 高性能纯 Flutter Canvas 弹幕渲染组件
 /// 支持飞行中动态吸收合流 (xN)、微秒级时钟插值、防追尾轨道算法与智能休眠节电
@@ -62,6 +60,10 @@ class _DanmakuViewState extends State<DanmakuView>
   List<double> _bottomBusyUntil = const [];
 
   Timer? _wakeTimer;
+  Timer? _seekDebounceTimer;
+  Timer? _viewportResizeTimer;
+  bool _isViewportResizing = false;
+  int _lastSeekTimeMs = 0;
   int _cursor = 0;
   double _clockMs = 0.0;
   Duration _lastElapsed = Duration.zero;
@@ -69,6 +71,7 @@ class _DanmakuViewState extends State<DanmakuView>
   double _viewWidth = 0.0;
   double _viewHeight = 0.0;
   double _deviceShortestSide = 0.0;
+  double _dpr = 1.0;
   double _lineHeight = 24.0;
   double _nextExpiryMs = double.infinity;
   int _scrollingCount = 0;
@@ -150,6 +153,8 @@ class _DanmakuViewState extends State<DanmakuView>
   void dispose() {
     _controller.detach(this);
     _stopWork();
+    _seekDebounceTimer?.cancel();
+    _viewportResizeTimer?.cancel();
     _clearActive();
     _layoutPool.clear();
     _ticker.dispose();
@@ -170,6 +175,11 @@ class _DanmakuViewState extends State<DanmakuView>
     // 1. 微秒级连续平滑时间插值推进 (单调递增，无任何速度扰动)
     final dtMs = delta.inMicroseconds / 1000.0;
     _clockMs += dtMs * _controller.playbackRate;
+
+    // 视口尺寸连续变动防抖期间：暂停发射新弹幕和绘制
+    if (_isViewportResizing) {
+      return;
+    }
 
     // 2. 发射到期弹幕（带动态合流与入场调度）
     _emitDue();
@@ -514,18 +524,108 @@ class _DanmakuViewState extends State<DanmakuView>
     _viewHeight = h;
     if (!_hasViewport) return;
 
-    // 特殊处理说明：
-    // 若视口尺寸发生有效变更（如窗口缩放、进入/退出全屏）：
-    // 现有在屏弹幕的速度和坐标基于旧视口宽度计算，若继续绘制会导致全部在屏弹幕瞬移；
-    // 立即清空在屏弹幕并重置游标至当前时钟，让新弹幕按新视口平滑入场，彻底消除跳帧。
-    if (hadViewport && _activeEntries.isNotEmpty) {
-      _clearActive();
-      _cursor = _lowerBound(_controller.items, _clockMs);
-      _repaintNotifier.value++;
+    if (!hadViewport) {
+      // 首次布局完成（视口已知）且控制器已有位置时，用该位置初始化 _clockMs 并重建屏幕，避免从 0 开始
+      final estimated = _controller.estimatedCurrentPosition;
+      if (estimated != null) {
+        _clockMs = estimated.inMicroseconds / 1000.0;
+      }
+      _rebuildTracks();
+      _rebuildScreenAt(_clockMs);
+      return;
     }
 
-    _rebuildTracks();
-    _scheduleWork();
+    // 特殊处理说明：
+    // 视口尺寸连续变动防抖 (180ms)：
+    // 在全屏/窗口切换或窗口拉伸过程中，防抖期间暂停绘制与发射，稳定后再重建屏幕与排轨，杜绝每帧重建
+    _isViewportResizing = true;
+    _viewportResizeTimer?.cancel();
+    _viewportResizeTimer = Timer(const Duration(milliseconds: 180), () {
+      _viewportResizeTimer = null;
+      if (!mounted || !_hasViewport) return;
+      _isViewportResizing = false;
+      _rebuildTracks();
+      _rebuildScreenAt(_clockMs);
+    });
+  }
+
+  /// 特殊处理说明：
+  /// 统一的“重建当前时刻屏幕”核心方法：
+  /// 在当前时钟 targetClockMs 处，清空后按时间顺序补发 [targetClockMs - 窗口, targetClockMs] 内未过期的弹幕：
+  /// 1. 按弹幕类型使用各自存活时长过滤过期弹幕（滚动弹幕用当前穿越时长，顶部/底部固定弹幕用 5000ms）；
+  /// 2. 候选数量超过同屏上限时，保留时间上最新的那部分（数量 = 上限），再按时间顺序补发；
+  /// 3. 被丢弃的弹幕不调用排版，零无用开销；
+  /// 4. 补发时临时将 _clockMs 设为弹幕 timeMs，复用现有的 _tryEmit（合流、轨道分配、同屏上限），补完恢复 _clockMs 与游标。
+  void _rebuildScreenAt(double targetClockMs) {
+    if (!_hasViewport || !_controller.settings.enabled) return;
+
+    final items = _controller.items;
+    if (items.isEmpty) {
+      _clearActive();
+      _clockMs = targetClockMs;
+      _cursor = 0;
+      _repaintNotifier.value++;
+      return;
+    }
+
+    final settings = _controller.settings;
+    final scrollDurationMs = math.max(1000.0, _scrollBaseDurationMs / settings.speed);
+    final maxWindowMs = math.max(scrollDurationMs, _kTopDurationMs);
+
+    final windowStartMs = math.max(0.0, targetClockMs - maxWindowMs);
+    final startIndex = _lowerBound(items, windowStartMs);
+    final endIndex = _lowerBound(items, targetClockMs + 0.0001);
+
+    // 1. 筛选未过期且未被屏蔽/隐藏的候选弹幕
+    final validCandidates = <DanmakuItem>[];
+    for (var i = startIndex; i < endIndex; i++) {
+      final item = items[i];
+      if (item.timeMs > targetClockMs) break;
+
+      if (_controller.isBlocked(item.text)) continue;
+      if (item.mode == DanmakuMode.scroll && settings.hideScroll) continue;
+      if (item.mode == DanmakuMode.top && settings.hideTop) continue;
+      if (item.mode == DanmakuMode.bottom && settings.hideBottom) continue;
+
+      // 按弹幕类型分别计算存活时长，剔除当前时刻已经越界的旧弹幕
+      final lifeDurationMs = item.mode == DanmakuMode.scroll
+          ? scrollDurationMs
+          : _kTopDurationMs;
+      if (item.timeMs + lifeDurationMs <= targetClockMs) {
+        continue;
+      }
+
+      validCandidates.add(item);
+    }
+
+    // 2. 候选数量超过同屏上限时，保留时间上最新的那部分（数量 = 上限）
+    final budget = _maxRunning;
+    final candidatesToEmit = validCandidates.length > budget
+        ? validCandidates.sublist(validCandidates.length - budget)
+        : validCandidates;
+
+    // 清空现有在屏弹幕与轨道状态
+    _clearActive();
+
+    // 3. 按时间顺序补发，临时将 _clockMs 设为该弹幕的 timeMs 走现有调度
+    for (final item in candidatesToEmit) {
+      _clockMs = item.timeMs.toDouble();
+      _tryEmit(item, checkFilter: false);
+    }
+
+    // 4. 补完恢复 _clockMs 为 targetClockMs，_cursor 指向 targetClockMs 之后的第一条
+    _clockMs = targetClockMs;
+    _cursor = _lowerBound(items, targetClockMs + 0.0001);
+
+    var nextExp = double.infinity;
+    for (final entry in _activeEntries) {
+      nextExp = math.min(nextExp, entry.endMs);
+    }
+    _nextExpiryMs = nextExp;
+
+    _perfStats.updateActiveCount(_activeEntries.length);
+    _repaintNotifier.value++;
+    _scheduleWork(forceWake: true);
   }
 
   /// 特殊处理说明：
@@ -611,30 +711,41 @@ class _DanmakuViewState extends State<DanmakuView>
     final positionMs = position.inMilliseconds.toDouble();
     final drift = positionMs - _clockMs;
 
-    // 1. 用户 Seek 大寻道 (> 2500ms)：
-    // 只有真正的大跨度跳转 (如进度条拖拽、跳过片头等) 才重置在屏弹幕与排轨，
-    // 严禁在正常连续播放中执行清屏重定位，彻底阻断周期性大卡顿！
+    // 1. 用户 Seek 大寻道 (|drift| > 600ms)：
+    // 前沿立即执行 + 尾沿防抖 (Leading-edge Throttle + Trailing-edge Debounce)：
+    // - 单次跳转（点击进度条 / 键盘按键快进）：0ms 立即原子重建，杜绝清屏空屏与闪烁！
+    // - 连续快速拖拽：密集拖动期间清屏防错位，稳定 180ms 后完成最终重建。
     if (drift.abs() > _kSeekThresholdMs) {
       _clockMs = positionMs;
-      _clearActive();
-      _cursor = _lowerBound(_controller.items, positionMs);
-      _repaintNotifier.value++;
-      _emitDue();
-      _scheduleWork(forceWake: true);
+      _seekDebounceTimer?.cancel();
+
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final elapsedSinceLastSeek = now - _lastSeekTimeMs;
+
+      if (elapsedSinceLastSeek > 300) {
+        // 单次跳转：前沿立即执行，零延迟原子重建，彻底消除 200ms 的空白与闪烁
+        _lastSeekTimeMs = now;
+        _rebuildScreenAt(_clockMs);
+      } else {
+        // 连续高频拖拽中：清屏防拉扯，防抖 180ms 稳定后更新最终位置
+        _clearActive();
+        _repaintNotifier.value++;
+        _seekDebounceTimer = Timer(const Duration(milliseconds: 180), () {
+          _seekDebounceTimer = null;
+          if (!mounted || !_hasViewport) return;
+          _lastSeekTimeMs = DateTime.now().millisecondsSinceEpoch;
+          _rebuildScreenAt(_clockMs);
+        });
+      }
       return;
     }
 
-    // 2. 正常播放状态下的分级平滑微调 (绝不清屏，无感对齐)：
+    // 2. 正负对称死区 (|drift| <= 40ms)：
+    // 吸收 24/30fps 解码步进与硬件采样抖动，不干预，保持绝对匀速
+    if (drift.abs() <= _kSyncDeadbandMs) return;
 
-    // 2.1 单调性保护：若视频播放器偶发掉帧回退 (drift < -20ms)，直接忽略，时间绝不倒流
-    if (drift < _kSyncDeadbandMinMs) return;
-
-    // 2.2 黄金死区 (-20ms <= drift <= 80ms)：
-    // 80ms 完美吸收 24fps 视频解码步进 (41.7ms) 与定时器抖动，完全不干预，保持 100% 绝对匀速
-    if (drift <= _kSyncDeadbandMaxMs) return;
-
-    // 2.3 平滑一阶低通滤波微调 (80ms < drift <= 2500ms)：
-    // 采用 EMA 滤波微调，每次仅平滑吸收 6% 的漂移量，单帧速度扰动极微小，肉眼完全无感
+    // 3. 一阶低通纠偏 (40ms < |drift| <= 600ms)：
+    // 正负双向温和吸收漂移量 (alpha = 0.15)，杜绝向后微调时时钟死锁
     _clockMs += drift * _kSyncEmaAlpha;
   }
 
@@ -645,10 +756,7 @@ class _DanmakuViewState extends State<DanmakuView>
 
   @override
   void onDanmakuItemsChanged() {
-    _clearActive();
-    _cursor = _lowerBound(_controller.items, _clockMs);
-    _repaintNotifier.value++;
-    _scheduleWork(forceWake: true);
+    _rebuildScreenAt(_clockMs);
   }
 
   @override
@@ -713,8 +821,11 @@ class _DanmakuViewState extends State<DanmakuView>
 
   @override
   Widget build(BuildContext context) {
-    final shortestSide = MediaQuery.maybeSizeOf(context)?.shortestSide ?? 0.0;
+    final mediaQuery = MediaQuery.maybeOf(context);
+    final shortestSide = mediaQuery?.size.shortestSide ?? 0.0;
     _updateDeviceInfo(shortestSide);
+    final dpr = mediaQuery?.devicePixelRatio ?? 1.0;
+    _dpr = dpr > 0.0 ? dpr : 1.0;
     return LayoutBuilder(
       builder: (context, constraints) {
         _updateViewport(constraints);
@@ -747,7 +858,7 @@ class _DanmakuPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (!state._controller.settings.enabled) return;
+    if (!state._controller.settings.enabled || state._isViewportResizing) return;
 
     developer.Timeline.startSync('Danmaku.paint');
     try {
@@ -758,16 +869,18 @@ class _DanmakuPainter extends CustomPainter {
       final now = state._clockMs;
       final width = size.width;
       final height = size.height;
+      final dpr = state._dpr;
 
       // 特殊处理说明：
       // 彻底移除全屏 saveLayer！直接在文字 Paint 颜色与描边层混合透明度，
       // 杜绝 4K 120Hz 下每秒 4GB 的 GPU 离屏显存带宽雪崩，实现 100% 直通帧缓冲绘制。
       // Bilibili / animaku 三层 Z-Index 分层绘制管线 (直接内联循环，零闭包分配)：
-      // Pass 1: 滚动弹幕（底层，绝不遮挡重要字幕）
+      // Pass 1: 滚动弹幕（底层，绝不遮挡重要字幕，x 坐标物理像素对齐）
       for (var i = 0; i < count; i++) {
         final entry = entries[i];
         if (entry.mode != DanmakuMode.scroll) continue;
-        final x = width - (now - entry.startMs) * entry.speed;
+        final rawX = width - (now - entry.startMs) * entry.speed;
+        final x = (rawX * dpr).roundToDouble() / dpr;
         final textSize = entry.layout.size;
         if (x >= width || x + textSize.width <= 0) continue;
         if (entry.y >= height || entry.y + textSize.height <= 0) continue;
