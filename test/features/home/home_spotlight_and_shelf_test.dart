@@ -11,6 +11,7 @@ import 'package:zakoway/core/services/watch_history_service.dart';
 import 'package:zakoway/features/home/pages/home_page.dart';
 import 'package:zakoway/features/home/widgets/continue_watching_shelf.dart';
 import 'package:zakoway/features/home/widgets/daily_spotlight_card.dart';
+import 'package:zakoway/features/home/widgets/home_banner_carousel.dart';
 import 'package:zakoway/features/home/widgets/home_desktop_hero.dart';
 import 'package:zakoway/features/home/widgets/today_anime_shelf.dart';
 
@@ -467,6 +468,55 @@ void main() {
       await tester.tap(find.text('六'));
       await tester.pumpAndSettle();
       expect(find.textContaining('周六'), findsOneWidget);
+    });
+  });
+
+  group('HomeBannerCarousel infinite loop tests', () {
+    testWidgets('Builds with infinite unconstrained page view and modulo mapping', (tester) async {
+      final items = [
+        _createMockItem(1, 'Item 1', 8.0),
+        _createMockItem(2, 'Item 2', 8.5),
+        _createMockItem(3, 'Item 3', 9.0),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HomeBannerCarousel(
+              items: items,
+              autoPlayInterval: const Duration(seconds: 10),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final pageView = tester.widget<PageView>(find.byType(PageView));
+      // 3 个真实数据，初始页落在 3 * 1000 = 3000
+      expect(pageView.controller?.initialPage, equals(3000));
+      // 当前展示 3000 % 3 = 0 项（Item 1）
+      expect(find.text('Item 1 中文'), findsOneWidget);
+    });
+
+    testWidgets('Single item renders exactly 1 page with initialPage at 0', (tester) async {
+      final items = [
+        _createMockItem(1, 'Single Item', 8.0),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HomeBannerCarousel(
+              items: items,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final pageView = tester.widget<PageView>(find.byType(PageView));
+      expect(pageView.controller?.initialPage, equals(0));
+      expect(find.text('Single Item 中文'), findsOneWidget);
     });
   });
 

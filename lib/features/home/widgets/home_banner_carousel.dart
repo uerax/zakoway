@@ -38,10 +38,15 @@ class HomeBannerCarousel extends StatefulWidget {
 }
 
 class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
-  late final PageController _pageController;
+  late PageController _pageController;
   Timer? _autoPlayTimer;
   int _currentIndex = 0;
   bool _isInteracting = false;
+
+  // 特殊处理说明：循环基准倍数。在多数据项时，initialPage 设为 count * 1000，
+  // 结合 PageView(itemCount: null) 的视口惰性加载机制，既提供向前向后数千页的平滑无阻尼循环空间，
+  // 又完全不涉及任何 jumpTo 物理坐标篡改，彻底免疫状态机重入死循环与手势打断
+  static const int _kLoopMultiplier = 1000;
 
   List<BangumiItem> get _carouselItems {
     if (widget.recommendations != null && widget.recommendations!.isNotEmpty) {
@@ -50,10 +55,12 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
     return (widget.items ?? const []).take(widget.maxCount).toList();
   }
 
+  int _getInitialPage(int count) => count > 1 ? count * _kLoopMultiplier : 0;
+
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    _pageController = PageController(initialPage: _getInitialPage(_carouselItems.length));
     _startAutoPlay();
   }
 
@@ -62,8 +69,16 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.items?.length != widget.items?.length ||
         oldWidget.recommendations?.length != widget.recommendations?.length) {
-      if (_currentIndex >= _carouselItems.length && _carouselItems.isNotEmpty) {
+      final newCount = _carouselItems.length;
+      if (_currentIndex >= newCount && newCount > 0) {
         _currentIndex = 0;
+      }
+      final targetPage = _getInitialPage(newCount) + _currentIndex;
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(targetPage);
+      } else if (_pageController.initialPage != targetPage) {
+        _pageController.dispose();
+        _pageController = PageController(initialPage: targetPage);
       }
       _restartAutoPlay();
     }
@@ -71,16 +86,17 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
 
   void _startAutoPlay() {
     _autoPlayTimer?.cancel();
-    if (_carouselItems.length <= 1) return;
+    final count = _carouselItems.length;
+    if (count <= 1) return;
 
     _autoPlayTimer = Timer.periodic(widget.autoPlayInterval, (timer) {
       if (!mounted || _isInteracting || !_pageController.hasClients) return;
-      final count = _carouselItems.length;
-      if (count <= 1) return;
+      final currentItemCount = _carouselItems.length;
+      if (currentItemCount <= 1) return;
 
-      final nextPage = (_currentIndex + 1) % count;
+      final currentPage = _pageController.page?.round() ?? _pageController.initialPage;
       _pageController.animateToPage(
-        nextPage,
+        currentPage + 1,
         duration: const Duration(milliseconds: 650),
         curve: Curves.easeInOutCubic,
       );
@@ -138,20 +154,24 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
                 clipBehavior: Clip.antiAlias,
                 child: Stack(
                   children: [
-                    // 1. 轮播视图核心（PageView.builder 懒加载构建）
+                    // 1. 轮播视图核心（无界懒加载 + 取模映射，原生级零闪烁无限循环）
                     PageView.builder(
                       controller: _pageController,
-                      itemCount: items.length,
+                      itemCount: items.length > 1 ? null : items.length,
                       onPageChanged: (index) {
+                        final count = items.length;
+                        final realIndex = count > 1 ? index % count : index;
                         setState(() {
-                          _currentIndex = index;
+                          _currentIndex = realIndex;
                         });
                       },
                       itemBuilder: (context, index) {
-                        final item = items[index];
+                        final count = items.length;
+                        final realIndex = count > 1 ? index % count : index;
+                        final item = items[realIndex];
                         final recList = widget.recommendations;
-                        final currentRec = (recList != null && index < recList.length)
-                            ? recList[index]
+                        final currentRec = (recList != null && realIndex < recList.length)
+                            ? recList[realIndex]
                             : null;
                         return _buildBannerCard(
                           context: context,
