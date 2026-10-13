@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zakoway/core/utils/font_manager.dart';
 import 'package:zakoway/features/player/danmaku/danmaku.dart';
 import 'player_panel_widgets.dart';
 
@@ -26,6 +27,7 @@ class _PlayerDanmakuPanelBodyState extends State<PlayerDanmakuPanelBody> {
 
   // 搜索输入
   final TextEditingController _searchController = TextEditingController();
+  bool _hasInitializedSearchText = false;
 
   // B 站手动输入
   final TextEditingController _bvInputController = TextEditingController();
@@ -41,8 +43,14 @@ class _PlayerDanmakuPanelBodyState extends State<PlayerDanmakuPanelBody> {
   void initState() {
     super.initState();
     final coord = widget.coordinator;
-    if (coord != null && coord.animes.isEmpty && coord.status.contains('未匹配')) {
-      _currentTab = _DanmakuTab.search;
+    if (coord != null) {
+      if (coord.title.isNotEmpty) {
+        _searchController.text = coord.title;
+        _hasInitializedSearchText = true;
+      }
+      if (coord.animes.isEmpty && coord.status.contains('未匹配')) {
+        _currentTab = _DanmakuTab.search;
+      }
     }
   }
 
@@ -79,6 +87,11 @@ class _PlayerDanmakuPanelBodyState extends State<PlayerDanmakuPanelBody> {
         ?coord?.poolsManager,
       ]),
       builder: (context, _) {
+        if (!_hasInitializedSearchText && coord != null && coord.title.isNotEmpty) {
+          _searchController.text = coord.title;
+          _hasInitializedSearchText = true;
+        }
+
         final cfg = controller.settings;
         final totalCount = coord != null ? coord.poolsManager.totalLoadedCount : controller.items.length;
         final shownCount = controller.items.length;
@@ -207,44 +220,67 @@ class _PlayerDanmakuPanelBodyState extends State<PlayerDanmakuPanelBody> {
         Row(
           children: [
             Expanded(
-              child: SizedBox(
+              child: Container(
                 height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                ),
                 child: TextField(
                   controller: _searchController,
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                  decoration: InputDecoration(
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontFamilyFallback: FontManager.fallbackFontFamilies,
+                  ),
+                  decoration: const InputDecoration(
                     hintText: '搜索番剧名称…',
-                    hintStyle: const TextStyle(color: Colors.white38, fontSize: 12),
+                    hintStyle: TextStyle(
+                      color: Colors.white38,
+                      fontSize: 12,
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                    ),
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.06),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: widget.primaryColor),
-                    ),
+                    filled: false,
+                    fillColor: Colors.transparent,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
                   ),
                   onSubmitted: (kw) => coord.searchDandan(kw),
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: coord.searchBusy
-                  ? null
-                  : () => coord.searchDandan(_searchController.text),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: widget.primaryColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
-                minimumSize: const Size(0, 36),
+            SizedBox(
+              height: 36,
+              child: ElevatedButton(
+                onPressed: coord.searchBusy
+                    ? null
+                    : () => coord.searchDandan(_searchController.text),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: widget.primaryColor,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shadowColor: Colors.transparent,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                  minimumSize: const Size(0, 36),
+                ),
+                child: Text(
+                  coord.searchBusy ? '…' : '搜索',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    fontFamilyFallback: FontManager.fallbackFontFamilies,
+                  ),
+                ),
               ),
-              child: Text(coord.searchBusy ? '…' : '搜索', style: const TextStyle(fontSize: 12)),
             ),
           ],
         ),
@@ -252,40 +288,48 @@ class _PlayerDanmakuPanelBodyState extends State<PlayerDanmakuPanelBody> {
         const SizedBox(height: 12),
 
         // 选择番剧下拉
-        const Text('选择番剧', style: TextStyle(color: Colors.white54, fontSize: 11)),
+        const Text(
+          '选择番剧',
+          style: TextStyle(
+            color: Colors.white54,
+            fontSize: 11,
+            fontFamilyFallback: FontManager.fallbackFontFamilies,
+          ),
+        ),
         const SizedBox(height: 4),
-        _buildDropdownContainer(
+        _buildDropdownContainer<int>(
           hint: '选择番剧…',
-          value: coord.selectedAnimeId,
-          items: coord.animes.map((a) {
+          value: coord.animes.any((a) => a.animeId == coord.selectedAnimeId)
+              ? coord.selectedAnimeId
+              : null,
+          options: coord.animes.map((a) {
             final desc = a.typeDescription != null ? ' (${a.typeDescription})' : '';
-            return DropdownMenuItem<int>(
-              value: a.animeId,
-              child: Text('${a.animeTitle}$desc', overflow: TextOverflow.ellipsis),
-            );
+            return (value: a.animeId, label: '${a.animeTitle}$desc');
           }).toList(),
-          onChanged: (val) {
-            if (val != null) coord.pickDandanAnime(val);
-          },
+          onChanged: (val) => coord.pickDandanAnime(val),
         ),
 
         const SizedBox(height: 10),
 
         // 选择章节下拉
-        const Text('选择章节', style: TextStyle(color: Colors.white54, fontSize: 11)),
+        const Text(
+          '选择章节',
+          style: TextStyle(
+            color: Colors.white54,
+            fontSize: 11,
+            fontFamilyFallback: FontManager.fallbackFontFamilies,
+          ),
+        ),
         const SizedBox(height: 4),
-        _buildDropdownContainer(
+        _buildDropdownContainer<int>(
           hint: '选择章节…',
-          value: coord.selectedEpisodeId,
-          items: coord.episodes.map((ep) {
-            return DropdownMenuItem<int>(
-              value: ep.episodeId,
-              child: Text(ep.episodeTitle, overflow: TextOverflow.ellipsis),
-            );
+          value: coord.episodes.any((ep) => ep.episodeId == coord.selectedEpisodeId)
+              ? coord.selectedEpisodeId
+              : null,
+          options: coord.episodes.map((ep) {
+            return (value: ep.episodeId, label: ep.episodeTitle);
           }).toList(),
-          onChanged: (val) {
-            if (val != null) coord.pickDandanEpisode(val);
-          },
+          onChanged: (val) => coord.pickDandanEpisode(val),
         ),
 
         // 偏移校准提示与重置
@@ -645,68 +689,108 @@ class _PlayerDanmakuPanelBodyState extends State<PlayerDanmakuPanelBody> {
                 style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 6),
-              SizedBox(
+              Container(
                 height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                ),
                 child: TextField(
                   controller: _bvInputController,
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                  decoration: InputDecoration(
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontFamilyFallback: FontManager.fallbackFontFamilies,
+                  ),
+                  decoration: const InputDecoration(
                     hintText: 'BV号 / ep86012 / ss28277 / av号 / 完整链接',
-                    hintStyle: const TextStyle(color: Colors.white38, fontSize: 11),
+                    hintStyle: TextStyle(
+                      color: Colors.white38,
+                      fontSize: 11,
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                    ),
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.06),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: widget.primaryColor),
-                    ),
+                    filled: false,
+                    fillColor: Colors.transparent,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
                   ),
                 ),
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Text('分P: ', style: TextStyle(color: Colors.white54, fontSize: 11)),
-                  SizedBox(
+                  const Text(
+                    '分P: ',
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 11,
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                    ),
+                  ),
+                  Container(
                     width: 46,
                     height: 28,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                    ),
                     child: TextField(
                       controller: _bvPageController,
                       keyboardType: TextInputType.number,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'monospace'),
-                      decoration: InputDecoration(
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                        fontFamilyFallback: FontManager.fallbackFontFamilies,
+                      ),
+                      decoration: const InputDecoration(
                         isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 4),
-                        filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.06),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                        filled: false,
+                        fillColor: Colors.transparent,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
                       ),
                     ),
                   ),
                   const Spacer(),
-                  ElevatedButton(
-                    onPressed: coord?.bilibiliBusy == true
-                        ? null
-                        : () {
-                            final page = int.tryParse(_bvPageController.text.trim()) ?? 1;
-                            coord?.loadBilibiliManual(_bvInputController.text, page: page);
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: widget.primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                      minimumSize: const Size(0, 30),
-                    ),
-                    child: Text(
-                      coord?.bilibiliBusy == true ? '拉取中…' : '追加 B 站弹幕',
-                      style: const TextStyle(fontSize: 11.5),
+                  SizedBox(
+                    height: 30,
+                    child: ElevatedButton(
+                      onPressed: coord?.bilibiliBusy == true
+                          ? null
+                          : () {
+                              final page = int.tryParse(_bvPageController.text.trim()) ?? 1;
+                              coord?.loadBilibiliManual(_bvInputController.text, page: page);
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: widget.primaryColor,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shadowColor: Colors.transparent,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                        minimumSize: const Size(0, 30),
+                      ),
+                      child: Text(
+                        coord?.bilibiliBusy == true ? '拉取中…' : '追加 B 站弹幕',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          fontFamilyFallback: FontManager.fallbackFontFamilies,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -800,35 +884,65 @@ class _PlayerDanmakuPanelBodyState extends State<PlayerDanmakuPanelBody> {
               Row(
                 children: [
                   Expanded(
-                    child: SizedBox(
+                    child: Container(
                       height: 32,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                      ),
                       child: TextField(
                         controller: _filterInputController,
-                        style: const TextStyle(color: Colors.white, fontSize: 11.5),
-                        decoration: InputDecoration(
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11.5,
+                          fontFamilyFallback: FontManager.fallbackFontFamilies,
+                        ),
+                        decoration: const InputDecoration(
                           hintText: '关键词 或 /regex/',
-                          hintStyle: const TextStyle(color: Colors.white38, fontSize: 11),
+                          hintStyle: TextStyle(
+                            color: Colors.white38,
+                            fontSize: 11,
+                            fontFamilyFallback: FontManager.fallbackFontFamilies,
+                          ),
                           isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          filled: true,
-                          fillColor: Colors.white.withValues(alpha: 0.06),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                          filled: false,
+                          fillColor: Colors.transparent,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
                         ),
                         onSubmitted: (_) => _addFilterRule(controller, cfg),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () => _addFilterRule(controller, cfg),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: widget.primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                      minimumSize: const Size(0, 32),
+                  SizedBox(
+                    height: 32,
+                    child: ElevatedButton(
+                      onPressed: () => _addFilterRule(controller, cfg),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: widget.primaryColor,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shadowColor: Colors.transparent,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                        minimumSize: const Size(0, 32),
+                      ),
+                      child: const Text(
+                        '添加',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          fontFamilyFallback: FontManager.fallbackFontFamilies,
+                        ),
+                      ),
                     ),
-                    child: const Text('添加', style: TextStyle(fontSize: 11)),
                   ),
                 ],
               ),
@@ -882,28 +996,131 @@ class _PlayerDanmakuPanelBodyState extends State<PlayerDanmakuPanelBody> {
   Widget _buildDropdownContainer<T>({
     required String hint,
     required T? value,
-    required List<DropdownMenuItem<T>> items,
-    required ValueChanged<T?> onChanged,
+    required List<({T value, String label})> options,
+    required ValueChanged<T> onChanged,
   }) {
-    return Container(
-      height: 38,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: value,
-          hint: Text(hint, style: const TextStyle(color: Colors.white38, fontSize: 12)),
-          isExpanded: true,
-          dropdownColor: const Color(0xFF1E222D),
-          style: const TextStyle(color: Colors.white, fontSize: 12),
-          items: items,
-          onChanged: onChanged,
-        ),
-      ),
+    final selected = options.cast<({T value, String label})?>().firstWhere(
+      (o) => o?.value == value,
+      orElse: () => null,
+    );
+    final displayText = selected?.label ?? hint;
+    final isHint = selected == null;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            popupMenuTheme: PopupMenuThemeData(
+              color: const Color(0xFF1E222D),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+              ),
+              textStyle: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontFamilyFallback: FontManager.fallbackFontFamilies,
+              ),
+            ),
+          ),
+          child: PopupMenuButton<T>(
+            tooltip: '',
+            elevation: 8,
+            shadowColor: Colors.black.withValues(alpha: 0.6),
+            offset: const Offset(0, 42),
+            constraints: BoxConstraints(
+              maxHeight: 280,
+              minWidth: constraints.maxWidth,
+              maxWidth: constraints.maxWidth,
+            ),
+            onSelected: onChanged,
+            itemBuilder: (context) {
+              if (options.isEmpty) {
+                return [
+                  PopupMenuItem<T>(
+                    enabled: false,
+                    height: 36,
+                    child: const Text(
+                      '暂无可用选项',
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 12,
+                        fontFamilyFallback: FontManager.fallbackFontFamilies,
+                      ),
+                    ),
+                  ),
+                ];
+              }
+              return options.map((opt) {
+                final isSelected = opt.value == value;
+                return PopupMenuItem<T>(
+                  value: opt.value,
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? widget.primaryColor.withValues(alpha: 0.12)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            opt.label,
+                            style: TextStyle(
+                              color: isSelected ? widget.primaryColor : Colors.white,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                              fontSize: 12,
+                              fontFamilyFallback: FontManager.fallbackFontFamilies,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isSelected) ...[
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.check_rounded,
+                            size: 15,
+                            color: widget.primaryColor,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              }).toList();
+            },
+            child: Container(
+              height: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      displayText,
+                      style: TextStyle(
+                        color: isHint ? Colors.white38 : Colors.white,
+                        fontSize: 12,
+                        fontFamilyFallback: FontManager.fallbackFontFamilies,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down, color: Colors.white54, size: 20),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

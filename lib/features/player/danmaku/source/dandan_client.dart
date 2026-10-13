@@ -77,15 +77,18 @@ class DandanBangumiDetails {
   const DandanBangumiDetails({
     required this.bangumiId,
     required this.episodes,
+    this.animeTitle,
   });
 
   final int bangumiId;
   final List<DandanEpisode> episodes;
+  final String? animeTitle;
 
   factory DandanBangumiDetails.fromJson(Map<String, dynamic> json) {
     final rawList = json['episodes'] as List? ?? [];
     return DandanBangumiDetails(
       bangumiId: json['bangumiId'] as int? ?? 0,
+      animeTitle: json['animeTitle']?.toString(),
       episodes: rawList
           .whereType<Map<String, dynamic>>()
           .map(DandanEpisode.fromJson)
@@ -95,6 +98,7 @@ class DandanBangumiDetails {
 
   Map<String, dynamic> toJson() => {
         'bangumiId': bangumiId,
+        if (animeTitle != null) 'animeTitle': animeTitle,
         'episodes': episodes.map((e) => e.toJson()).toList(),
       };
 }
@@ -240,8 +244,13 @@ class DandanClient {
       final animeId = (bangumiMap['animeId'] as int?) ??
           (bangumiMap['bangumiId'] as int?) ??
           0;
+      final animeTitle = (bangumiMap['animeTitle'] ?? bangumiMap['bangumiTitle'])?.toString();
 
-      final result = DandanBangumiDetails(bangumiId: animeId, episodes: episodes);
+      final result = DandanBangumiDetails(
+        bangumiId: animeId,
+        episodes: episodes,
+        animeTitle: animeTitle,
+      );
       final estimatedBytes = episodes.length * 96 + 128;
       _bgmSubjectCache.set(bgmId, result, estimatedBytes);
 
@@ -395,8 +404,13 @@ class DandanClient {
           .whereType<Map<String, dynamic>>()
           .map(DandanEpisode.fromJson)
           .toList();
+      final animeTitle = (bangumiMap['animeTitle'] ?? bangumiMap['bangumiTitle'])?.toString();
 
-      final result = DandanBangumiDetails(bangumiId: animeId, episodes: episodes);
+      final result = DandanBangumiDetails(
+        bangumiId: animeId,
+        episodes: episodes,
+        animeTitle: animeTitle,
+      );
       final estimatedBytes = episodes.length * 96 + 128;
       _detailsCache.set(animeId, result, estimatedBytes);
 

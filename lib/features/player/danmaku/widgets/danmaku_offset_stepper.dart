@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:zakoway/core/utils/font_manager.dart';
 
-/// 时间轴微调步进器组件 (-1s, -0.5s, 输入框, +0.5s, +1s, 双击归零)
+/// 时间轴微调步进器组件 (-1s, -0.5s, 输入框, +0.5s, +1s, 长按归零)
 class DanmakuOffsetStepper extends StatefulWidget {
   const DanmakuOffsetStepper({
     super.key,
@@ -62,6 +63,15 @@ class _DanmakuOffsetStepperState extends State<DanmakuOffsetStepper> {
     if (ms == 0) return '0.0s';
     final sec = ms / 1000.0;
     return sec > 0 ? '+${sec.toStringAsFixed(1)}s' : '${sec.toStringAsFixed(1)}s';
+  }
+
+  void _startEditing() {
+    final text = _formatSec(widget.offsetMs);
+    _editController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection(baseOffset: 0, extentOffset: text.length),
+    );
+    setState(() => _editing = true);
   }
 
   void _commitInput() {
@@ -129,11 +139,17 @@ class _DanmakuOffsetStepperState extends State<DanmakuOffsetStepper> {
               ),
               const SizedBox(width: 4),
 
-              // 中间显示 / 点击输入 / 双击归零
+              // 中间显示 / 点击即刻输入 / 长按归零
               Expanded(
                 child: _editing
-                    ? SizedBox(
-                        height: 28,
+                    ? Container(
+                        height: 32,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: widget.primaryColor, width: 1.2),
+                        ),
                         child: TextField(
                           controller: _editController,
                           autofocus: true,
@@ -147,44 +163,44 @@ class _DanmakuOffsetStepperState extends State<DanmakuOffsetStepper> {
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                             fontFamily: 'monospace',
+                            fontFamilyFallback: FontManager.fallbackFontFamilies,
                           ),
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 6),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(6),
-                              borderSide: BorderSide(color: widget.primaryColor),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(6),
-                              borderSide: BorderSide(color: widget.primaryColor),
-                            ),
+                            filled: false,
+                            fillColor: Colors.transparent,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
                           ),
                           onSubmitted: (_) => _commitInput(),
                           onTapOutside: (_) => _commitInput(),
                         ),
                       )
                     : Tooltip(
-                        message: '点击手动输入，双击重置为 0.0s',
+                        message: '点击手动输入，长按重置为 0.0s',
                         child: InkWell(
-                          onTap: () {
-                            _editController.text = _formatSec(widget.offsetMs);
-                            setState(() => _editing = true);
-                          },
-                          onDoubleTap: widget.onReset,
+                          // 特殊处理说明：严禁在此绑定 onDoubleTap。当组件同时注册 onTap 与 onDoubleTap 时，
+                          // Flutter 底层手势竞技场必须强制等待约 300~400ms 的 kDoubleTapTimeout 判定是否双击，
+                          // 会导致用户点击时产生极其严重的卡顿感。移除双击后 onTap 即可 0ms 瞬间响应。
+                          onTap: _startEditing,
+                          onLongPress: widget.onReset,
+                          splashColor: Colors.transparent,
+                          highlightColor: Colors.white.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(6),
                           child: Container(
-                            height: 28,
+                            height: 32,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               color: hasShift
                                   ? widget.primaryColor.withValues(alpha: 0.15)
-                                  : Colors.transparent,
+                                  : Colors.white.withValues(alpha: 0.04),
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
                                 color: hasShift
                                     ? widget.primaryColor.withValues(alpha: 0.4)
-                                    : Colors.transparent,
+                                    : Colors.white.withValues(alpha: 0.08),
                               ),
                             ),
                             child: Text(
@@ -194,6 +210,7 @@ class _DanmakuOffsetStepperState extends State<DanmakuOffsetStepper> {
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                                 fontFamily: 'monospace',
+                                fontFamilyFallback: FontManager.fallbackFontFamilies,
                               ),
                             ),
                           ),
@@ -226,10 +243,12 @@ class _DanmakuOffsetStepperState extends State<DanmakuOffsetStepper> {
   }) {
     return InkWell(
       onTap: onTap,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.white.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        height: 28,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.08),
@@ -240,8 +259,9 @@ class _DanmakuOffsetStepperState extends State<DanmakuOffsetStepper> {
           label,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 11,
+            fontSize: 11.5,
             fontFamily: 'monospace',
+            fontFamilyFallback: FontManager.fallbackFontFamilies,
           ),
         ),
       ),

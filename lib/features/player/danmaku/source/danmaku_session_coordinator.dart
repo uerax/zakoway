@@ -86,6 +86,7 @@ class DanmakuSessionCoordinator extends ChangeNotifier {
   bool get searchBusy => _searchBusy;
   bool get bilibiliBusy => _bilibiliBusy;
   int get danmakuOffset => _danmakuOffset;
+  String get title => _title;
   List<DandanAnime> get animes => _animes;
   List<DandanEpisode> get episodes => _episodes;
   int? get selectedAnimeId => _selectedAnimeId;
@@ -144,6 +145,7 @@ class DanmakuSessionCoordinator extends ChangeNotifier {
 
         List<DandanEpisode> resolvedEpisodes = const [];
         int resolvedAnimeId = 0;
+        String? resolvedAnimeTitle;
 
         // Step 2.1: 优先走 BGM ID 映射 (最快、最准)
         if (_bangumiId > 0) {
@@ -152,6 +154,7 @@ class DanmakuSessionCoordinator extends ChangeNotifier {
             if (details.episodes.isNotEmpty) {
               resolvedEpisodes = details.episodes;
               resolvedAnimeId = details.bangumiId;
+              resolvedAnimeTitle = details.animeTitle;
             }
           } catch (_) {}
         }
@@ -181,6 +184,7 @@ class DanmakuSessionCoordinator extends ChangeNotifier {
                 resolvedAnimeId = bestId;
                 final details = await dandanClient.getBangumiDetails(bestId);
                 resolvedEpisodes = details.episodes;
+                resolvedAnimeTitle = details.animeTitle;
               }
             }
           } catch (_) {}
@@ -196,6 +200,23 @@ class DanmakuSessionCoordinator extends ChangeNotifier {
           );
           _episodes = resolvedEpisodes;
           _selectedAnimeId = resolvedAnimeId > 0 ? resolvedAnimeId : null;
+
+          // 特殊处理说明：当走 BGM ID 精准匹配成功时，_animes 尚未由搜索结果填充；
+          // 为确保控制面板中「选择番剧」下拉菜单能正确定位并回显当前匹配到的番剧，
+          // 若 _animes 为空且存在匹配的 animeId，主动注入一条当前番剧条目。
+          if (_animes.isEmpty && resolvedAnimeId > 0) {
+            final effectiveTitle = (resolvedAnimeTitle != null && resolvedAnimeTitle.isNotEmpty)
+                ? resolvedAnimeTitle
+                : (_title.isNotEmpty ? _title : '番剧 #$resolvedAnimeId');
+            _animes = [
+              DandanAnime(
+                animeId: resolvedAnimeId,
+                animeTitle: effectiveTitle,
+                bangumiId: _bangumiId > 0 ? _bangumiId.toString() : null,
+                episodeCount: resolvedEpisodes.length,
+              ),
+            ];
+          }
         }
       }
 
@@ -380,6 +401,19 @@ class DanmakuSessionCoordinator extends ChangeNotifier {
         animeId: animeId,
         episodes: details.episodes,
       );
+
+      // 特殊处理说明：若当前 _animes 为空（例如外部直接调用 pickDandanAnime），
+      // 注入当前选择的番剧项，保证选择番剧下拉框可回显。
+      if (_animes.isEmpty) {
+        final effectiveTitle = details.animeTitle ?? (_title.isNotEmpty ? _title : '番剧 #$animeId');
+        _animes = [
+          DandanAnime(
+            animeId: animeId,
+            animeTitle: effectiveTitle,
+            episodeCount: details.episodes.length,
+          ),
+        ];
+      }
 
       final matched = DanmakuEpisodeMatcher.matchEpisode(details.episodes, _episode + _danmakuOffset) ??
           (details.episodes.isNotEmpty ? details.episodes.first : null);
