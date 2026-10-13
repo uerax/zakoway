@@ -824,7 +824,9 @@ void main() {
       expect(entries[1].track, equals(1));
 
       // 推进到 4200ms，弹幕3入场
-      await tester.pump(const Duration(milliseconds: 4100));
+      for (var i = 0; i < 41; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
 
       expect(entries.length, equals(3));
       // 核心断言：弹幕3必须优先复用空闲的轨道0，而不是下沉到轨道2！
@@ -910,6 +912,83 @@ void main() {
       // 推进 5100ms：唤醒时刻成功捕获到最早固定弹幕到期时刻并唤醒淘汰
       await tester.pump(const Duration(milliseconds: 5100));
       expect(entries.isEmpty, isTrue);
+    });
+
+    testWidgets('运动时钟抗卡顿避震：卡顿帧位移不超过常态1.5倍，lagMs逐步补回且从不超过上限', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '避震测试滚动弹幕', timeMs: 0),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      await tester.pump(const Duration(milliseconds: 16));
+
+      final state = tester.state(find.byType(DanmakuView)) as dynamic;
+      final entries = state.activeEntriesForTest as List<dynamic>;
+      expect(entries.length, equals(1));
+      final entry = entries.first;
+
+      // 1. 连续推进多个 8.3ms（模拟 120Hz 稳定常态帧间隔）
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(microseconds: 8333));
+      }
+
+      final clockBeforeStutter = state.clockMsForTest as double;
+      final progressBefore = (clockBeforeStutter - entry.startMs) / entry.durationMs;
+      final xBefore = 800.0 - progressBefore * (800.0 + entry.layout.size.width);
+
+      // 2. 模拟突发卡顿帧：单帧延迟 50ms (远大于 8.33ms)
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final clockAfterStutter = state.clockMsForTest as double;
+      final advanceDuringStutter = clockAfterStutter - clockBeforeStutter;
+      final progressAfter = (clockAfterStutter - entry.startMs) / entry.durationMs;
+      final xAfter = 800.0 - progressAfter * (800.0 + entry.layout.size.width);
+      final displacement = xBefore - xAfter;
+
+      // 正常 8.33ms 下的理论单帧位移
+      final normalDisplacement = (8.333 / entry.durationMs) * (800.0 + entry.layout.size.width);
+
+      // 核心断言 1：卡顿帧的位移严禁按 50ms 瞬移，必须被削峰拦截在常态 1.5 倍以内
+      expect(displacement, lessThanOrEqualTo(normalDisplacement * 1.55));
+      expect(advanceDuringStutter, lessThanOrEqualTo(8.333 * 1.55));
+
+      // 核心断言 2：超出的时间记入 lagMs，且严格不超过 200ms 上限
+      final initialLag = state.lagMsForTest as double;
+      expect(initialLag, greaterThan(0.0));
+      expect(initialLag, lessThanOrEqualTo(200.0));
+
+      // 3. 随后续常态帧推进，lagMs 逐帧以不超过 5% 速度逐步平滑追回，单调递减
+      var prevLag = initialLag;
+      for (var i = 0; i < 15; i++) {
+        await tester.pump(const Duration(microseconds: 8333));
+        final curLag = state.lagMsForTest as double;
+        expect(curLag, lessThan(prevLag)); // 逐步平滑追回
+        prevLag = curLag;
+      }
+
+      // 持续推进直到 lag 完全补平归零
+      for (var i = 0; i < 150; i++) {
+        await tester.pump(const Duration(microseconds: 8333));
+      }
+      expect(state.lagMsForTest as double, equals(0.0));
+
+      // 4. 模拟极端中断（dt = 300ms > 250ms，如首帧/窗口失焦）：
+      // 运动时钟仅推进基准步长，严禁向 lagMs 累积欠账
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(state.lagMsForTest as double, equals(0.0));
     });
   });
 }

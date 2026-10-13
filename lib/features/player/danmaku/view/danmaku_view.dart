@@ -69,6 +69,8 @@ class _DanmakuViewState extends State<DanmakuView>
   double _lastPaintDurationMs = 0.0;
   bool _rebuildCalledSinceLastTick = false;
   String? _lastRebuildReason;
+  final List<double> _dtWindow = <double>[];
+  double _lagMs = 0.0;
 
   /// 视频时间轴时钟（媒体毫秒，跟随播放器 PTS 与时间轴纠偏，专用于发射与 Seek）
   double _mediaClockMs = 0.0;
@@ -96,6 +98,9 @@ class _DanmakuViewState extends State<DanmakuView>
 
   @visibleForTesting
   ValueNotifier<int> get repaintNotifierForTest => _repaintNotifier;
+
+  @visibleForTesting
+  double get lagMsForTest => _lagMs;
 
   DanmakuController get _controller => widget.controller;
   bool get _hasViewport => _viewWidth > 0 && _viewHeight > 0;
@@ -197,11 +202,48 @@ class _DanmakuViewState extends State<DanmakuView>
     final layoutsBefore = _perfStats.layoutCount;
     final mergesBefore = _perfStats.mergeCount;
 
-    // 1. 微秒级连续平滑时间插值推进 (单调递增，无任何速度扰动)
+    // 1. 时钟推进：媒体时钟与运动时钟双轨解耦
     final dtMs = delta.inMicroseconds / 1000.0;
-    final advanceMs = dtMs * _controller.playbackRate;
-    _motionClockMs += advanceMs;
-    _mediaClockMs += advanceMs;
+    final rate = _controller.playbackRate;
+
+    // 媒体时钟（专用于发射与对时）仍按真实 dt 推进，不受外部渲染波动影响
+    _mediaClockMs += dtMs * rate;
+
+    // 特殊处理说明：
+    // 运动时钟抗卡顿避震缓冲算法：
+    // 当外部 GPU（如 Anime4K 卷积运算）或系统调度发生偶发掉帧迟到时，
+    // 杜绝所有在屏弹幕在单帧内大跨步跳跃瞬移（肉眼抽动感来源）。
+    // 1. 维护常态帧间隔 expectedDt（最近约 1 秒 dt 的中位数）；
+    // 2. dt > 250ms 视为中断（首帧、窗口失焦恢复、着色器加载等）：
+    //    运动时钟仅推进 expectedDt * 倍速，不计入 lagMs；
+    // 3. 常规迟到帧：单帧推进量上限截断为 min(dt, 1.5 * expectedDt) * 倍速；
+    //    超出的迟到时间记入 lagMs（硬上限 200ms，超限直接丢弃防无限滚雪球）；
+    // 4. 在正常帧中，lagMs 以不超过每帧推进量 5% 的平滑微调速度逐步补回（补完即恢复 1.0x 原速）。
+    final double motionAdvanceMs;
+    if (dtMs > 250.0) {
+      final expectedDt = _calculateExpectedDt(dtMs, isInterruption: true);
+      motionAdvanceMs = expectedDt * rate;
+    } else {
+      final expectedDt = _calculateExpectedDt(dtMs, isInterruption: false);
+      final maxAllowedDt = 1.5 * expectedDt;
+      final stepDt = math.min(dtMs, maxAllowedDt);
+      final excessDt = dtMs - stepDt;
+      if (excessDt > 0) {
+        _lagMs = math.min(200.0, _lagMs + excessDt);
+      }
+
+      final baseAdvanceMs = stepDt * rate;
+      if (excessDt <= 0 && _lagMs > 0) {
+        final maxCatchUpMs = baseAdvanceMs * 0.05;
+        final catchUpMs = math.min(_lagMs, maxCatchUpMs);
+        _lagMs -= catchUpMs;
+        motionAdvanceMs = baseAdvanceMs + catchUpMs;
+      } else {
+        motionAdvanceMs = baseAdvanceMs;
+      }
+    }
+
+    _motionClockMs += motionAdvanceMs;
 
     // 2. 发射到期弹幕（基于媒体时钟 _mediaClockMs 调度入场）
     final emitted = _emitDue();
@@ -238,6 +280,18 @@ class _DanmakuViewState extends State<DanmakuView>
         activeCount: _activeEntries.length,
       );
     }
+  }
+
+  double _calculateExpectedDt(double dtMs, {bool isInterruption = false}) {
+    if (!isInterruption && dtMs > 0) {
+      _dtWindow.add(dtMs);
+      if (_dtWindow.length > 120) {
+        _dtWindow.removeAt(0);
+      }
+    }
+    if (_dtWindow.isEmpty) return dtMs > 0 ? dtMs : 16.6;
+    final sorted = List<double>.from(_dtWindow)..sort();
+    return sorted[sorted.length ~/ 2];
   }
 
   /// 特殊处理说明：
@@ -853,6 +907,7 @@ class _DanmakuViewState extends State<DanmakuView>
     _perfStats.updateActiveCount(_activeEntries.length);
     _repaintNotifier.value++;
     _tickerDowntime.reset();
+    _lagMs = 0.0;
     _scheduleWork(forceWake: true);
   }
 
@@ -1036,6 +1091,8 @@ class _DanmakuViewState extends State<DanmakuView>
     _cursor = 0;
     _mediaClockMs = 0.0;
     _motionClockMs = 0.0;
+    _lagMs = 0.0;
+    _dtWindow.clear();
     _repaintNotifier.value++;
   }
 
