@@ -5,6 +5,7 @@ import '../../../core/models/home/recommend_item.dart';
 import '../../common/widgets/anime_card.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
 import '../../common/widgets/cached_anime_image.dart';
+import '../../common/widgets/directional_horizontal_scroll.dart';
 import '../../common/widgets/shimmer_loading.dart';
 
 /// 首页精选顶部横幅轮播图组件：
@@ -154,32 +155,34 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
                 clipBehavior: Clip.antiAlias,
                 child: Stack(
                   children: [
-                    // 1. 轮播视图核心（无界懒加载 + 取模映射，原生级零闪烁无限循环）
-                    PageView.builder(
-                      controller: _pageController,
-                      itemCount: items.length > 1 ? null : items.length,
-                      onPageChanged: (index) {
-                        final count = items.length;
-                        final realIndex = count > 1 ? index % count : index;
-                        setState(() {
-                          _currentIndex = realIndex;
-                        });
-                      },
-                      itemBuilder: (context, index) {
-                        final count = items.length;
-                        final realIndex = count > 1 ? index % count : index;
-                        final item = items[realIndex];
-                        final recList = widget.recommendations;
-                        final currentRec = (recList != null && realIndex < recList.length)
-                            ? recList[realIndex]
-                            : null;
-                        return _buildBannerCard(
-                          context: context,
-                          item: item,
-                          recommendItem: currentRec,
-                          borderRadius: BorderRadius.circular(borderRadiusValue),
-                        );
-                      },
+                    // 1. 轮播视图核心（无界懒加载 + 取模映射，原生级零闪烁无限循环，加入纵向优先防误触保护）
+                    DirectionalHorizontalScroll(
+                      child: PageView.builder(
+                        controller: _pageController,
+                        itemCount: items.length > 1 ? null : items.length,
+                        onPageChanged: (index) {
+                          final count = items.length;
+                          final realIndex = count > 1 ? index % count : index;
+                          setState(() {
+                            _currentIndex = realIndex;
+                          });
+                        },
+                        itemBuilder: (context, index) {
+                          final count = items.length;
+                          final realIndex = count > 1 ? index % count : index;
+                          final item = items[realIndex];
+                          final recList = widget.recommendations;
+                          final currentRec = (recList != null && realIndex < recList.length)
+                              ? recList[realIndex]
+                              : null;
+                          return _buildBannerCard(
+                            context: context,
+                            item: item,
+                            recommendItem: currentRec,
+                            borderRadius: BorderRadius.circular(borderRadiusValue),
+                          );
+                        },
+                      ),
                     ),
 
                     // 2. 右下角动态平滑胶囊指示器

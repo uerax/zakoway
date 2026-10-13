@@ -8,11 +8,13 @@ import 'package:zakoway/core/models/bangumi/bangumi_item.dart';
 import 'package:zakoway/core/models/home/recommend_item.dart';
 import 'package:zakoway/core/network/bangumi_client.dart';
 import 'package:zakoway/core/services/watch_history_service.dart';
+import 'package:zakoway/features/common/widgets/directional_horizontal_scroll.dart';
 import 'package:zakoway/features/home/pages/home_page.dart';
 import 'package:zakoway/features/home/widgets/continue_watching_shelf.dart';
 import 'package:zakoway/features/home/widgets/daily_spotlight_card.dart';
 import 'package:zakoway/features/home/widgets/home_banner_carousel.dart';
 import 'package:zakoway/features/home/widgets/home_desktop_hero.dart';
+import 'package:zakoway/features/home/widgets/rank_horizontal_section.dart';
 import 'package:zakoway/features/home/widgets/today_anime_shelf.dart';
 
 BangumiItem _createMockItem(int id, String name, double score) {
@@ -557,6 +559,50 @@ void main() {
       final heroY = tester.getTopLeft(find.byType(HomeDesktopHero)).dy;
       final continueWatchingY = tester.getTopLeft(find.byType(ContinueWatchingShelf)).dy;
       expect(heroY, lessThan(continueWatchingY));
+    });
+  });
+
+  group('DirectionalHorizontalScroll & anti-misdrag shelf tests', () {
+    testWidgets('DirectionalHorizontalScroll injects touchSlop into MediaQuery', (tester) async {
+      double? resolvedTouchSlop;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DirectionalHorizontalScroll(
+            touchSlop: 36.0,
+            child: Builder(
+              builder: (context) {
+                resolvedTouchSlop = MediaQuery.maybeGestureSettingsOf(context)?.touchSlop;
+                return const SizedBox();
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(resolvedTouchSlop, equals(36.0));
+    });
+
+    testWidgets('AnimeHorizontalShelf embeds DirectionalHorizontalScroll', (tester) async {
+      final items = [
+        _createMockItem(1, 'Item 1', 8.0),
+        _createMockItem(2, 'Item 2', 8.5),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AnimeHorizontalShelf(
+              title: '热门推荐',
+              items: items,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(DirectionalHorizontalScroll), findsOneWidget);
+      expect(find.byType(ListView), findsOneWidget);
     });
   });
 }

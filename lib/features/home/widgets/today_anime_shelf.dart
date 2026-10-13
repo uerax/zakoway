@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../../core/models/bangumi/bangumi_calendar.dart';
 import '../../../core/models/bangumi/bangumi_item.dart';
 import '../../common/widgets/anime_card.dart';
+import '../../common/widgets/directional_horizontal_scroll.dart';
 import '../../common/widgets/shimmer_loading.dart';
 
 /// 首页“新番每日放送”专属模块：
@@ -155,43 +156,45 @@ class _TodayAnimeShelfState extends State<TodayAnimeShelf> {
                     ),
                   ),
                 )
-              : Listener(
-                  // 针对桌面端（Windows/macOS）普通滚轮上下平滑映射至横向滚动
-                  onPointerSignal: (pointerSignal) {
-                    if (pointerSignal is PointerScrollEvent) {
-                      final double delta = pointerSignal.scrollDelta.dy != 0
-                          ? pointerSignal.scrollDelta.dy
-                          : pointerSignal.scrollDelta.dx;
-                      if (delta != 0 && _scrollController.hasClients) {
-                        final double targetOffset = (_scrollController.offset + delta).clamp(
-                          0.0,
-                          _scrollController.position.maxScrollExtent,
-                        );
-                        _scrollController.jumpTo(targetOffset);
+              : DirectionalHorizontalScroll(
+                  child: Listener(
+                    // 特殊处理说明：
+                    // 针对桌面端（Windows/macOS），仅响应真正的横向滚轮/触摸板横向滑动手势 (dx != 0)。
+                    // 普通纵向滚轮 (dy) 放行给外层页面，彻底杜绝上下浏览页面时被横向货架抢占。
+                    onPointerSignal: (pointerSignal) {
+                      if (pointerSignal is PointerScrollEvent) {
+                        final double delta = pointerSignal.scrollDelta.dx;
+                        if (delta != 0 && _scrollController.hasClients) {
+                          final double targetOffset = (_scrollController.offset + delta).clamp(
+                            0.0,
+                            _scrollController.position.maxScrollExtent,
+                          );
+                          _scrollController.jumpTo(targetOffset);
+                        }
                       }
-                    }
-                  },
-                  child: ListView.builder(
-                    key: ValueKey('week_shelf_$_selectedDayIndex'),
-                    controller: _scrollController,
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    scrollCacheExtent: const ScrollCacheExtent.pixels(150),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: items.length,
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 10),
-                        child: SizedBox(
-                          width: 108,
-                          child: AnimeCard(
-                            item: item,
-                            compact: true,
-                          ),
-                        ),
-                      );
                     },
+                    child: ListView.builder(
+                      key: ValueKey('week_shelf_$_selectedDayIndex'),
+                      controller: _scrollController,
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      scrollCacheExtent: const ScrollCacheExtent.pixels(150),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: items.length,
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: SizedBox(
+                            width: 108,
+                            child: AnimeCard(
+                              item: item,
+                              compact: true,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
         ),

@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import '../../../core/models/bangumi/bangumi_item.dart';
 import '../../../core/utils/font_manager.dart';
+import '../../../core/utils/responsive.dart';
 import '../../common/widgets/anime_card.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
 import '../../common/widgets/cached_anime_image.dart';
+import '../../common/widgets/directional_horizontal_scroll.dart';
 
 /// 现代流媒体原生多轨货架组件（Netflix / Apple TV / Animaku 经典设计）：
 /// 1. 纯净大气的原生标题栏，无任何 Web 杂乱超链接；
@@ -56,11 +58,57 @@ typedef RankHorizontalSection = AnimeHorizontalShelf;
 
 class _AnimeHorizontalShelfState extends State<AnimeHorizontalShelf> {
   final ScrollController _scrollController = ScrollController();
+  bool _isHovering = false;
+  bool _canScrollLeft = false;
+  bool _canScrollRight = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_updateScrollButtons);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateScrollButtons());
+  }
+
+  @override
+  void didUpdateWidget(covariant AnimeHorizontalShelf oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.items.length != widget.items.length) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _updateScrollButtons());
+    }
+  }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_updateScrollButtons);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _updateScrollButtons() {
+    if (!mounted || !_scrollController.hasClients) return;
+    final offset = _scrollController.offset;
+    final max = _scrollController.position.maxScrollExtent;
+    final canLeft = offset > 10;
+    final canRight = offset < max - 10;
+    if (canLeft != _canScrollLeft || canRight != _canScrollRight) {
+      setState(() {
+        _canScrollLeft = canLeft;
+        _canScrollRight = canRight;
+      });
+    }
+  }
+
+  void _scrollBy(double offsetDelta) {
+    if (!_scrollController.hasClients) return;
+    final target = (_scrollController.offset + offsetDelta).clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
+    _scrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   /// 依据 Animaku 规范解析卡片左下角统计指标与语义色彩
@@ -106,42 +154,116 @@ class _AnimeHorizontalShelfState extends State<AnimeHorizontalShelf> {
           height: AnimeHorizontalShelf.cardHeight + 46,
           child: widget.items.isEmpty
               ? _buildEmptyPlaceholder(context)
-              : Listener(
-                  // 针对桌面端（Windows/macOS）的鼠标滚轮平滑映射：普通滚轮上下滚动自动转横向平滑滚动
-                  onPointerSignal: (pointerSignal) {
-                    if (pointerSignal is PointerScrollEvent) {
-                      final double delta = pointerSignal.scrollDelta.dy != 0
-                          ? pointerSignal.scrollDelta.dy
-                          : pointerSignal.scrollDelta.dx;
-                      if (delta != 0 && _scrollController.hasClients) {
-                        final double targetOffset = (_scrollController.offset + delta).clamp(
-                          0.0,
-                          _scrollController.position.maxScrollExtent,
-                        );
-                        _scrollController.jumpTo(targetOffset);
-                      }
-                    }
-                  },
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    // 核心性能防线：仅预加载可视区外 100px (约半张卡片)，未进入视口的卡片绝不发起网络下载与解码
-                    scrollCacheExtent: const ScrollCacheExtent.pixels(100),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: totalItemCount,
-                    itemBuilder: (context, index) {
-                      if (index < widget.items.length) {
-                        return _buildAnimeItemCard(context, widget.items[index], index);
-                      } else {
-                        // 列表末端专属的“浏览全部”卡片（Netflix / Apple TV 官方体验）
-                        return _buildViewAllCard(context);
-                      }
+              : DirectionalHorizontalScroll(
+                  child: MouseRegion(
+                    onEnter: (_) {
+                      if (context.isDesktop) setState(() => _isHovering = true);
                     },
+                    onExit: (_) {
+                      if (context.isDesktop) setState(() => _isHovering = false);
+                    },
+                    child: Stack(
+                      children: [
+                        Listener(
+                          // 特殊处理说明：
+                          // 针对桌面端（Windows/macOS），仅响应真正的横向滚轮/触摸板横向滑动手势 (dx != 0)。
+                          // 绝对不拦截普通垂直滚轮 (dy)，让垂直滚动事件自然冒泡传递给外层页面，
+                          // 彻底解决鼠标光标停留在卡片上导致整页滚动卡死、货架左右乱窜的问题。
+                          onPointerSignal: (pointerSignal) {
+                            if (pointerSignal is PointerScrollEvent) {
+                              final double delta = pointerSignal.scrollDelta.dx;
+                              if (delta != 0 && _scrollController.hasClients) {
+                                final double targetOffset = (_scrollController.offset + delta).clamp(
+                                  0.0,
+                                  _scrollController.position.maxScrollExtent,
+                                );
+                                _scrollController.jumpTo(targetOffset);
+                              }
+                            }
+                          },
+                          child: ListView.builder(
+                            controller: _scrollController,
+                            scrollDirection: Axis.horizontal,
+                            physics: const BouncingScrollPhysics(),
+                            // 核心性能防线：仅预加载可视区外 100px (约半张卡片)，未进入视口的卡片绝不发起网络下载与解码
+                            scrollCacheExtent: const ScrollCacheExtent.pixels(100),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: totalItemCount,
+                            itemBuilder: (context, index) {
+                              if (index < widget.items.length) {
+                                return _buildAnimeItemCard(context, widget.items[index], index);
+                              } else {
+                                // 列表末端专属的“浏览全部”卡片（Netflix / Apple TV 官方体验）
+                                return _buildViewAllCard(context);
+                              }
+                            },
+                          ),
+                        ),
+
+                        // 桌面端专属：悬浮翻页左右导航按钮（Netflix/B站网页端经典交互）
+                        if (context.isDesktop && _canScrollLeft)
+                          Positioned(
+                            left: 6,
+                            top: (AnimeHorizontalShelf.cardHeight - 38) / 2,
+                            child: AnimatedOpacity(
+                              duration: const Duration(milliseconds: 180),
+                              opacity: _isHovering ? 1.0 : 0.0,
+                              child: _buildScrollNavButton(
+                                isRight: false,
+                                onTap: () => _scrollBy(-420),
+                              ),
+                            ),
+                          ),
+                        if (context.isDesktop && _canScrollRight)
+                          Positioned(
+                            right: 6,
+                            top: (AnimeHorizontalShelf.cardHeight - 38) / 2,
+                            child: AnimatedOpacity(
+                              duration: const Duration(milliseconds: 180),
+                              opacity: _isHovering ? 1.0 : 0.0,
+                              child: _buildScrollNavButton(
+                                isRight: true,
+                                onTap: () => _scrollBy(420),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
         ),
       ],
+    );
+  }
+
+  /// 桌面端悬浮翻页导航按钮
+  Widget _buildScrollNavButton({
+    required bool isRight,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Material(
+      color: isDark
+          ? theme.colorScheme.surfaceContainerHigh.withAlpha(230)
+          : theme.colorScheme.surface.withAlpha(240),
+      shape: const CircleBorder(),
+      elevation: 4,
+      shadowColor: Colors.black38,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 38,
+          height: 38,
+          child: Icon(
+            isRight ? Icons.chevron_right_rounded : Icons.chevron_left_rounded,
+            size: 26,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+      ),
     );
   }
 
