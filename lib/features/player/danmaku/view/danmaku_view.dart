@@ -37,10 +37,12 @@ class DanmakuView extends StatefulWidget {
     super.key,
     required this.controller,
     this.fontFamily,
+    this.anime4kStatusProvider,
   });
 
   final DanmakuController controller;
   final String? fontFamily;
+  final String Function()? anime4kStatusProvider;
 
   @override
   State<DanmakuView> createState() => _DanmakuViewState();
@@ -67,6 +69,8 @@ class _DanmakuViewState extends State<DanmakuView>
   int _lastResizeTimeMs = 0;
   int _cursor = 0;
   double _lastPaintDurationMs = 0.0;
+  int _lastFirstVisibleCount = 0;
+  bool _isFirstTickAfterRestart = true;
   bool _rebuildCalledSinceLastTick = false;
   String? _lastRebuildReason;
   final List<double> _dtWindow = <double>[];
@@ -261,7 +265,10 @@ class _DanmakuViewState extends State<DanmakuView>
       _scheduleWork();
     }
 
-    if (_perfStats.isEnabled && onTickSw != null) {
+    final isFirstTick = _isFirstTickAfterRestart;
+    _isFirstTickAfterRestart = false;
+
+    if (_perfStats.isEnabled && onTickSw != null && !isFirstTick) {
       final onTickMs = onTickSw.elapsedMicroseconds / 1000.0;
       final layoutsCreated = _perfStats.layoutCount - layoutsBefore;
       final merges = _perfStats.mergeCount - mergesBefore;
@@ -274,10 +281,12 @@ class _DanmakuViewState extends State<DanmakuView>
         layoutsCreated: layoutsCreated,
         merges: merges,
         emitted: emitted,
+        firstVisible: _lastFirstVisibleCount,
         rebuildReason: rebuildReason,
         onTickMs: onTickMs,
         paintMs: _lastPaintDurationMs,
         activeCount: _activeEntries.length,
+        anime4kStatus: widget.anime4kStatusProvider?.call(),
       );
     }
   }
@@ -327,6 +336,7 @@ class _DanmakuViewState extends State<DanmakuView>
         _tickerDowntime.stop();
         _tickerDowntime.reset();
         _lastElapsed = Duration.zero;
+        _isFirstTickAfterRestart = true;
         _ticker.start();
       }
       return;
@@ -1151,6 +1161,7 @@ class _DanmakuPainter extends CustomPainter {
 
     final paintSw = state._perfStats.isEnabled ? (Stopwatch()..start()) : null;
     developer.Timeline.startSync('Danmaku.paint');
+    var firstVisibleCount = 0;
     try {
       final entries = state._activeEntries;
       final count = entries.length;
@@ -1175,6 +1186,10 @@ class _DanmakuPainter extends CustomPainter {
         final x = width - progress * (width + textSize.width);
         if (x >= width || x + textSize.width <= 0) continue;
         if (entry.y >= height || entry.y + textSize.height <= 0) continue;
+        if (!entry.hasBeenPainted) {
+          entry.hasBeenPainted = true;
+          firstVisibleCount++;
+        }
         entry.layout.paintAt(canvas, x, entry.y);
       }
 
@@ -1187,6 +1202,10 @@ class _DanmakuPainter extends CustomPainter {
         final y = height - (entry.track + 1) * trackPitch;
         if (x >= width || x + textSize.width <= 0) continue;
         if (y >= height || y + textSize.height <= 0) continue;
+        if (!entry.hasBeenPainted) {
+          entry.hasBeenPainted = true;
+          firstVisibleCount++;
+        }
         entry.layout.paintAt(canvas, x, y);
       }
 
@@ -1199,9 +1218,14 @@ class _DanmakuPainter extends CustomPainter {
         final y = entry.track * trackPitch;
         if (x >= width || x + textSize.width <= 0) continue;
         if (y >= height || y + textSize.height <= 0) continue;
+        if (!entry.hasBeenPainted) {
+          entry.hasBeenPainted = true;
+          firstVisibleCount++;
+        }
         entry.layout.paintAt(canvas, x, y);
       }
     } finally {
+      state._lastFirstVisibleCount = firstVisibleCount;
       if (paintSw != null) {
         state._lastPaintDurationMs = paintSw.elapsedMicroseconds / 1000.0;
       }

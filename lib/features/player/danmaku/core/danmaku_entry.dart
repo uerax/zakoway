@@ -48,6 +48,9 @@ class DanmakuEntry {
   /// 动态合流计数（默认为 1，合流后变为 2, 3...）
   int count;
 
+  /// 该弹幕是否已经在可视区域内完成过至少一次首帧光栅化绘制
+  bool hasBeenPainted = false;
+
   /// 排版与绘制封装
   DanmakuTextLayout layout;
 

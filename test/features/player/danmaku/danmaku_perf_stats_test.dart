@@ -128,16 +128,18 @@ void main() {
         layoutsCreated: 5,
         merges: 2,
         emitted: 3,
+        firstVisible: 2,
         rebuildReason: 'Seek',
         onTickMs: 2.0,
         paintMs: 3.0,
         activeCount: 10,
+        anime4kStatus: '质量档',
       );
       expect(logs.isEmpty, isTrue);
       stats.stop();
     });
 
-    test('帧卡顿归因日志：dt > 1.5倍中位数时输出归因日志，正常帧静默', () {
+    test('帧卡顿归因日志：dt > 1.5倍中位数 或 raster/build > 10ms 时输出归因日志，10秒汇总正常输出', () {
       final logs = <String>[];
       final stats = DanmakuPerfStats(onLog: logs.add, enabled: true);
 
@@ -160,10 +162,12 @@ void main() {
           layoutsCreated: 0,
           merges: 0,
           emitted: 1,
+          firstVisible: 0,
           rebuildReason: null,
           onTickMs: 0.2,
           paintMs: 0.5,
           activeCount: 15,
+          anime4kStatus: '质量档',
         );
       }
       expect(logs.isEmpty, isTrue); // 正常帧不输出任何日志
@@ -174,23 +178,27 @@ void main() {
         layoutsCreated: 1,
         merges: 0,
         emitted: 1,
+        firstVisible: 1,
         rebuildReason: null,
         onTickMs: 0.3,
         paintMs: 0.6,
         activeCount: 16,
+        anime4kStatus: '质量档',
       );
       expect(logs.isEmpty, isTrue);
 
-      // 注入一个卡顿帧（例如 32.0ms > 24.9ms）
+      // 1. 注入一个卡顿帧（例如 32.0ms > 24.9ms）
       stats.recordTickStutter(
         dtMs: 32.0,
         layoutsCreated: 3,
         merges: 2,
         emitted: 5,
+        firstVisible: 4,
         rebuildReason: 'Seek',
         onTickMs: 1.45,
         paintMs: 2.80,
         activeCount: 28,
+        anime4kStatus: '质量档',
       );
 
       expect(logs.length, equals(1));
@@ -202,12 +210,51 @@ void main() {
       expect(line, contains('排版: 3'));
       expect(line, contains('合流: 2'));
       expect(line, contains('发射: 5'));
+      expect(line, contains('首次可见: 4'));
       expect(line, contains('重建: Seek'));
       expect(line, contains('在屏: 28'));
+      expect(line, contains('Anime4K: 质量档'));
       expect(line, contains('onTick=1.45ms'));
       expect(line, contains('paint=2.80ms'));
       expect(line, contains('build=1.50ms'));
       expect(line, contains('raster=2.50ms'));
+
+      // 2. 测试慢 raster 触发条件（raster > 10ms，即使 dt 正常为 16.6ms）
+      stats.handleTimings([
+        FrameTiming(
+          vsyncStart: 2000000,
+          buildStart: 2000000,
+          buildFinish: 2001000, // build: 1ms
+          rasterStart: 2001000,
+          rasterFinish: 2016000, // raster: 15ms > 10ms!
+          rasterFinishWallTime: 2016000,
+        ),
+      ]);
+      stats.recordTickStutter(
+        dtMs: 16.6,
+        layoutsCreated: 0,
+        merges: 0,
+        emitted: 0,
+        firstVisible: 0,
+        rebuildReason: null,
+        onTickMs: 0.1,
+        paintMs: 0.2,
+        activeCount: 28,
+        anime4kStatus: '质量档',
+      );
+      expect(logs.length, equals(2));
+      expect(logs.last, contains('raster=15.00ms'));
+
+      // 3. 测试 10 秒汇总输出
+      stats.flushPeriodicSummary(anime4kStatus: '质量档');
+      expect(logs.length, equals(3));
+      final summaryLine = logs.last;
+      expect(summaryLine, contains('[DanmakuPerf][10s汇总]'));
+      expect(summaryLine, contains('慢帧数: 2'));
+      expect(summaryLine, contains('其中 dt≥25ms: 1'));
+      expect(summaryLine, contains('最大 dt: 32.0ms'));
+      expect(summaryLine, contains('最大 raster: 15.0ms'));
+      expect(summaryLine, contains('Anime4K: 质量档'));
     });
   });
 }

@@ -44,6 +44,13 @@ class DanmakuPerfStats {
   int _lastBuildUs = 0;
   int _lastRasterUs = 0;
 
+  // 10 秒周期统计指标
+  int _slowFrameCount = 0;
+  int _severeStutterCount = 0;
+  double _maxDtInWindow = 0.0;
+  double _maxRasterInWindow = 0.0;
+  int _lastSummaryTimeMs = 0;
+
   int get layoutCount => _layoutCount;
   int get mergeCount => _mergeCount;
   int get activeCount => _activeCount;
@@ -57,16 +64,20 @@ class DanmakuPerfStats {
     }
   }
 
-  /// 记录并检查单帧 tick 是否发生卡顿。当 dt > 1.5 * median 时输出归因日志
+  /// 记录并检查单帧 tick 是否发生卡顿。
+  /// 触发条件：dt > 1.5 * median 或 raster > 10ms 或 build > 10ms。
+  /// 同时每 10 秒输出一次汇总统计行。
   void recordTickStutter({
     required double dtMs,
     required int layoutsCreated,
     required int merges,
     required int emitted,
+    required int firstVisible,
     required String? rebuildReason,
     required double onTickMs,
     required double paintMs,
     required int activeCount,
+    String? anime4kStatus,
   }) {
     if (!_enabled) return;
 
@@ -76,30 +87,74 @@ class DanmakuPerfStats {
       _recentDts.removeAt(0);
     }
 
+    final buildMs = _lastBuildUs / 1000.0;
+    final rasterMs = _lastRasterUs / 1000.0;
+
+    // 更新 10 秒窗口极值
+    if (dtMs > _maxDtInWindow) _maxDtInWindow = dtMs;
+    if (rasterMs > _maxRasterInWindow) _maxRasterInWindow = rasterMs;
+    if (dtMs >= 25.0) _severeStutterCount++;
+
     // 至少累积 10 帧以建立稳定的基准中位数
-    if (_recentDts.length < 10) return;
+    if (_recentDts.length >= 10) {
+      final sorted = List<double>.from(_recentDts)..sort();
+      final median = sorted[sorted.length ~/ 2];
+      final isStutterDt = dtMs > 1.5 * median;
+      final isSlowRaster = rasterMs > 10.0;
+      final isSlowBuild = buildMs > 10.0;
 
-    final sorted = List<double>.from(_recentDts)..sort();
-    final median = sorted[sorted.length ~/ 2];
+      if (isStutterDt || isSlowRaster || isSlowBuild) {
+        _slowFrameCount++;
+        final backend = renderingBackend;
+        final anime4kLabel = anime4kStatus ?? '未知';
 
-    if (dtMs > 1.5 * median) {
-      final backend = renderingBackend;
-      final buildMs = _lastBuildUs / 1000.0;
-      final rasterMs = _lastRasterUs / 1000.0;
+        final line = '[DanmakuStutter][$backend] dt: ${dtMs.toStringAsFixed(1)}ms '
+            '(中位数: ${median.toStringAsFixed(1)}ms) | '
+            '排版: $layoutsCreated | 合流: $merges | 发射: $emitted | 首次可见: $firstVisible | '
+            '重建: ${rebuildReason ?? '无'} | 在屏: $activeCount | Anime4K: $anime4kLabel | '
+            '耗时: onTick=${onTickMs.toStringAsFixed(2)}ms, paint=${paintMs.toStringAsFixed(2)}ms, '
+            'build=${buildMs.toStringAsFixed(2)}ms, raster=${rasterMs.toStringAsFixed(2)}ms';
 
-      final line = '[DanmakuStutter][$backend] dt: ${dtMs.toStringAsFixed(1)}ms '
-          '(中位数: ${median.toStringAsFixed(1)}ms) | '
-          '排版: $layoutsCreated | 合流: $merges | 发射: $emitted | '
-          '重建: ${rebuildReason ?? '无'} | 在屏: $activeCount | '
-          '耗时: onTick=${onTickMs.toStringAsFixed(2)}ms, paint=${paintMs.toStringAsFixed(2)}ms, '
-          'build=${buildMs.toStringAsFixed(2)}ms, raster=${rasterMs.toStringAsFixed(2)}ms';
-
-      if (onLog != null) {
-        onLog!(line);
-      } else {
-        debugPrint(line);
+        if (onLog != null) {
+          onLog!(line);
+        } else {
+          debugPrint(line);
+        }
       }
     }
+
+    // 检查是否到达 10 秒周期汇总节点
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (_lastSummaryTimeMs == 0) {
+      _lastSummaryTimeMs = now;
+    } else if (now - _lastSummaryTimeMs >= 10000) {
+      flushPeriodicSummary(anime4kStatus: anime4kStatus);
+    }
+  }
+
+  /// 输出 10 秒周期汇总日志
+  void flushPeriodicSummary({String? anime4kStatus}) {
+    if (!_enabled) return;
+    final backend = renderingBackend;
+    final anime4kLabel = anime4kStatus ?? '未知';
+
+    final line = '[DanmakuPerf][10s汇总] 慢帧数: $_slowFrameCount (其中 dt≥25ms: $_severeStutterCount) | '
+        '最大 dt: ${_maxDtInWindow.toStringAsFixed(1)}ms | '
+        '最大 raster: ${_maxRasterInWindow.toStringAsFixed(1)}ms | '
+        'Anime4K: $anime4kLabel | 后端: $backend';
+
+    if (onLog != null) {
+      onLog!(line);
+    } else {
+      debugPrint(line);
+    }
+
+    // 重置 10 秒统计计数
+    _slowFrameCount = 0;
+    _severeStutterCount = 0;
+    _maxDtInWindow = 0.0;
+    _maxRasterInWindow = 0.0;
+    _lastSummaryTimeMs = DateTime.now().millisecondsSinceEpoch;
   }
 
   /// 启动帧性能采集

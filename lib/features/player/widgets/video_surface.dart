@@ -97,6 +97,7 @@ class VideoSurface extends StatelessWidget {
               child: DanmakuView(
                 controller: danmakuController!,
                 fontFamily: FontManager.instance.activeFontFamily ?? 'MiSans',
+                anime4kStatusProvider: () => controller.core.value.superResolution.label,
               ),
             ),
 
