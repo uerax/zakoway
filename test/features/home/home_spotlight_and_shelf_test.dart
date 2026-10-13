@@ -239,7 +239,7 @@ void main() {
       );
 
       // 第一部展示
-      expect(find.text('今日推荐'), findsOneWidget);
+      expect(find.text('每日推荐'), findsOneWidget);
       expect(find.text('98% 契合'), findsOneWidget);
       expect(find.text('口碑神作'), findsOneWidget);
       expect(find.text('Cowboy Bebop 中文'), findsOneWidget);
@@ -308,8 +308,89 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
-      expect(find.text('今日推荐'), findsOneWidget);
-      expect(find.text('换一部'), findsNothing); // 单部或超窄时不报错
+      expect(find.text('每日推荐'), findsOneWidget);
+      expect(find.text('换一部'), findsNothing); // 单部时无换一部
+    });
+
+    testWidgets('Multiple recommendations in ultra narrow width (180dp) displays 换一部 without overflow', (tester) async {
+      final recs = [
+        RecommendItem(
+          item: _createMockItem(103, 'Steins;Gate', 9.2),
+          reason: '极高水准科幻悬疑神作',
+          tag: '#硬核烧脑',
+          matchRate: 98,
+        ),
+        RecommendItem(
+          item: _createMockItem(104, 'Clannad', 9.0),
+          reason: 'KEY 社人生哲理神作',
+          tag: '#治愈催泪',
+          matchRate: 95,
+        ),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 180.0,
+                child: DailySpotlightCard(recommendations: recs),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('每日推荐'), findsOneWidget);
+      expect(find.text('换一部'), findsOneWidget);
+      // isNarrow (<280) 下“算法精选”自动收起，优先保全操作按钮且不溢出
+      expect(find.text('算法精选'), findsNothing);
+    });
+
+    testWidgets('Normal width (400dp) aligns 换一部 to the far right', (tester) async {
+      final recs = [
+        RecommendItem(
+          item: _createMockItem(101, 'Cowboy Bebop', 9.1),
+          reason: '太空牛仔',
+          tag: '口碑神作',
+          matchRate: 98,
+        ),
+        RecommendItem(
+          item: _createMockItem(102, 'Dungeon Meshi', 8.8),
+          reason: '迷宫饭',
+          tag: '当季精选',
+          matchRate: 95,
+        ),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 400.0,
+                child: DailySpotlightCard(recommendations: recs),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('算法精选'), findsOneWidget);
+      expect(find.text('换一部'), findsOneWidget);
+
+      // 验证“换一部”按钮右边缘与父容器（400 - 16 = 384）最右侧贴齐，不再悬浮在中间
+      final buttonFinder = find.ancestor(
+        of: find.text('换一部'),
+        matching: find.byType(Material),
+      ).first;
+      final buttonRect = tester.getRect(buttonFinder);
+      // 父容器从 Center 出来在 (0, 0) 开始，宽度 400，padding left=16, right=16，内容可用右边界为 400 - 16 = 384
+      // 允许 1px 浮点排版误差
+      final cardRect = tester.getRect(find.byType(DailySpotlightCard));
+      expect(buttonRect.right, closeTo(cardRect.right - 16.0, 1.0));
     });
   });
 

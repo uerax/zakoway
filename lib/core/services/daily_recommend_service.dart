@@ -397,7 +397,7 @@ class DailyRecommendService {
         if (mainTag != null && mainTag.isNotEmpty) {
           return '#$mainTag';
         }
-        return '#今日推荐';
+        return '#每日推荐';
     }
   }
 

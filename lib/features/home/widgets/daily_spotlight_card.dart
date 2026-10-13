@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/models/home/recommend_item.dart';
 import '../../../core/theme/m3_surface.dart';
+import '../../../core/utils/font_manager.dart';
 import '../../common/widgets/anime_card.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
 import '../../common/widgets/cached_anime_image.dart';
 
-/// 移动端/窄屏专用的“今日推荐 · 算法推荐精选”大卡片：
+/// 移动端/窄屏专用的“每日推荐 · 算法推荐精选”大卡片：
 /// 1. 杂志图文混排：左侧呈现标准 2:3 原始无畸变海报，右侧展示标题、评分与人话化推荐理由；
 /// 2. 算法可解释性：显式渲染契合度百分比徽章与推荐来源逻辑；
 /// 3. 支持“换一部 ↻”平滑切片动效与震动反馈。
@@ -71,17 +72,20 @@ class _DailySpotlightCardState extends State<DailySpotlightCard> {
                   ),
                   const SizedBox(width: 7),
                   Text(
-                    '今日推荐',
+                    '每日推荐',
                     style: TextStyle(
                       fontSize: 16.5,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.2,
+                      fontFamily: FontManager.instance.activeFontFamily,
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                       color: theme.textTheme.titleMedium?.color,
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Container(
+                  // 特殊处理说明：当窗口为极窄小窗（< 280px）时隐藏辅助性质的“算法精选”徽章，优先保证主标题与“换一部”操作完全呈现且绝不挤爆换行
+                  if (!isNarrow) ...[
+                    const SizedBox(width: 6),
+                    Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.primary.withAlpha(isDark ? 36 : 22),
@@ -89,46 +93,56 @@ class _DailySpotlightCardState extends State<DailySpotlightCard> {
                       ),
                       child: Text(
                         '算法精选',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
+                          fontFamily: FontManager.instance.activeFontFamily,
+                          fontFamilyFallback: FontManager.fallbackFontFamilies,
                           color: theme.colorScheme.primary,
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
+                  ],
+                  // 特殊处理说明：
+                  // 1. 独占 Expanded + Align(centerRight)：移除左侧多余弹性组件后，此处单独独占 100% 剩余宽度，确保正常视口下与下方各板块“全部”入口在最右侧对齐；
+                  // 2. FittedBox(scaleDown)：在超极窄小窗（如 180px）下自动等比微缩按钮，彻底杜绝 RenderFlex overflow 溢出异常。
                   if (widget.recommendations.length > 1)
                     Expanded(
                       child: Align(
                         alignment: Alignment.centerRight,
-                        child: InkWell(
-                          onTap: _switchNext,
-                          borderRadius: BorderRadius.circular(6),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.refresh_rounded,
-                                  size: 14,
-                                  color: theme.colorScheme.primary,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Material(
+                            color: theme.colorScheme.primary.withAlpha(isDark ? 36 : 20),
+                            borderRadius: BorderRadius.circular(6),
+                            child: InkWell(
+                              onTap: _switchNext,
+                              borderRadius: BorderRadius.circular(6),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.refresh_rounded,
+                                      size: 13,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      '换一部',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w600,
+                                        fontFamily: FontManager.instance.activeFontFamily,
+                                        fontFamilyFallback: FontManager.fallbackFontFamilies,
+                                        color: theme.colorScheme.primary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 3),
-                                Text(
-                                  '换一部',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: theme.colorScheme.primary,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
