@@ -731,70 +731,7 @@ void main() {
     });
   });
 
-  group('DanmakuSettings 帧率上限配置与 Tick 重绘节流测试', () {
-    test('DanmakuFpsLimit 序列化与反序列化解析', () {
-      expect(DanmakuFpsLimit.fromValue('auto'), equals(DanmakuFpsLimit.auto));
-      expect(DanmakuFpsLimit.fromValue('60'), equals(DanmakuFpsLimit.fps60));
-      expect(DanmakuFpsLimit.fromValue(60), equals(DanmakuFpsLimit.fps60));
-      expect(DanmakuFpsLimit.fromValue('fps60'), equals(DanmakuFpsLimit.fps60));
-      expect(DanmakuFpsLimit.fromValue('120'), equals(DanmakuFpsLimit.fps120));
-      expect(DanmakuFpsLimit.fromValue(120), equals(DanmakuFpsLimit.fps120));
-      expect(DanmakuFpsLimit.fromValue(null), equals(DanmakuFpsLimit.auto));
-
-      const settings = DanmakuSettings(fpsLimit: DanmakuFpsLimit.fps60);
-      final json = settings.toJson();
-      expect(json['fpsLimit'], equals('fps60'));
-
-      final restored = DanmakuSettings.fromJson(json);
-      expect(restored.fpsLimit, equals(DanmakuFpsLimit.fps60));
-    });
-
-    testWidgets('帧率上限 60 模式下每第 2 个 tick 触发重绘通知，时钟平滑推进', (tester) async {
-      final controller = DanmakuController(
-        initialSettings: const DanmakuSettings(fpsLimit: DanmakuFpsLimit.fps60),
-      );
-      controller.loadItems([
-        DanmakuItem(text: '60fps节流弹幕', timeMs: 0),
-      ]);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              width: 800,
-              height: 450,
-              child: DanmakuView(controller: controller),
-            ),
-          ),
-        ),
-      );
-
-      controller.resume();
-      await tester.pump(const Duration(milliseconds: 16));
-
-      final state = tester.state(find.byType(DanmakuView)) as dynamic;
-      final initialRepaint = state.repaintNotifierForTest.value as int;
-      final initialClock = state.clockMsForTest as double;
-
-      // 推进第 1 个 tick (16ms)
-      await tester.pump(const Duration(milliseconds: 16));
-      final repaintTick1 = state.repaintNotifierForTest.value as int;
-      final clockTick1 = state.clockMsForTest as double;
-
-      // 推进第 2 个 tick (16ms)
-      await tester.pump(const Duration(milliseconds: 16));
-      final repaintTick2 = state.repaintNotifierForTest.value as int;
-      final clockTick2 = state.clockMsForTest as double;
-
-      // 时钟每个 tick 都在推进
-      expect(clockTick1, greaterThan(initialClock));
-      expect(clockTick2, greaterThan(clockTick1));
-
-      // 验证第 1 个 tick 未触发重绘，第 2 个 tick 恰好触发 1 次重绘
-      expect(repaintTick1, equals(initialRepaint));
-      expect(repaintTick2, equals(initialRepaint + 1));
-    });
-
+  group('DanmakuView 飞行时钟解耦测试', () {
     testWidgets('飞行时钟解耦测试：视频时间轴纠偏仅调整媒体时钟，飞行运动时钟不受干扰保持绝对匀速', (tester) async {
       final controller = DanmakuController();
       controller.loadItems([

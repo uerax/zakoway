@@ -64,7 +64,6 @@ class _DanmakuViewState extends State<DanmakuView>
   Timer? _viewportResizeTimer;
   int _lastSeekTimeMs = 0;
   int _lastResizeTimeMs = 0;
-  int _tickCount = 0;
   int _cursor = 0;
 
   /// 视频时间轴时钟（媒体毫秒，跟随播放器 PTS 与时间轴纠偏，专用于发射与 Seek）
@@ -204,24 +203,11 @@ class _DanmakuViewState extends State<DanmakuView>
 
     _perfStats.updateActiveCount(_activeEntries.length);
 
-    // 4. 重绘通知与帧率上限控制
+    // 4. 重绘通知
     if (_scrollingCount > 0) {
-      _tickCount++;
-      final limit = _controller.settings.fpsLimit;
-      // 特殊处理说明：
-      // 帧率上限 60 时采用 tick 计数过滤（每第 2 个 tick 触发重绘），
-      // 杜绝浮点/时间戳计算带来的周期抖动与相位不稳；
-      // 时钟 _motionClockMs 照常以屏幕真实高刷每个 tick 细腻递增，物理插值绝对平滑。
-      final shouldRepaint = switch (limit) {
-        DanmakuFpsLimit.fps60 => (_tickCount % 2 == 0),
-        DanmakuFpsLimit.fps120 || DanmakuFpsLimit.auto => true,
-      };
-      if (shouldRepaint) {
-        _repaintNotifier.value++;
-      }
+      _repaintNotifier.value++;
     } else {
       // 5. 无滚动弹幕时立刻挂起 Ticker，进入休眠省电状态
-      _tickCount = 0;
       _scheduleWork();
     }
   }

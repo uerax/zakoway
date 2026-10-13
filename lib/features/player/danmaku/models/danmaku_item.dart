@@ -104,24 +104,6 @@ class DanmakuItem {
       'DanmakuItem(text: $text, timeMs: $timeMs, mode: $mode, color: $color, source: $source)';
 }
 
-/// 弹幕重绘帧率上限设置
-enum DanmakuFpsLimit {
-  /// 自动：跟随屏幕刷新率（等价于 120fps，暂不做自适应）
-  auto,
-
-  /// 60fps：时钟正常推进，每第 2 个 tick 触发重绘
-  fps60,
-
-  /// 120fps：跟随高刷屏重绘
-  fps120;
-
-  static DanmakuFpsLimit fromValue(dynamic val) {
-    if (val == 60 || val == '60' || val == 'fps60') return DanmakuFpsLimit.fps60;
-    if (val == 120 || val == '120' || val == 'fps120') return DanmakuFpsLimit.fps120;
-    return DanmakuFpsLimit.auto;
-  }
-}
-
 /// 弹幕配置参数
 class DanmakuSettings {
   const DanmakuSettings({
@@ -137,7 +119,6 @@ class DanmakuSettings {
     this.hideBottom = false,
     this.hideColor = false,
     this.filters = const <String>[],
-    this.fpsLimit = DanmakuFpsLimit.auto,
   });
 
   /// 弹幕总开关
@@ -176,9 +157,6 @@ class DanmakuSettings {
   /// 屏蔽规则列表（支持纯字符串子串匹配或 "/pattern/flags" 正则表达式）
   final List<String> filters;
 
-  /// 弹幕重绘帧率上限（自动 / 60 / 120，默认自动）
-  final DanmakuFpsLimit fpsLimit;
-
   DanmakuSettings copyWith({
     bool? enabled,
     double? opacity,
@@ -192,7 +170,6 @@ class DanmakuSettings {
     bool? hideBottom,
     bool? hideColor,
     List<String>? filters,
-    DanmakuFpsLimit? fpsLimit,
   }) {
     return DanmakuSettings(
       enabled: enabled ?? this.enabled,
@@ -207,7 +184,6 @@ class DanmakuSettings {
       hideBottom: hideBottom ?? this.hideBottom,
       hideColor: hideColor ?? this.hideColor,
       filters: filters ?? this.filters,
-      fpsLimit: fpsLimit ?? this.fpsLimit,
     );
   }
 
@@ -224,7 +200,6 @@ class DanmakuSettings {
         'hideBottom': hideBottom,
         'hideColor': hideColor,
         'filters': filters,
-        'fpsLimit': fpsLimit.name,
       };
 
   factory DanmakuSettings.fromJson(Map<String, dynamic> json) {
@@ -241,7 +216,6 @@ class DanmakuSettings {
       hideBottom: json['hideBottom'] as bool? ?? false,
       hideColor: json['hideColor'] as bool? ?? false,
       filters: (json['filters'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
-      fpsLimit: DanmakuFpsLimit.fromValue(json['fpsLimit']),
     );
   }
 }
