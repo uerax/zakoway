@@ -406,21 +406,28 @@ class _DanmakuViewState extends State<DanmakuView>
     final speed = (_viewWidth + layout.size.width) / durationMs;
     final nowMotion = explicitStartMotionMs ?? _motionClockMs;
 
-    // 寻找最佳空闲轨道（优先满足安全间距，加权避开顶部固定弹幕）
+    // 特殊处理说明：
+    // 自上而下贪心匹配最佳空闲轨道 (Top-First First-Fit Greedy)：
+    // 永远从轨道 0 开始自上而下匹配，只要轨道恢复空闲立刻优先复用顶部轨道，
+    // 彻底废除空闲时长比大小逻辑，杜绝弹幕一条接一条下沉形成的 "\ \ \" 斜向阶梯瀑布；
+    // 常态下所有弹幕紧凑收敛在顶部 1~2 轨，保持主画面干净通透。
     int bestTrack = -1;
-    double bestScore = -double.infinity;
 
+    // Pass 1: 优先寻找既能接纳且未被顶部固定弹幕占用的最靠上轨道
     for (var i = 0; i < _scrollTracks.length; i++) {
-      final track = _scrollTracks[i];
       final hasTopDanmaku = i < _topBusyUntil.length && nowMotion < _topBusyUntil[i];
+      if (!hasTopDanmaku && _scrollTracks[i].canAccept(nowMotion, speed, _viewWidth)) {
+        bestTrack = i;
+        break;
+      }
+    }
 
-      if (track.canAccept(nowMotion, speed, _viewWidth)) {
-        // 空闲时长评分：越久没发弹幕的轨道越优先填充
-        final idleMs = nowMotion - track.tailFreeMs;
-        final score = idleMs - (hasTopDanmaku ? 10000.0 : 0.0);
-        if (score > bestScore) {
-          bestScore = score;
+    // Pass 2: 若所有无遮挡轨道均忙碌，再检查允许轻度避让但防追尾可用的最靠上轨道
+    if (bestTrack < 0) {
+      for (var i = 0; i < _scrollTracks.length; i++) {
+        if (_scrollTracks[i].canAccept(nowMotion, speed, _viewWidth)) {
           bestTrack = i;
+          break;
         }
       }
     }
@@ -973,7 +980,7 @@ class _DanmakuViewState extends State<DanmakuView>
         return IgnorePointer(
           child: RepaintBoundary(
             child: CustomPaint(
-              isComplex: true,
+              isComplex: false,
               willChange: true,
               painter: _DanmakuPainter(
                 repaint: _repaintNotifier,

@@ -847,5 +847,44 @@ void main() {
       final expectedProgressDelta = motionDelta / entry.durationMs;
       expect((progressAfter - progressBefore) - expectedProgressDelta, closeTo(0.0, 0.0001));
     });
+
+    testWidgets('顶部优先排轨：轨道0空闲时立即优先复用轨道0，绝不无故下沉产生阶梯瀑布', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '弹幕1', timeMs: 0),
+        DanmakuItem(text: '弹幕2', timeMs: 50), // 紧接着发，轨道0忙，应进轨道1
+        DanmakuItem(text: '弹幕3', timeMs: 4000), // 4s后轨道0尾部已拉开，应重新进轨道0
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      await tester.pump(const Duration(milliseconds: 16));
+      // 推进到 100ms，弹幕1与弹幕2入场
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final state = tester.state(find.byType(DanmakuView)) as dynamic;
+      final entries = state.activeEntriesForTest as List<dynamic>;
+      expect(entries.length, equals(2));
+      expect(entries[0].track, equals(0));
+      expect(entries[1].track, equals(1));
+
+      // 推进到 4200ms，弹幕3入场
+      await tester.pump(const Duration(milliseconds: 4100));
+
+      expect(entries.length, equals(3));
+      // 核心断言：弹幕3必须优先复用空闲的轨道0，而不是下沉到轨道2！
+      expect(entries[2].track, equals(0));
+    });
   });
 }
