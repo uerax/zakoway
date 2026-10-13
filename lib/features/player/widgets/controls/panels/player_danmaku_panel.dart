@@ -578,7 +578,42 @@ class _PlayerDanmakuPanelBodyState extends State<PlayerDanmakuPanelBody> {
 
         const SizedBox(height: 10),
 
-        // 5. 弹幕类型屏蔽
+        // 5. 重绘帧率上限
+        const PanelSectionHeader(title: '重绘帧率上限'),
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.all(2.5),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              PanelOptionChip(
+                label: '自动',
+                selected: cfg.fpsLimit == DanmakuFpsLimit.auto,
+                primaryColor: widget.primaryColor,
+                onTap: () => controller.updateSettings(cfg.copyWith(fpsLimit: DanmakuFpsLimit.auto)),
+              ),
+              PanelOptionChip(
+                label: '60 fps',
+                selected: cfg.fpsLimit == DanmakuFpsLimit.fps60,
+                primaryColor: widget.primaryColor,
+                onTap: () => controller.updateSettings(cfg.copyWith(fpsLimit: DanmakuFpsLimit.fps60)),
+              ),
+              PanelOptionChip(
+                label: '120 fps',
+                selected: cfg.fpsLimit == DanmakuFpsLimit.fps120,
+                primaryColor: widget.primaryColor,
+                onTap: () => controller.updateSettings(cfg.copyWith(fpsLimit: DanmakuFpsLimit.fps120)),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // 6. 弹幕类型屏蔽
         const PanelSectionHeader(title: '弹幕类型屏蔽'),
         Row(
           children: [

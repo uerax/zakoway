@@ -22,15 +22,15 @@ class DanmakuEntry {
   final DanmakuItem item;
 
   /// 所占用的轨道索引
-  final int track;
+  int track;
 
   /// 弹幕开始显示的起始时钟时刻（毫秒）
   double startMs;
 
   /// 弹幕穿越屏幕的总持续时长（毫秒）
-  final double durationMs;
+  double durationMs;
 
-  /// 弹幕飞行物理速度（像素/毫秒）
+  /// 弹幕飞行物理速度（像素/毫秒，仅用于轨道防追尾碰撞管理，不再参与绘制）
   double speed;
 
   /// 渲染水平坐标

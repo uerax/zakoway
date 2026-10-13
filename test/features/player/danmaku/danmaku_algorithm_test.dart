@@ -634,5 +634,218 @@ void main() {
       expect(find.byType(DanmakuView), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('视口尺寸变化时保留在场弹幕 progress 严格一致，位置连续无跳变', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '连续性测试弹幕', timeMs: 100),
+      ]);
+
+      var width = 800.0;
+      var height = 450.0;
+      late StateSetter setStateCallback;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                setStateCallback = setState;
+                return SizedBox(
+                  width: width,
+                  height: height,
+                  child: DanmakuView(controller: controller),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      // 推进到 200ms 发射弹幕，再推进 300ms 让弹幕飞行
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final state = tester.state(find.byType(DanmakuView)) as dynamic;
+      expect(state.activeEntriesForTest.length, equals(1));
+      final entry = state.activeEntriesForTest.first;
+      final progressBefore = (state.clockMsForTest - entry.startMs) / entry.durationMs;
+      expect(progressBefore, greaterThan(0.0));
+      expect(progressBefore, lessThan(1.0));
+
+      // 模拟离散全屏切换（800x450 -> 1920x1080）
+      setStateCallback(() {
+        width = 1920.0;
+        height = 1080.0;
+      });
+      // 触发首帧立即原子重建
+      await tester.pump(const Duration(milliseconds: 16));
+
+      expect(state.activeEntriesForTest.length, equals(1));
+      final entryAfter = state.activeEntriesForTest.first;
+      final progressAfter = (state.clockMsForTest - entryAfter.startMs) / entryAfter.durationMs;
+
+      // 验证重建前后 progress 严格一致（误差在微秒时钟推进范围 < 0.005 内）
+      expect((progressAfter - progressBefore).abs(), lessThan(0.005));
+    });
+
+    testWidgets('滚动弹幕合流吸收后，progress 严格保持不变', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '合流测试', timeMs: 100),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final state = tester.state(find.byType(DanmakuView)) as dynamic;
+      expect(state.activeEntriesForTest.length, equals(1));
+      final active = state.activeEntriesForTest.first;
+      final progressBefore = (state.clockMsForTest - active.startMs) / active.durationMs;
+
+      // 原地注入一条同名弹幕触发 In-Flight 吸收
+      final merged = state.tryMergeInFlight(
+        DanmakuItem(text: '合流测试！', timeMs: 300),
+        state.clockMsForTest,
+        800.0,
+      );
+      expect(merged, isTrue);
+      expect(active.count, equals(2));
+
+      final progressAfter = (state.clockMsForTest - active.startMs) / active.durationMs;
+      // 进度必须完全不变
+      expect((progressAfter - progressBefore).abs(), lessThan(0.0001));
+    });
+  });
+
+  group('DanmakuSettings 帧率上限配置与 Tick 重绘节流测试', () {
+    test('DanmakuFpsLimit 序列化与反序列化解析', () {
+      expect(DanmakuFpsLimit.fromValue('auto'), equals(DanmakuFpsLimit.auto));
+      expect(DanmakuFpsLimit.fromValue('60'), equals(DanmakuFpsLimit.fps60));
+      expect(DanmakuFpsLimit.fromValue(60), equals(DanmakuFpsLimit.fps60));
+      expect(DanmakuFpsLimit.fromValue('fps60'), equals(DanmakuFpsLimit.fps60));
+      expect(DanmakuFpsLimit.fromValue('120'), equals(DanmakuFpsLimit.fps120));
+      expect(DanmakuFpsLimit.fromValue(120), equals(DanmakuFpsLimit.fps120));
+      expect(DanmakuFpsLimit.fromValue(null), equals(DanmakuFpsLimit.auto));
+
+      const settings = DanmakuSettings(fpsLimit: DanmakuFpsLimit.fps60);
+      final json = settings.toJson();
+      expect(json['fpsLimit'], equals('fps60'));
+
+      final restored = DanmakuSettings.fromJson(json);
+      expect(restored.fpsLimit, equals(DanmakuFpsLimit.fps60));
+    });
+
+    testWidgets('帧率上限 60 模式下每第 2 个 tick 触发重绘通知，时钟平滑推进', (tester) async {
+      final controller = DanmakuController(
+        initialSettings: const DanmakuSettings(fpsLimit: DanmakuFpsLimit.fps60),
+      );
+      controller.loadItems([
+        DanmakuItem(text: '60fps节流弹幕', timeMs: 0),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      await tester.pump(const Duration(milliseconds: 16));
+
+      final state = tester.state(find.byType(DanmakuView)) as dynamic;
+      final initialRepaint = state.repaintNotifierForTest.value as int;
+      final initialClock = state.clockMsForTest as double;
+
+      // 推进第 1 个 tick (16ms)
+      await tester.pump(const Duration(milliseconds: 16));
+      final repaintTick1 = state.repaintNotifierForTest.value as int;
+      final clockTick1 = state.clockMsForTest as double;
+
+      // 推进第 2 个 tick (16ms)
+      await tester.pump(const Duration(milliseconds: 16));
+      final repaintTick2 = state.repaintNotifierForTest.value as int;
+      final clockTick2 = state.clockMsForTest as double;
+
+      // 时钟每个 tick 都在推进
+      expect(clockTick1, greaterThan(initialClock));
+      expect(clockTick2, greaterThan(clockTick1));
+
+      // 验证第 1 个 tick 未触发重绘，第 2 个 tick 恰好触发 1 次重绘
+      expect(repaintTick1, equals(initialRepaint));
+      expect(repaintTick2, equals(initialRepaint + 1));
+    });
+
+    testWidgets('飞行时钟解耦测试：视频时间轴纠偏仅调整媒体时钟，飞行运动时钟不受干扰保持绝对匀速', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '解耦测试弹幕', timeMs: 0),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      // 推进 200ms，弹幕入场并飞行中
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final state = tester.state(find.byType(DanmakuView)) as dynamic;
+      final motionClockBefore = state.clockMsForTest as double;
+      final mediaClockBefore = state.mediaClockMsForTest as double;
+      expect(state.activeEntriesForTest.length, equals(1));
+      final entry = state.activeEntriesForTest.first;
+      final progressBefore = (motionClockBefore - entry.startMs) / entry.durationMs;
+
+      // 模拟底层播放器上报一个 +200ms 的视频时间轴漂移 (处于 40ms ~ 600ms 的 EMA 低通滤波纠偏区)
+      // 此时视频时间为 400ms，比当前时钟快 200ms
+      controller.syncTime(const Duration(milliseconds: 400));
+
+      // 推进 1 个 tick (16ms)
+      await tester.pump(const Duration(milliseconds: 16));
+
+      final motionClockAfter = state.clockMsForTest as double;
+      final mediaClockAfter = state.mediaClockMsForTest as double;
+      final progressAfter = (motionClockAfter - entry.startMs) / entry.durationMs;
+
+      // 1. 媒体发射时钟吸收了低通纠偏 (漂移量 * 0.15 约 30ms 增量)，向前调整
+      expect(mediaClockAfter - mediaClockBefore, greaterThan(35.0));
+
+      // 2. 核心验证：飞行运动时钟彻底解耦，仅按物理 VSync 推进约 16ms，绝不受 200ms 漂移踢动
+      final motionDelta = motionClockAfter - motionClockBefore;
+      expect(motionDelta, closeTo(16.0, 1.0));
+
+      // 3. 在屏飞行的弹幕进度变化严格等于 16ms / durationMs，无任何突跳拉扯
+      final expectedProgressDelta = motionDelta / entry.durationMs;
+      expect((progressAfter - progressBefore) - expectedProgressDelta, closeTo(0.0, 0.0001));
+    });
   });
 }

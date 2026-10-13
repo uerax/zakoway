@@ -62,19 +62,37 @@ class _DanmakuViewState extends State<DanmakuView>
   Timer? _wakeTimer;
   Timer? _seekDebounceTimer;
   Timer? _viewportResizeTimer;
-  bool _isViewportResizing = false;
   int _lastSeekTimeMs = 0;
+  int _lastResizeTimeMs = 0;
+  int _tickCount = 0;
   int _cursor = 0;
-  double _clockMs = 0.0;
+
+  /// 视频时间轴时钟（媒体毫秒，跟随播放器 PTS 与时间轴纠偏，专用于发射与 Seek）
+  double _mediaClockMs = 0.0;
+
+  /// 飞行渲染运动时钟（微秒级单调物理时钟，仅随 VSync 推进，绝不受时间轴纠偏微调干扰）
+  double _motionClockMs = 0.0;
+
   Duration _lastElapsed = Duration.zero;
 
   double _viewWidth = 0.0;
   double _viewHeight = 0.0;
   double _deviceShortestSide = 0.0;
-  double _dpr = 1.0;
   double _lineHeight = 24.0;
   double _nextExpiryMs = double.infinity;
   int _scrollingCount = 0;
+
+  @visibleForTesting
+  List<DanmakuEntry> get activeEntriesForTest => _activeEntries;
+
+  @visibleForTesting
+  double get clockMsForTest => _motionClockMs;
+
+  @visibleForTesting
+  double get mediaClockMsForTest => _mediaClockMs;
+
+  @visibleForTesting
+  ValueNotifier<int> get repaintNotifierForTest => _repaintNotifier;
 
   DanmakuController get _controller => widget.controller;
   bool get _hasViewport => _viewWidth > 0 && _viewHeight > 0;
@@ -144,7 +162,7 @@ class _DanmakuViewState extends State<DanmakuView>
       oldWidget.controller.detach(this);
       _clearActive();
       widget.controller.attach(this);
-      _cursor = _lowerBound(_controller.items, _clockMs);
+      _cursor = _lowerBound(_controller.items, _mediaClockMs);
       _scheduleWork();
     }
   }
@@ -174,26 +192,36 @@ class _DanmakuViewState extends State<DanmakuView>
 
     // 1. 微秒级连续平滑时间插值推进 (单调递增，无任何速度扰动)
     final dtMs = delta.inMicroseconds / 1000.0;
-    _clockMs += dtMs * _controller.playbackRate;
+    final advanceMs = dtMs * _controller.playbackRate;
+    _motionClockMs += advanceMs;
+    _mediaClockMs += advanceMs;
 
-    // 视口尺寸连续变动防抖期间：暂停发射新弹幕和绘制
-    if (_isViewportResizing) {
-      return;
-    }
-
-    // 2. 发射到期弹幕（带动态合流与入场调度）
+    // 2. 发射到期弹幕（基于媒体时钟 _mediaClockMs 调度入场）
     _emitDue();
 
-    // 3. 淘汰出界弹幕
+    // 3. 淘汰出界弹幕（基于飞行运动时钟 _motionClockMs 判定）
     _expire();
 
     _perfStats.updateActiveCount(_activeEntries.length);
 
-    // 4. 重绘通知
+    // 4. 重绘通知与帧率上限控制
     if (_scrollingCount > 0) {
-      _repaintNotifier.value++;
+      _tickCount++;
+      final limit = _controller.settings.fpsLimit;
+      // 特殊处理说明：
+      // 帧率上限 60 时采用 tick 计数过滤（每第 2 个 tick 触发重绘），
+      // 杜绝浮点/时间戳计算带来的周期抖动与相位不稳；
+      // 时钟 _motionClockMs 照常以屏幕真实高刷每个 tick 细腻递增，物理插值绝对平滑。
+      final shouldRepaint = switch (limit) {
+        DanmakuFpsLimit.fps60 => (_tickCount % 2 == 0),
+        DanmakuFpsLimit.fps120 || DanmakuFpsLimit.auto => true,
+      };
+      if (shouldRepaint) {
+        _repaintNotifier.value++;
+      }
     } else {
       // 5. 无滚动弹幕时立刻挂起 Ticker，进入休眠省电状态
+      _tickCount = 0;
       _scheduleWork();
     }
   }
@@ -223,7 +251,7 @@ class _DanmakuViewState extends State<DanmakuView>
     final nextItemMs = _cursor < items.length
         ? items[_cursor].timeMs.toDouble()
         : double.infinity;
-    final nextWakeMs = math.min(nextItemMs, _nextExpiryMs);
+    final nextWakeMs = nextItemMs;
 
     if (!nextWakeMs.isFinite) {
       _wakeTimer?.cancel();
@@ -232,7 +260,7 @@ class _DanmakuViewState extends State<DanmakuView>
     }
 
     final rate = _controller.playbackRate;
-    final delayMs = math.max(0.0, (nextWakeMs - _clockMs) / rate);
+    final delayMs = math.max(0.0, (nextWakeMs - _mediaClockMs) / rate);
 
     _wakeTimer?.cancel();
     _wakeTimer = Timer(
@@ -240,7 +268,7 @@ class _DanmakuViewState extends State<DanmakuView>
       () {
         _wakeTimer = null;
         if (!_controller.playing || !mounted) return;
-        _clockMs = math.max(_clockMs, nextWakeMs);
+        _mediaClockMs = math.max(_mediaClockMs, nextWakeMs);
         _emitDue();
         _expire();
         _scheduleWork();
@@ -267,7 +295,7 @@ class _DanmakuViewState extends State<DanmakuView>
       final items = _controller.items;
       final initialCount = _activeEntries.length;
 
-      while (_cursor < items.length && items[_cursor].timeMs <= _clockMs) {
+      while (_cursor < items.length && items[_cursor].timeMs <= _mediaClockMs) {
         _tryEmit(items[_cursor]);
         _cursor++;
       }
@@ -280,7 +308,7 @@ class _DanmakuViewState extends State<DanmakuView>
     }
   }
 
-  void _tryEmit(DanmakuItem item, {bool checkFilter = true}) {
+  void _tryEmit(DanmakuItem item, {bool checkFilter = true, double? explicitStartMotionMs}) {
     if (!_hasViewport) return;
     final settings = _controller.settings;
 
@@ -292,8 +320,10 @@ class _DanmakuViewState extends State<DanmakuView>
       if (item.mode == DanmakuMode.bottom && settings.hideBottom) return;
     }
 
+    final nowMotion = explicitStartMotionMs ?? _motionClockMs;
+
     // === 核心算法：In-Flight 飞行中动态合流 (animaku 经典算法) ===
-    if (tryMergeInFlight(item, _clockMs, _viewWidth)) {
+    if (tryMergeInFlight(item, nowMotion, _viewWidth)) {
       // 成功被屏幕上飞行的同类弹幕吸收，不再分配新轨道
       return;
     }
@@ -301,11 +331,11 @@ class _DanmakuViewState extends State<DanmakuView>
     // 无法合流，进入轨道分配流程
     switch (item.mode) {
       case DanmakuMode.scroll:
-        _emitScroll(item);
+        _emitScroll(item, explicitStartMotionMs: explicitStartMotionMs);
       case DanmakuMode.top:
-        _emitFixed(item, isTop: true);
+        _emitFixed(item, isTop: true, explicitStartMotionMs: explicitStartMotionMs);
       case DanmakuMode.bottom:
-        _emitFixed(item, isTop: false);
+        _emitFixed(item, isTop: false, explicitStartMotionMs: explicitStartMotionMs);
     }
   }
 
@@ -325,14 +355,14 @@ class _DanmakuViewState extends State<DanmakuView>
 
       // 滚动弹幕：必须确保其尾部还没有越过屏幕左侧边缘
       if (active.mode == DanmakuMode.scroll) {
-        final currentX = viewWidth - (ageMs / active.durationMs) * (viewWidth + active.layout.size.width);
+        final progress = active.durationMs > 0 ? ageMs / active.durationMs : 0.0;
+        final currentX = viewWidth - progress * (viewWidth + active.layout.size.width);
         if (currentX + active.layout.size.width < 20.0) continue;
       }
 
       // === 原地吸收 ===
       _perfStats.recordMerge();
       active.count++;
-      final oldWidth = active.layout.size.width;
       active.layout.dispose();
       final fontPx = _calculateCalculatedFontSize();
       active.layout = _layoutPool.acquire(
@@ -346,22 +376,18 @@ class _DanmakuViewState extends State<DanmakuView>
       );
       final newWidth = active.layout.size.width;
 
-      // === 头部 X 坐标 0 像素跳动补偿 ===
+      // 特殊处理说明：
+      // 滚动弹幕合流吸收后，严格保持 progress = (nowMs - startMs) / durationMs 不变，
+      // 不再调整 active.startMs；active.speed 仅更新用于轨道防追尾碰撞计算，不参与绘制。
       if (active.mode == DanmakuMode.scroll) {
-        final pathOld = viewWidth + oldWidth;
-        final pathNew = viewWidth + newWidth;
-        if (pathOld > 0 && pathNew > 0) {
-          final adjustedAge = ageMs * (pathOld / pathNew);
-          active.startMs = nowMs - adjustedAge;
-          active.speed = pathNew / active.durationMs;
-        }
+        active.speed = (viewWidth + newWidth) / active.durationMs;
       }
       return true;
     }
     return false;
   }
 
-  void _emitScroll(DanmakuItem item) {
+  void _emitScroll(DanmakuItem item, {double? explicitStartMotionMs}) {
     if (_scrollTracks.isEmpty) return;
     final settings = _controller.settings;
     final durationMs = math.max(1000.0, _scrollBaseDurationMs / settings.speed);
@@ -378,6 +404,7 @@ class _DanmakuViewState extends State<DanmakuView>
     );
 
     final speed = (_viewWidth + layout.size.width) / durationMs;
+    final nowMotion = explicitStartMotionMs ?? _motionClockMs;
 
     // 寻找最佳空闲轨道（优先满足安全间距，加权避开顶部固定弹幕）
     int bestTrack = -1;
@@ -385,11 +412,11 @@ class _DanmakuViewState extends State<DanmakuView>
 
     for (var i = 0; i < _scrollTracks.length; i++) {
       final track = _scrollTracks[i];
-      final hasTopDanmaku = i < _topBusyUntil.length && _clockMs < _topBusyUntil[i];
+      final hasTopDanmaku = i < _topBusyUntil.length && nowMotion < _topBusyUntil[i];
 
-      if (track.canAccept(_clockMs, speed, _viewWidth)) {
+      if (track.canAccept(nowMotion, speed, _viewWidth)) {
         // 空闲时长评分：越久没发弹幕的轨道越优先填充
-        final idleMs = _clockMs - track.tailFreeMs;
+        final idleMs = nowMotion - track.tailFreeMs;
         final score = idleMs - (hasTopDanmaku ? 10000.0 : 0.0);
         if (score > bestScore) {
           bestScore = score;
@@ -422,7 +449,7 @@ class _DanmakuViewState extends State<DanmakuView>
     final entry = DanmakuEntry(
       item: item,
       track: bestTrack,
-      startMs: _clockMs,
+      startMs: nowMotion,
       durationMs: durationMs,
       speed: speed,
       x: _viewWidth,
@@ -442,13 +469,14 @@ class _DanmakuViewState extends State<DanmakuView>
     );
   }
 
-  void _emitFixed(DanmakuItem item, {required bool isTop}) {
+  void _emitFixed(DanmakuItem item, {required bool isTop, double? explicitStartMotionMs}) {
     final busyList = isTop ? _topBusyUntil : _bottomBusyUntil;
     if (busyList.isEmpty) return;
 
+    final nowMotion = explicitStartMotionMs ?? _motionClockMs;
     var targetTrack = -1;
     for (var i = 0; i < busyList.length; i++) {
-      if (_clockMs >= busyList[i]) {
+      if (nowMotion >= busyList[i]) {
         targetTrack = i;
         break;
       }
@@ -472,12 +500,12 @@ class _DanmakuViewState extends State<DanmakuView>
       onCacheMiss: _perfStats.recordLayoutCreated,
     );
 
-    busyList[targetTrack] = _clockMs + durationMs;
+    busyList[targetTrack] = nowMotion + durationMs;
 
     final entry = DanmakuEntry(
       item: item,
       track: targetTrack,
-      startMs: _clockMs,
+      startMs: nowMotion,
       durationMs: durationMs,
       speed: 0.0,
       x: math.max(0.0, (_viewWidth - layout.size.width) / 2.0),
@@ -493,10 +521,10 @@ class _DanmakuViewState extends State<DanmakuView>
   }
 
   void _expire() {
-    if (_clockMs < _nextExpiryMs) return;
+    if (_motionClockMs < _nextExpiryMs) return;
     var next = double.infinity;
     _activeEntries.removeWhere((entry) {
-      if (_clockMs < entry.endMs) {
+      if (_motionClockMs < entry.endMs) {
         next = math.min(next, entry.endMs);
         return false;
       }
@@ -525,62 +553,170 @@ class _DanmakuViewState extends State<DanmakuView>
     if (!_hasViewport) return;
 
     if (!hadViewport) {
-      // 首次布局完成（视口已知）且控制器已有位置时，用该位置初始化 _clockMs 并重建屏幕，避免从 0 开始
+      _lastResizeTimeMs = DateTime.now().millisecondsSinceEpoch;
+      // 首次布局完成（视口已知）且控制器已有位置时，用该位置初始化 _mediaClockMs 并重建屏幕，避免从 0 开始
       final estimated = _controller.estimatedCurrentPosition;
       if (estimated != null) {
-        _clockMs = estimated.inMicroseconds / 1000.0;
+        _mediaClockMs = estimated.inMicroseconds / 1000.0;
       }
       _rebuildTracks();
-      _rebuildScreenAt(_clockMs);
+      _rebuildScreenAt(_mediaClockMs);
       return;
     }
 
     // 特殊处理说明：
-    // 视口尺寸连续变动防抖 (180ms)：
-    // 在全屏/窗口切换或窗口拉伸过程中，防抖期间暂停绘制与发射，稳定后再重建屏幕与排轨，杜绝每帧重建
-    _isViewportResizing = true;
+    // 视口尺寸变化“首次立即、连续变化才防抖”原子重建模型：
+    // 1. 全屏 ↔ 窗口切换等离散单次跳变 (间隔 > 300ms)：前沿立即触发原子重建，0延迟完成新字号与新轨道适配；
+    // 2. 鼠标拖拽窗口边框高频连续拉伸 (间隔 <= 300ms)：删除 _isViewportResizing 暂停，弹幕全程不消失、持续绘制；
+    //    防抖 180ms 稳定后触发最终原子重建，杜绝每帧重建开销；
+    // 3. 重建过程通过 preserveActive 保留当前在场弹幕的精确 progress，杜绝空白帧与位置跳变。
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final elapsedSinceLastResize = now - _lastResizeTimeMs;
     _viewportResizeTimer?.cancel();
-    _viewportResizeTimer = Timer(const Duration(milliseconds: 180), () {
-      _viewportResizeTimer = null;
-      if (!mounted || !_hasViewport) return;
-      _isViewportResizing = false;
+
+    if (elapsedSinceLastResize > 300) {
+      _lastResizeTimeMs = now;
       _rebuildTracks();
-      _rebuildScreenAt(_clockMs);
-    });
+      _rebuildScreenAt(_mediaClockMs, preserveActive: true);
+    } else {
+      _viewportResizeTimer = Timer(const Duration(milliseconds: 180), () {
+        _viewportResizeTimer = null;
+        if (!mounted || !_hasViewport) return;
+        _lastResizeTimeMs = DateTime.now().millisecondsSinceEpoch;
+        _rebuildTracks();
+        _rebuildScreenAt(_mediaClockMs, preserveActive: true);
+      });
+    }
   }
 
   /// 特殊处理说明：
   /// 统一的“重建当前时刻屏幕”核心方法：
-  /// 在当前时钟 targetClockMs 处，清空后按时间顺序补发 [targetClockMs - 窗口, targetClockMs] 内未过期的弹幕：
-  /// 1. 按弹幕类型使用各自存活时长过滤过期弹幕（滚动弹幕用当前穿越时长，顶部/底部固定弹幕用 5000ms）；
-  /// 2. 候选数量超过同屏上限时，保留时间上最新的那部分（数量 = 上限），再按时间顺序补发；
-  /// 3. 被丢弃的弹幕不调用排版，零无用开销；
-  /// 4. 补发时临时将 _clockMs 设为弹幕 timeMs，复用现有的 _tryEmit（合流、轨道分配、同屏上限），补完恢复 _clockMs 与游标。
-  void _rebuildScreenAt(double targetClockMs) {
+  /// 1. 当 preserveActive 为 true 且已有在场弹幕时（视口尺寸变化引起）：
+  ///    就地保留已有弹幕并维持 progress 严格一致，仅重新排版字号并重配轨道，杜绝空白与瞬移；
+  /// 2. 当无在场弹幕或用户触发 Seek 跳转时：
+  ///    在当前时钟 targetMediaClockMs 处，清空后按时间顺序补发未过期的弹幕。
+  void _rebuildScreenAt(double targetMediaClockMs, {bool preserveActive = false}) {
     if (!_hasViewport || !_controller.settings.enabled) return;
 
+    final settings = _controller.settings;
+    final scrollDurationMs = math.max(1000.0, _scrollBaseDurationMs / settings.speed);
+
+    // 分支 1：视口变化且在场弹幕保活（保持 progress 不变，位置连续，不产生空白帧）
+    if (preserveActive && _activeEntries.isNotEmpty) {
+      final oldEntries = List<DanmakuEntry>.from(_activeEntries);
+      _activeEntries.clear();
+      _scrollingCount = 0;
+      var nextExp = double.infinity;
+      final fontPx = _calculateCalculatedFontSize();
+
+      for (final entry in oldEntries) {
+        if (entry.durationMs <= 0) {
+          entry.dispose();
+          continue;
+        }
+        final oldProgress = (_motionClockMs - entry.startMs) / entry.durationMs;
+        if (oldProgress < 0.0 || oldProgress >= 1.0) {
+          entry.dispose();
+          continue;
+        }
+
+        if (entry.mode == DanmakuMode.scroll) {
+          // 保持 progress 严格一致，按新 durationMs 换算新的 startMs
+          entry.durationMs = scrollDurationMs;
+          entry.startMs = _motionClockMs - oldProgress * scrollDurationMs;
+
+          // 采用新视口字号重新排版
+          entry.layout.dispose();
+          final text = entry.count > 1 ? '${entry.baseText} ×${entry.count}' : entry.baseText;
+          entry.layout = _layoutPool.acquire(
+            text: text,
+            color: settings.hideColor ? Colors.white : entry.item.color,
+            fontSize: fontPx,
+            strokeWidth: settings.strokeWidth,
+            opacity: settings.opacity,
+            fontFamily: widget.fontFamily,
+            onCacheMiss: _perfStats.recordLayoutCreated,
+          );
+
+          final speed = (_viewWidth + entry.layout.size.width) / scrollDurationMs;
+          entry.speed = speed;
+
+          var newTrack = 0;
+          if (_scrollTracks.isNotEmpty) {
+            newTrack = entry.track.clamp(0, _scrollTracks.length - 1);
+            _scrollTracks[newTrack].register(
+              startMs: entry.startMs,
+              width: entry.layout.size.width,
+              speed: speed,
+              viewWidth: _viewWidth,
+            );
+          }
+          entry.track = newTrack;
+          entry.y = newTrack * _lineHeight * _kTrackSpacing;
+
+          _activeEntries.add(entry);
+          _scrollingCount++;
+          nextExp = math.min(nextExp, entry.endMs);
+        } else {
+          // 固定弹幕（top 或 bottom）
+          final isTop = entry.mode == DanmakuMode.top;
+          final busyList = isTop ? _topBusyUntil : _bottomBusyUntil;
+
+          entry.layout.dispose();
+          entry.layout = _layoutPool.acquire(
+            text: entry.baseText,
+            color: settings.hideColor ? Colors.white : entry.item.color,
+            fontSize: fontPx,
+            strokeWidth: settings.strokeWidth,
+            opacity: settings.opacity,
+            fontFamily: widget.fontFamily,
+            onCacheMiss: _perfStats.recordLayoutCreated,
+          );
+
+          var newTrack = 0;
+          if (busyList.isNotEmpty) {
+            newTrack = entry.track.clamp(0, busyList.length - 1);
+            busyList[newTrack] = entry.startMs + entry.durationMs;
+          }
+          entry.track = newTrack;
+          entry.y = isTop
+              ? newTrack * _lineHeight * _kTrackSpacing
+              : _viewHeight - (newTrack + 1) * _lineHeight * _kTrackSpacing;
+
+          _activeEntries.add(entry);
+          nextExp = math.min(nextExp, entry.endMs);
+        }
+      }
+
+      _mediaClockMs = targetMediaClockMs;
+      _cursor = _lowerBound(_controller.items, targetMediaClockMs + 0.0001);
+      _nextExpiryMs = nextExp;
+      _perfStats.updateActiveCount(_activeEntries.length);
+      _repaintNotifier.value++;
+      _scheduleWork(forceWake: true);
+      return;
+    }
+
+    // 分支 2：Seek 跳转或初始冷启动无在场弹幕
     final items = _controller.items;
     if (items.isEmpty) {
       _clearActive();
-      _clockMs = targetClockMs;
+      _mediaClockMs = targetMediaClockMs;
       _cursor = 0;
       _repaintNotifier.value++;
       return;
     }
 
-    final settings = _controller.settings;
-    final scrollDurationMs = math.max(1000.0, _scrollBaseDurationMs / settings.speed);
     final maxWindowMs = math.max(scrollDurationMs, _kTopDurationMs);
-
-    final windowStartMs = math.max(0.0, targetClockMs - maxWindowMs);
+    final windowStartMs = math.max(0.0, targetMediaClockMs - maxWindowMs);
     final startIndex = _lowerBound(items, windowStartMs);
-    final endIndex = _lowerBound(items, targetClockMs + 0.0001);
+    final endIndex = _lowerBound(items, targetMediaClockMs + 0.0001);
 
     // 1. 筛选未过期且未被屏蔽/隐藏的候选弹幕
     final validCandidates = <DanmakuItem>[];
     for (var i = startIndex; i < endIndex; i++) {
       final item = items[i];
-      if (item.timeMs > targetClockMs) break;
+      if (item.timeMs > targetMediaClockMs) break;
 
       if (_controller.isBlocked(item.text)) continue;
       if (item.mode == DanmakuMode.scroll && settings.hideScroll) continue;
@@ -591,7 +727,7 @@ class _DanmakuViewState extends State<DanmakuView>
       final lifeDurationMs = item.mode == DanmakuMode.scroll
           ? scrollDurationMs
           : _kTopDurationMs;
-      if (item.timeMs + lifeDurationMs <= targetClockMs) {
+      if (item.timeMs + lifeDurationMs <= targetMediaClockMs) {
         continue;
       }
 
@@ -607,15 +743,17 @@ class _DanmakuViewState extends State<DanmakuView>
     // 清空现有在屏弹幕与轨道状态
     _clearActive();
 
-    // 3. 按时间顺序补发，临时将 _clockMs 设为该弹幕的 timeMs 走现有调度
+    // 3. 补发候选弹幕：在纯净运动时钟 _motionClockMs 下，
+    // 将各候选弹幕的初始入场时钟设为 _motionClockMs - ageMs，使其准确处于当前进度位置
     for (final item in candidatesToEmit) {
-      _clockMs = item.timeMs.toDouble();
-      _tryEmit(item, checkFilter: false);
+      final ageMs = targetMediaClockMs - item.timeMs;
+      final explicitStart = _motionClockMs - ageMs;
+      _tryEmit(item, checkFilter: false, explicitStartMotionMs: explicitStart);
     }
 
-    // 4. 补完恢复 _clockMs 为 targetClockMs，_cursor 指向 targetClockMs 之后的第一条
-    _clockMs = targetClockMs;
-    _cursor = _lowerBound(items, targetClockMs + 0.0001);
+    // 4. 补完恢复 _mediaClockMs 为 targetMediaClockMs，_cursor 指向 targetMediaClockMs 之后的第一条
+    _mediaClockMs = targetMediaClockMs;
+    _cursor = _lowerBound(items, targetMediaClockMs + 0.0001);
 
     var nextExp = double.infinity;
     for (final entry in _activeEntries) {
@@ -709,14 +847,14 @@ class _DanmakuViewState extends State<DanmakuView>
   @override
   void onDanmakuTimeSync(Duration position) {
     final positionMs = position.inMilliseconds.toDouble();
-    final drift = positionMs - _clockMs;
+    final drift = positionMs - _mediaClockMs;
 
     // 1. 用户 Seek 大寻道 (|drift| > 600ms)：
     // 前沿立即执行 + 尾沿防抖 (Leading-edge Throttle + Trailing-edge Debounce)：
     // - 单次跳转（点击进度条 / 键盘按键快进）：0ms 立即原子重建，杜绝清屏空屏与闪烁！
     // - 连续快速拖拽：密集拖动期间清屏防错位，稳定 180ms 后完成最终重建。
     if (drift.abs() > _kSeekThresholdMs) {
-      _clockMs = positionMs;
+      _mediaClockMs = positionMs;
       _seekDebounceTimer?.cancel();
 
       final now = DateTime.now().millisecondsSinceEpoch;
@@ -725,7 +863,7 @@ class _DanmakuViewState extends State<DanmakuView>
       if (elapsedSinceLastSeek > 300) {
         // 单次跳转：前沿立即执行，零延迟原子重建，彻底消除 200ms 的空白与闪烁
         _lastSeekTimeMs = now;
-        _rebuildScreenAt(_clockMs);
+        _rebuildScreenAt(_mediaClockMs);
       } else {
         // 连续高频拖拽中：清屏防拉扯，防抖 180ms 稳定后更新最终位置
         _clearActive();
@@ -734,7 +872,7 @@ class _DanmakuViewState extends State<DanmakuView>
           _seekDebounceTimer = null;
           if (!mounted || !_hasViewport) return;
           _lastSeekTimeMs = DateTime.now().millisecondsSinceEpoch;
-          _rebuildScreenAt(_clockMs);
+          _rebuildScreenAt(_mediaClockMs);
         });
       }
       return;
@@ -744,9 +882,13 @@ class _DanmakuViewState extends State<DanmakuView>
     // 吸收 24/30fps 解码步进与硬件采样抖动，不干预，保持绝对匀速
     if (drift.abs() <= _kSyncDeadbandMs) return;
 
-    // 3. 一阶低通纠偏 (40ms < |drift| <= 600ms)：
-    // 正负双向温和吸收漂移量 (alpha = 0.15)，杜绝向后微调时时钟死锁
-    _clockMs += drift * _kSyncEmaAlpha;
+    // 3. 特殊处理说明：
+    // 飞行时钟解耦核心点：
+    // 一阶低通纠偏 (40ms < |drift| <= 600ms) 仅温和调整媒体发射时钟 _mediaClockMs，
+    // 绝对不触碰飞行渲染时钟 _motionClockMs！
+    // 使得屏幕上正在飞行的全部在场弹幕的物理运动保持 100% 绝对匀速连续，单帧零跳变；
+    // 仅温和微调后续新弹幕的入场时刻判定。
+    _mediaClockMs += drift * _kSyncEmaAlpha;
   }
 
   @override
@@ -756,7 +898,7 @@ class _DanmakuViewState extends State<DanmakuView>
 
   @override
   void onDanmakuItemsChanged() {
-    _rebuildScreenAt(_clockMs);
+    _rebuildScreenAt(_mediaClockMs);
   }
 
   @override
@@ -772,7 +914,7 @@ class _DanmakuViewState extends State<DanmakuView>
       _clearActive();
       _stopWork();
     } else if (!previous.enabled) {
-      _cursor = _lowerBound(_controller.items, _clockMs);
+      _cursor = _lowerBound(_controller.items, _mediaClockMs);
     }
     if (_hasViewport) {
       _rebuildTracks();
@@ -801,7 +943,8 @@ class _DanmakuViewState extends State<DanmakuView>
     _stopWork();
     _clearActive();
     _cursor = 0;
-    _clockMs = 0.0;
+    _mediaClockMs = 0.0;
+    _motionClockMs = 0.0;
     _repaintNotifier.value++;
   }
 
@@ -824,8 +967,6 @@ class _DanmakuViewState extends State<DanmakuView>
     final mediaQuery = MediaQuery.maybeOf(context);
     final shortestSide = mediaQuery?.size.shortestSide ?? 0.0;
     _updateDeviceInfo(shortestSide);
-    final dpr = mediaQuery?.devicePixelRatio ?? 1.0;
-    _dpr = dpr > 0.0 ? dpr : 1.0;
     return LayoutBuilder(
       builder: (context, constraints) {
         _updateViewport(constraints);
@@ -858,7 +999,7 @@ class _DanmakuPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (!state._controller.settings.enabled || state._isViewportResizing) return;
+    if (!state._controller.settings.enabled) return;
 
     developer.Timeline.startSync('Danmaku.paint');
     try {
@@ -866,47 +1007,50 @@ class _DanmakuPainter extends CustomPainter {
       final count = entries.length;
       if (count == 0) return;
 
-      final now = state._clockMs;
+      final now = state._motionClockMs;
       final width = size.width;
       final height = size.height;
-      final dpr = state._dpr;
+      final trackPitch = state._lineHeight * _kTrackSpacing;
 
       // 特殊处理说明：
       // 彻底移除全屏 saveLayer！直接在文字 Paint 颜色与描边层混合透明度，
       // 杜绝 4K 120Hz 下每秒 4GB 的 GPU 离屏显存带宽雪崩，实现 100% 直通帧缓冲绘制。
       // Bilibili / animaku 三层 Z-Index 分层绘制管线 (直接内联循环，零闭包分配)：
-      // Pass 1: 滚动弹幕（底层，绝不遮挡重要字幕，x 坐标物理像素对齐）
+      // Pass 1: 滚动弹幕（底层，基于当前画布宽度与 progress 纯浮点亚像素坐标绘制，杜绝整数像素取整带来的 30Hz 步长抖动）
       for (var i = 0; i < count; i++) {
         final entry = entries[i];
         if (entry.mode != DanmakuMode.scroll) continue;
-        final rawX = width - (now - entry.startMs) * entry.speed;
-        final x = (rawX * dpr).roundToDouble() / dpr;
+        final durationMs = entry.durationMs > 0 ? entry.durationMs : 1.0;
+        final progress = (now - entry.startMs) / durationMs;
         final textSize = entry.layout.size;
+        final x = width - progress * (width + textSize.width);
         if (x >= width || x + textSize.width <= 0) continue;
         if (entry.y >= height || entry.y + textSize.height <= 0) continue;
         entry.layout.paintAt(canvas, x, entry.y);
       }
 
-      // Pass 2: 底部固定弹幕（中层字幕与歌词译文）
+      // Pass 2: 底部固定弹幕（中层字幕与歌词译文，x 按当前宽度居中，y 按当前高度自底向上由轨道序号计算）
       for (var i = 0; i < count; i++) {
         final entry = entries[i];
         if (entry.mode != DanmakuMode.bottom) continue;
-        final x = entry.x;
         final textSize = entry.layout.size;
+        final x = (width - textSize.width) / 2.0;
+        final y = height - (entry.track + 1) * trackPitch;
         if (x >= width || x + textSize.width <= 0) continue;
-        if (entry.y >= height || entry.y + textSize.height <= 0) continue;
-        entry.layout.paintAt(canvas, x, entry.y);
+        if (y >= height || y + textSize.height <= 0) continue;
+        entry.layout.paintAt(canvas, x, y);
       }
 
-      // Pass 3: 顶部固定弹幕（顶层高能预警与剧情注解）
+      // Pass 3: 顶部固定弹幕（顶层高能预警与剧情注解，x 按当前宽度居中，y 由轨道序号计算）
       for (var i = 0; i < count; i++) {
         final entry = entries[i];
         if (entry.mode != DanmakuMode.top) continue;
-        final x = entry.x;
         final textSize = entry.layout.size;
+        final x = (width - textSize.width) / 2.0;
+        final y = entry.track * trackPitch;
         if (x >= width || x + textSize.width <= 0) continue;
-        if (entry.y >= height || entry.y + textSize.height <= 0) continue;
-        entry.layout.paintAt(canvas, x, entry.y);
+        if (y >= height || y + textSize.height <= 0) continue;
+        entry.layout.paintAt(canvas, x, y);
       }
     } finally {
       developer.Timeline.finishSync();
