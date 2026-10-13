@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:zakoway/core/services/bangumi_oped_service.dart';
+import 'package:zakoway/core/utils/responsive.dart';
 import 'package:zakoway/features/player/controller/playback_controller.dart';
 import 'package:zakoway/features/player/danmaku/danmaku.dart';
-import 'player_controls.dart';
+import 'desktop/desktop_player_controls.dart';
+import 'mobile/mobile_player_controls.dart';
 import 'player_side_panel.dart';
 import 'video_player_placeholder.dart';
 import 'video_surface.dart';
@@ -18,6 +20,7 @@ class VideoPlayerSurfaceWithControls extends StatelessWidget {
     this.isFullscreen = false,
     this.isAppFullscreen = false,
     this.isTrueFullscreen = false,
+    this.isDesktop,
     required this.onToggleFullscreen,
     this.onToggleAppFullscreen,
     this.onToggleTrueFullscreen,
@@ -42,6 +45,7 @@ class VideoPlayerSurfaceWithControls extends StatelessWidget {
   final bool isFullscreen;
   final bool isAppFullscreen;
   final bool isTrueFullscreen;
+  final bool? isDesktop;
   final VoidCallback onToggleFullscreen;
   final VoidCallback? onToggleAppFullscreen;
   final VoidCallback? onToggleTrueFullscreen;
@@ -60,12 +64,10 @@ class VideoPlayerSurfaceWithControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        VideoSurface(
-          controller: controller,
-          danmakuController: danmakuController,
-          overlay: PlayerControls(
+    final useDesktopControls = isDesktop ?? AppPlatform.isDesktop;
+
+    final Widget controlsWidget = useDesktopControls
+        ? DesktopPlayerControls(
             controller: controller,
             title: title,
             danmakuController: danmakuController,
@@ -83,7 +85,33 @@ class VideoPlayerSurfaceWithControls extends StatelessWidget {
             onPrevEpisode: onPrevEpisode,
             opedSegment: opedSegment,
             autoPlayNextNotifier: autoPlayNextNotifier,
-          ),
+          )
+        : MobilePlayerControls(
+            controller: controller,
+            title: title,
+            danmakuController: danmakuController,
+            danmakuCoordinator: danmakuCoordinator,
+            isFullscreen: isFullscreen,
+            isAppFullscreen: isAppFullscreen,
+            isTrueFullscreen: isTrueFullscreen,
+            onToggleFullscreen: onToggleFullscreen,
+            onToggleAppFullscreen: onToggleAppFullscreen,
+            onToggleTrueFullscreen: onToggleTrueFullscreen,
+            onBackPressed: onBackPressed,
+            onOpenEpisodePicker: onOpenEpisodePicker,
+            onOpenSidePanel: onOpenSidePanel,
+            onNextEpisode: onNextEpisode,
+            onPrevEpisode: onPrevEpisode,
+            opedSegment: opedSegment,
+            autoPlayNextNotifier: autoPlayNextNotifier,
+          );
+
+    return Stack(
+      children: [
+        VideoSurface(
+          controller: controller,
+          danmakuController: danmakuController,
+          overlay: controlsWidget,
         ),
 
         // HUD Toast 悬浮提示胶囊

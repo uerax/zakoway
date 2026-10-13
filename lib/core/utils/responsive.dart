@@ -1,4 +1,23 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
+/// 跨平台运行环境识别工具：
+/// 区分操作系统原生形态（Windows / macOS / Linux vs Android / iOS）
+class AppPlatform {
+  AppPlatform._();
+
+  /// 是否运行在桌面操作系统（Windows / macOS / Linux）
+  static bool get isDesktop =>
+      !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+
+  /// 是否运行在移动操作系统（Android / iOS）
+  static bool get isMobile =>
+      !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
+  /// 是否为 Web 环境
+  static bool get isWeb => kIsWeb;
+}
 
 /// 全局多端响应式断点与布局工具：
 /// 1. 严格参照 Flutter 与 Material 3 Adaptive 规范体系；

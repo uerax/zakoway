@@ -13,6 +13,7 @@ import '../../../core/services/watched_episodes_service.dart';
 import '../../../core/utils/adaptive_page_route.dart';
 import '../../../core/utils/anime_tag_filter.dart';
 import '../../../core/utils/font_manager.dart';
+import '../../../core/utils/responsive.dart';
 import '../controller/playback_controller.dart';
 import '../danmaku/danmaku.dart';
 import '../services/player_preferences_service.dart';
@@ -1120,26 +1121,51 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     super.dispose();
   }
 
-  void _enterAppFullscreen() {
+  Future<void> _enterAppFullscreen() async {
+    if (_isTrueFullscreen) {
+      if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+        try {
+          await defaultExitNativeFullscreen();
+        } catch (_) {}
+      } else {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+        ]);
+      }
+    }
     setState(() {
       _isAppFullscreen = true;
       _isTrueFullscreen = false;
     });
   }
 
-  void _exitAppFullscreen() {
+  Future<void> _exitAppFullscreen() async {
+    if (_isTrueFullscreen) {
+      await _exitTrueFullscreen();
+      return;
+    }
     setState(() {
       _isAppFullscreen = false;
       _isSidePanelOpen = false;
     });
   }
 
-  void _toggleAppFullscreen() =>
-      _isAppFullscreen ? _exitAppFullscreen() : _enterAppFullscreen();
+  void _toggleAppFullscreen() {
+    if (_isTrueFullscreen) {
+      // 若处于真全屏，点击应用全屏按钮表示降级切换至应用窗口全屏
+      _enterAppFullscreen();
+    } else if (_isAppFullscreen) {
+      _exitAppFullscreen();
+    } else {
+      _enterAppFullscreen();
+    }
+  }
 
   Future<void> _enterTrueFullscreen() async {
     setState(() {
       _isTrueFullscreen = true;
+      _isAppFullscreen = false;
     });
     if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
       try {
@@ -1251,11 +1277,15 @@ class _VideoPlayPageState extends State<VideoPlayPage>
               : (isDark ? Colors.black : Theme.of(context).scaffoldBackgroundColor),
           body: LayoutBuilder(
             builder: (context, constraints) {
-              final isWideScreen = constraints.maxWidth >= 768 && !_isFullscreen;
+              // 判定双栏并排桌面布局：结合内置平台函数 AppPlatform.isDesktop 与响应式断点
+              final isDesktopPlatform = AppPlatform.isDesktop;
+              final isWideLayout = (isDesktopPlatform && constraints.maxWidth >= 680) ||
+                  (!isDesktopPlatform && constraints.maxWidth >= AppBreakpoints.medium);
+              final shouldUseDesktopLayout = isWideLayout && !_isFullscreen;
 
               if (_isFullscreen) {
                 return _buildFullscreenLayout();
-              } else if (isWideScreen) {
+              } else if (shouldUseDesktopLayout) {
                 return _buildDesktopLayout();
               } else {
                 return _buildMobileLayout();
@@ -1268,7 +1298,9 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   }
 
   /// 顶部播放器或未起播海报占位组件
-  Widget _buildPlayerOrPlaceholder({required bool isFullscreen, bool isDesktop = false}) {
+  Widget _buildPlayerOrPlaceholder({required bool isFullscreen, bool? isDesktop}) {
+    final effectiveIsDesktop = isDesktop ?? AppPlatform.isDesktop;
+
     if (!_hasStartedPlayback) {
       return VideoPlayerInitialPlaceholder(
         coverUrl: _resolvedCoverUrl,
@@ -1298,9 +1330,10 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       isFullscreen: isFullscreen,
       isAppFullscreen: _isAppFullscreen,
       isTrueFullscreen: _isTrueFullscreen,
+      isDesktop: effectiveIsDesktop,
       onToggleFullscreen: _toggleFullscreen,
-      onToggleAppFullscreen: (isDesktop || isFullscreen) ? _toggleAppFullscreen : null,
-      onToggleTrueFullscreen: (isDesktop || isFullscreen) ? _toggleTrueFullscreen : null,
+      onToggleAppFullscreen: (effectiveIsDesktop || isFullscreen) ? _toggleAppFullscreen : null,
+      onToggleTrueFullscreen: (effectiveIsDesktop || isFullscreen) ? _toggleTrueFullscreen : null,
       onBackPressed: _handleBackPressed,
       onOpenEpisodePicker: isFullscreen
           ? () => setState(() {
@@ -1683,7 +1716,10 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     return VideoPlayerMobileLayout(
       playerWidget: KeyedSubtree(
         key: _playerSubtreeKey,
-        child: _buildPlayerOrPlaceholder(isFullscreen: false),
+        child: _buildPlayerOrPlaceholder(
+          isFullscreen: false,
+          isDesktop: false, // 手机/窄屏单栏模式下统一进入移动端控制层，方便本地 100% 调测触屏手势、锁屏与 BottomSheet
+        ),
       ),
       tabSection: _buildTabSection(),
     );
