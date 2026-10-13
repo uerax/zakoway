@@ -823,5 +823,86 @@ void main() {
       // 核心断言：弹幕3必须优先复用空闲的轨道0，而不是下沉到轨道2！
       expect(entries[2].track, equals(0));
     });
+
+    testWidgets('hideScroll = true 时固定弹幕约 5 秒后消失并释放轨道，安静时段不无限停留', (tester) async {
+      final controller = DanmakuController(
+        initialSettings: const DanmakuSettings(hideScroll: true),
+      );
+      controller.loadItems([
+        DanmakuItem(text: '顶部固定1', timeMs: 0, mode: DanmakuMode.top),
+        DanmakuItem(text: '底部固定1', timeMs: 0, mode: DanmakuMode.bottom),
+        DanmakuItem(text: '顶部固定2', timeMs: 6000, mode: DanmakuMode.top),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      await tester.pump(const Duration(milliseconds: 16));
+
+      final state = tester.state(find.byType(DanmakuView)) as dynamic;
+      final entries = state.activeEntriesForTest as List<dynamic>;
+
+      // 1. 0ms 时顶部与底部各有一条入场
+      expect(entries.length, equals(2));
+      expect(entries.any((e) => e.mode == DanmakuMode.top && e.track == 0), isTrue);
+      expect(entries.any((e) => e.mode == DanmakuMode.bottom && e.track == 0), isTrue);
+
+      // 2. 推进到 2500ms（仍在 5000ms 存活期内），固定弹幕仍保留在屏
+      await tester.pump(const Duration(milliseconds: 2500));
+      expect(entries.length, equals(2));
+
+      // 3. 推进到 5100ms（超过 5000ms 存活期），固定弹幕必须全部到期淘汰释放轨道
+      await tester.pump(const Duration(milliseconds: 2600));
+      expect(entries.isEmpty, isTrue);
+
+      // 4. 推进到 6100ms，第二条顶部弹幕入场，成功复用已释放的轨道 0（未被阻塞丢弃）
+      await tester.pump(const Duration(milliseconds: 1000));
+      expect(entries.length, equals(1));
+      expect(entries[0].item.text, equals('顶部固定2'));
+      expect(entries[0].track, equals(0));
+    });
+
+    testWidgets('安静时段里的固定弹幕唤醒淘汰：后续无弹幕时不会无限停留', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '独立固定弹幕', timeMs: 0, mode: DanmakuMode.top),
+        // 下一条弹幕相隔 60 秒（安静时段）
+        DanmakuItem(text: '远期弹幕', timeMs: 60000, mode: DanmakuMode.top),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      await tester.pump(const Duration(milliseconds: 16));
+
+      final state = tester.state(find.byType(DanmakuView)) as dynamic;
+      final entries = state.activeEntriesForTest as List<dynamic>;
+
+      expect(entries.length, equals(1));
+
+      // 推进 5100ms：唤醒时刻成功捕获到最早固定弹幕到期时刻并唤醒淘汰
+      await tester.pump(const Duration(milliseconds: 5100));
+      expect(entries.isEmpty, isTrue);
+    });
   });
 }

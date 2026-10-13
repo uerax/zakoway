@@ -62,6 +62,7 @@ class _DanmakuViewState extends State<DanmakuView>
   Timer? _wakeTimer;
   Timer? _seekDebounceTimer;
   Timer? _viewportResizeTimer;
+  final Stopwatch _tickerDowntime = Stopwatch();
   int _lastSeekTimeMs = 0;
   int _lastResizeTimeMs = 0;
   int _cursor = 0;
@@ -212,6 +213,24 @@ class _DanmakuViewState extends State<DanmakuView>
     }
   }
 
+  /// 特殊处理说明：
+  /// Ticker 挂起期间飞行时钟与媒体时钟补齐：
+  /// 在无滚动弹幕（如 hideScroll 或安静片段）时，Ticker 会暂停以节省 GPU/CPU 功耗；
+  /// 此时用 _tickerDowntime 秒表记录暂停时长，唤醒定时器触发或 Ticker 重启时，
+  /// 按“已过实际时间 × 播放倍速”补齐 _motionClockMs 与 _mediaClockMs，
+  /// 确保固定弹幕精确到期淘汰、轨道按时释放。
+  void _catchUpDowntime({double? fallbackElapsedMs}) {
+    if (_tickerDowntime.isRunning) {
+      final swMs = _tickerDowntime.elapsedMicroseconds / 1000.0;
+      _tickerDowntime.reset();
+      // 在 testWidgets 等虚拟时钟环境中，系统 Stopwatch 不会随 pump 虚拟推进，此时使用 fallback 兜底
+      final elapsedMs = fallbackElapsedMs != null ? math.max(swMs, fallbackElapsedMs) : swMs;
+      final advanceMs = elapsedMs * _controller.playbackRate;
+      _motionClockMs += advanceMs;
+      _mediaClockMs += advanceMs;
+    }
+  }
+
   void _scheduleWork({bool forceWake = false}) {
     if (!_controller.playing || !_hasViewport || !mounted || !_controller.settings.enabled) {
       _stopWork();
@@ -223,30 +242,56 @@ class _DanmakuViewState extends State<DanmakuView>
       _wakeTimer?.cancel();
       _wakeTimer = null;
       if (!_ticker.isActive) {
+        _catchUpDowntime();
+        _tickerDowntime.stop();
+        _tickerDowntime.reset();
         _lastElapsed = Duration.zero;
         _ticker.start();
       }
       return;
     }
 
-    // 无活动滚动弹幕：停止 Ticker
-    _ticker.stop();
+    // 无活动滚动弹幕：停止 Ticker，启动秒表记录停顿时长
+    if (_ticker.isActive) {
+      _ticker.stop();
+    }
+    if (_controller.playing && !_tickerDowntime.isRunning) {
+      _tickerDowntime.start();
+    }
 
-    // 计算下一个需要唤醒的时刻（下一条待发射的时刻，或当前固定弹幕的最早消失时刻）
+    // 特殊处理说明：
+    // 计算唤醒时刻时，不仅计算下一条待发射弹幕时刻，同时必须包含当前在场固定弹幕的最早到期时刻；
+    // 否则在 hideScroll 或无新弹幕时，固定弹幕将永远无法被调度淘汰，导致轨道被永久霸占。
     final items = _controller.items;
     final nextItemMs = _cursor < items.length
         ? items[_cursor].timeMs.toDouble()
         : double.infinity;
-    final nextWakeMs = nextItemMs;
+    final remainingItemMs = nextItemMs.isFinite
+        ? math.max(0.0, nextItemMs - _mediaClockMs)
+        : double.infinity;
 
-    if (!nextWakeMs.isFinite) {
+    var earliestExpiryMotionMs = double.infinity;
+    for (final entry in _activeEntries) {
+      if (entry.endMs < earliestExpiryMotionMs) {
+        earliestExpiryMotionMs = entry.endMs;
+      }
+    }
+    final remainingExpiryMs = earliestExpiryMotionMs.isFinite
+        ? math.max(0.0, earliestExpiryMotionMs - _motionClockMs)
+        : double.infinity;
+
+    final remainingMs = math.min(remainingItemMs, remainingExpiryMs);
+    if (!remainingMs.isFinite) {
       _wakeTimer?.cancel();
       _wakeTimer = null;
       return;
     }
 
     final rate = _controller.playbackRate;
-    final delayMs = math.max(0.0, (nextWakeMs - _mediaClockMs) / rate);
+    final delayMs = math.max(0.0, remainingMs / rate);
+    final scheduledDelayMs = delayMs;
+    final isItemDue = remainingItemMs <= remainingExpiryMs;
+    final targetItemMs = isItemDue ? nextItemMs : double.infinity;
 
     _wakeTimer?.cancel();
     _wakeTimer = Timer(
@@ -254,7 +299,10 @@ class _DanmakuViewState extends State<DanmakuView>
       () {
         _wakeTimer = null;
         if (!_controller.playing || !mounted) return;
-        _mediaClockMs = math.max(_mediaClockMs, nextWakeMs);
+        _catchUpDowntime(fallbackElapsedMs: scheduledDelayMs);
+        if (targetItemMs.isFinite) {
+          _mediaClockMs = math.max(_mediaClockMs, targetItemMs);
+        }
         _emitDue();
         _expire();
         _scheduleWork();
@@ -268,6 +316,8 @@ class _DanmakuViewState extends State<DanmakuView>
     if (_ticker.isActive) {
       _ticker.stop();
     }
+    _tickerDowntime.stop();
+    _tickerDowntime.reset();
   }
 
   // ==========================
@@ -756,6 +806,7 @@ class _DanmakuViewState extends State<DanmakuView>
 
     _perfStats.updateActiveCount(_activeEntries.length);
     _repaintNotifier.value++;
+    _tickerDowntime.reset();
     _scheduleWork(forceWake: true);
   }
 
@@ -886,6 +937,7 @@ class _DanmakuViewState extends State<DanmakuView>
 
   @override
   void onDanmakuPlaybackRateChanged(double rate) {
+    _catchUpDowntime();
     _scheduleWork(forceWake: true);
   }
 
