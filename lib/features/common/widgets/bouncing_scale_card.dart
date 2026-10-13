@@ -11,7 +11,11 @@ class BouncingScaleCard extends StatefulWidget {
   final double scaleDown;
 
   /// 是否在松手（TapUp）时立即无延迟触发 [onTap]，回弹动效在后台异步并发播放。
-  /// 适用于页面跳转、功能按钮等需要 0ms 瞬间响应的场景。
+  /// 特殊处理说明：
+  /// 默认开启 (true)。保证页面跳转、功能按钮等场景在手指/鼠标松开瞬间 0ms 即刻响应，彻底消除
+  /// 传统模式下“等待 95ms 最小按压 + 等待 140ms 回弹动画”导致的约 215ms~235ms 严重跳页迟钝感。
+  /// 内部具备路由感知（新页面 push 覆盖后自动静默重置控制器）与后台并发补齐回弹机制；
+  /// 若特定弹窗场景确实必须等卡片完全回弹定格后再弹出，可显式指定为 false。
   final bool immediateTap;
 
   const BouncingScaleCard({
@@ -19,7 +23,7 @@ class BouncingScaleCard extends StatefulWidget {
     required this.child,
     this.onTap,
     this.scaleDown = 0.95,
-    this.immediateTap = false,
+    this.immediateTap = true,
   });
 
   @override

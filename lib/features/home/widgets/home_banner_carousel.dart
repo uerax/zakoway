@@ -200,6 +200,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
     final hasRec = recommendItem != null;
 
     return BouncingScaleCard(
+      immediateTap: true,
       onTap: () => navigateToVideoPlayer(context, item),
       child: ClipRRect(
         borderRadius: borderRadius,

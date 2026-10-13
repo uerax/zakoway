@@ -443,13 +443,27 @@ class _PlayerControlsState extends State<PlayerControls> {
       } else if (key == LogicalKeyboardKey.keyD) {
         _cycleDanmakuMode();
         return KeyEventResult.handled;
-      } else if (key == LogicalKeyboardKey.escape && widget.isFullscreen) {
-        if (widget.isTrueFullscreen && widget.onToggleTrueFullscreen != null) {
-          widget.onToggleTrueFullscreen?.call();
-        } else if (widget.isAppFullscreen && widget.onToggleAppFullscreen != null) {
-          widget.onToggleAppFullscreen?.call();
+      } else if (key == LogicalKeyboardKey.escape) {
+        // 特殊处理说明：桌面端 Esc 键分级退出规范
+        // 1. 若当前有弹出的控制面板（弹幕/设置），先关闭面板；
+        // 2. 若当前为全屏模式（真全屏或应用内全屏），退回常规窗口播放；
+        // 3. 若为常规窗口播放，直接触发返回上一页（Pop），避免用户在长页面下必须滑回顶部才能返回。
+        if (_activePanel != _ActiveControlPanel.none) {
+          setState(() {
+            _activePanel = _ActiveControlPanel.none;
+          });
+          return KeyEventResult.handled;
+        }
+        if (widget.isFullscreen) {
+          if (widget.isTrueFullscreen && widget.onToggleTrueFullscreen != null) {
+            widget.onToggleTrueFullscreen?.call();
+          } else if (widget.isAppFullscreen && widget.onToggleAppFullscreen != null) {
+            widget.onToggleAppFullscreen?.call();
+          } else {
+            widget.onToggleFullscreen?.call();
+          }
         } else {
-          widget.onToggleFullscreen?.call();
+          widget.onBackPressed?.call();
         }
         return KeyEventResult.handled;
       }

@@ -208,6 +208,7 @@ class ContinueWatchingShelf extends StatelessWidget {
     final displayTitle = record.title.isNotEmpty ? record.title : record.item.preferredName;
 
     return BouncingScaleCard(
+      immediateTap: true,
       onTap: () => onResumeWatch?.call(record),
       child: Container(
         height: cardHeight,

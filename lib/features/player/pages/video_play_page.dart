@@ -1232,22 +1232,36 @@ class _VideoPlayPageState extends State<VideoPlayPage>
           }
         }
       },
-      child: Scaffold(
-        backgroundColor: _isFullscreen
-            ? Colors.black
-            : (isDark ? Colors.black : Theme.of(context).scaffoldBackgroundColor),
-        body: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWideScreen = constraints.maxWidth >= 768 && !_isFullscreen;
+      child: Focus(
+        autofocus: true,
+        canRequestFocus: true,
+        onKeyEvent: (node, event) {
+          // 特殊处理说明：桌面端页面级 Esc 全局兜底
+          // 当焦点离开播放器（例如用户在滚动浏览下方简介/评论区、点击右侧选集或处于未起播占位海报态），
+          // 确保按 Esc 键依然能稳定触发分级退出（全屏退出全屏，常规窗口直接 Pop 返回上一页）。
+          if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+            _handleBackPressed();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: Scaffold(
+          backgroundColor: _isFullscreen
+              ? Colors.black
+              : (isDark ? Colors.black : Theme.of(context).scaffoldBackgroundColor),
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              final isWideScreen = constraints.maxWidth >= 768 && !_isFullscreen;
 
-            if (_isFullscreen) {
-              return _buildFullscreenLayout();
-            } else if (isWideScreen) {
-              return _buildDesktopLayout();
-            } else {
-              return _buildMobileLayout();
-            }
-          },
+              if (_isFullscreen) {
+                return _buildFullscreenLayout();
+              } else if (isWideScreen) {
+                return _buildDesktopLayout();
+              } else {
+                return _buildMobileLayout();
+              }
+            },
+          ),
         ),
       ),
     );

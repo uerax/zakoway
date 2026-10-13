@@ -154,6 +154,7 @@ class _DailySpotlightCardState extends State<DailySpotlightCard> {
 
               // 精选卡片主体
               BouncingScaleCard(
+                immediateTap: true,
                 onTap: () => navigateToVideoPlayer(context, item),
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 280),

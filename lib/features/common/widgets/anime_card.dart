@@ -52,6 +52,7 @@ class AnimeCard extends StatelessWidget {
     final cardBorder = M3Surface.border(context);
 
     return BouncingScaleCard(
+      immediateTap: true,
       onTap: onTap ?? () => navigateToVideoPlayer(context, item),
       child: Container(
         decoration: BoxDecoration(

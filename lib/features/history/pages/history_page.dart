@@ -302,6 +302,7 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
       onDismissed: (_) => _deleteItem(item),
       child: BouncingScaleCard(
+        immediateTap: true,
         onTap: () => navigateToVideoPlayer(
           context,
           item.toBangumiItem(),
