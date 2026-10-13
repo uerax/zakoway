@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:zakoway/core/network/player_media_disk_cache_manager.dart';
 import 'package:zakoway/core/utils/timed_cache.dart';
@@ -144,7 +145,8 @@ class BilibiliDanmakuClient {
     bool bypassCache = false,
   }) async {
     final cacheKey = '$rawInput:${pageOverride ?? 1}';
-    final diskCacheKey = 'bili_dm_${cacheKey.hashCode.abs()}';
+    final keyHash = md5.convert(utf8.encode(cacheKey)).toString();
+    final diskCacheKey = 'bili_dm_$keyHash';
 
     if (!bypassCache) {
       // 1. 查内存

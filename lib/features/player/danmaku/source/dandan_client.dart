@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:developer' as developer;
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:zakoway/core/network/player_media_disk_cache_manager.dart';
@@ -274,7 +276,8 @@ class DandanClient {
     if (kw.isEmpty) return const [];
 
     final cacheKey = kw.toLowerCase();
-    final diskCacheKey = 'dd_search_${cacheKey.hashCode.abs()}';
+    final kwHash = md5.convert(utf8.encode(cacheKey)).toString();
+    final diskCacheKey = 'dd_search_$kwHash';
 
     if (!bypassCache) {
       // 1. 查内存

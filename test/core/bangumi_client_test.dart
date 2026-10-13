@@ -373,5 +373,81 @@ void main() {
       expect(requestCount, 1);
       expect(categoryResult.items.first.id, 4001);
     });
+
+    test('getCollection and getUserCollections support memory cache, single-flight, and setCollection invalidation', () async {
+      int getCollectionCount = 0;
+      int getUserCollectionsCount = 0;
+      int setCollectionCount = 0;
+
+      dio = Dio(BaseOptions(baseUrl: 'https://api.bgm.tv'));
+      dio.httpClientAdapter = MockAdapter((options) {
+        final path = options.path;
+        if (options.method == 'GET' && path.contains('/v0/users/-/collections/100')) {
+          getCollectionCount++;
+          return {
+            'statusCode': 200,
+            'data': {
+              'subject_id': 100,
+              'type': 3, // watching
+              'rate': 8,
+            }
+          };
+        } else if (options.method == 'GET' && path.contains('/v0/users/testuser/collections')) {
+          getUserCollectionsCount++;
+          return {
+            'statusCode': 200,
+            'data': {
+              'total': 1,
+              'data': [
+                {
+                  'subject_id': 100,
+                  'type': 3,
+                }
+              ]
+            }
+          };
+        } else if (options.method == 'POST' && path.contains('/v0/users/-/collections/')) {
+          setCollectionCount++;
+          return {
+            'statusCode': 200,
+            'data': {'success': true}
+          };
+        }
+        return {'statusCode': 404, 'data': {}};
+      });
+      client = BangumiClient(dio: dio);
+
+      // 1. getCollection 首次请求走网络
+      final col1 = await client.getCollection(100, 'mock_token');
+      expect(getCollectionCount, 1);
+      expect(col1?.type, CollectType.watching);
+
+      // 2. getCollection 二次请求命中缓存，零网络请求
+      final col2 = await client.getCollection(100, 'mock_token');
+      expect(getCollectionCount, 1);
+      expect(col2?.type, CollectType.watching);
+
+      // 3. getUserCollections 首次请求走网络
+      final list1 = await client.getUserCollections('testuser', token: 'mock_token');
+      expect(getUserCollectionsCount, 1);
+      expect(list1.length, 1);
+
+      // 4. getUserCollections 二次请求命中缓存
+      final list2 = await client.getUserCollections('testuser', token: 'mock_token');
+      expect(getUserCollectionsCount, 1);
+      expect(list2.length, 1);
+
+      // 5. setCollection 触发后，单项缓存与列表缓存自动失效
+      final updated = await client.setCollection(100, CollectType.watched, 'mock_token');
+      expect(updated, isTrue);
+      expect(setCollectionCount, 1);
+
+      // 6. 再次请求时重新打网络，拿到最新数据
+      await client.getCollection(100, 'mock_token');
+      expect(getCollectionCount, 2);
+
+      await client.getUserCollections('testuser', token: 'mock_token');
+      expect(getUserCollectionsCount, 2);
+    });
   });
 }

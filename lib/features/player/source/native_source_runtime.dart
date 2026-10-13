@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:zakoway/core/network/player_media_disk_cache_manager.dart';
 import 'package:zakoway/core/utils/timed_cache.dart';
@@ -195,7 +196,8 @@ class NativeSourceRuntime {
     }
 
     final cacheKey = '$sourceId:$animeUrl';
-    final diskCacheKey = 'src_ch_${sourceId}_${animeUrl.hashCode.abs()}';
+    final urlHash = md5.convert(utf8.encode(animeUrl)).toString();
+    final diskCacheKey = 'src_ch_${sourceId}_$urlHash';
 
     if (!bypassCache) {
       // 1. L1 内存缓存

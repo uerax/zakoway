@@ -179,7 +179,6 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
                             context: context,
                             item: item,
                             recommendItem: currentRec,
-                            borderRadius: BorderRadius.circular(borderRadiusValue),
                           );
                         },
                       ),
@@ -213,29 +212,26 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
     );
   }
 
-  /// 单张横幅轮播卡片
+  /// 单张横幅轮播卡片（无缝平铺，由外层容器统一切割视口圆角）
   Widget _buildBannerCard({
     required BuildContext context,
     required BangumiItem item,
     RecommendItem? recommendItem,
-    required BorderRadius borderRadius,
   }) {
     final hasRec = recommendItem != null;
 
     return BouncingScaleCard(
       immediateTap: true,
       onTap: () => navigateToVideoPlayer(context, item),
-      child: ClipRRect(
-        borderRadius: borderRadius,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // 背景高清封面图：对准焦点偏上方 Alignment(0, -0.4) 优先保留人物头部与五官
-            CachedAnimeImage(
-              imageUrl: item.coverUrl,
-              fit: BoxFit.cover,
-              alignment: const Alignment(0, -0.4),
-            ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 背景高清封面图：对准焦点偏上方 Alignment(0, -0.4) 优先保留人物头部与五官
+          CachedAnimeImage(
+            imageUrl: item.coverUrl,
+            fit: BoxFit.cover,
+            alignment: const Alignment(0, -0.4),
+          ),
 
             // 全局微暗底色，增强层次感
             DecoratedBox(
@@ -348,8 +344,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 
   /// 动态平滑胶囊指示器

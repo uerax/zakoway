@@ -24,6 +24,7 @@ class _TimelinePageState extends State<TimelinePage> with AutomaticKeepAliveClie
   ScrollController get _effectiveChipScrollController =>
       _chipScrollController ??= ScrollController();
   int _selectedDayIndex = 0;
+  late final Set<int> _loadedDays = {_selectedDayIndex};
 
   static const _weekLabels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
   static const double _chipWidth = 60.0;
@@ -40,6 +41,7 @@ class _TimelinePageState extends State<TimelinePage> with AutomaticKeepAliveClie
     // 默认高亮今天 (1=Mon .. 7=Sun)
     final todayWeekday = DateTime.now().weekday;
     _selectedDayIndex = (todayWeekday - 1).clamp(0, 6);
+    _loadedDays.add(_selectedDayIndex);
     _loadCalendar();
 
     // 页面初次完成渲染后，将当前选中的星期自动滚动至可视区居中
@@ -90,6 +92,8 @@ class _TimelinePageState extends State<TimelinePage> with AutomaticKeepAliveClie
     if (oldWidget.client.baseUrl != widget.client.baseUrl ||
         oldWidget.client.activeRouteId != widget.client.activeRouteId ||
         oldWidget.client.sourcePreset != widget.client.sourcePreset) {
+      _loadedDays.clear();
+      _loadedDays.add(_selectedDayIndex);
       _loadCalendar(forceRefresh: true);
     }
   }
@@ -191,6 +195,7 @@ class _TimelinePageState extends State<TimelinePage> with AutomaticKeepAliveClie
                   if (selected) {
                     setState(() {
                       _selectedDayIndex = index;
+                      _loadedDays.add(index);
                     });
                     _scrollToSelectedChip(animate: true);
                   }
@@ -256,12 +261,18 @@ class _TimelinePageState extends State<TimelinePage> with AutomaticKeepAliveClie
           return const Center(child: Text('暂无每日连载数据'));
         }
 
-        // 核心优化：使用 IndexedStack 替代 TabBarView
-        // 1. 点击周一到周日时直接即点即切，不再强行在 300ms 内连环滑动排版上百个卡片
-        // 2. 7 个子页面一旦排版完成全部常驻内存，二次切换时 0ms 瞬间显示，永无白屏
+        // 核心优化：使用 IndexedStack 配合按需惰性挂载 (Lazy IndexedStack)
+        // 1. 初次打开仅挂载当前选中的星期，其余 6 天暂用轻量占位，杜绝 7 天高清大图同时发起并发网络请求；
+        // 2. 用户点击切换至其他星期时按需激活并随后永久常驻内存，二次切换 0ms 瞬间显示，永无白屏。
         return IndexedStack(
           index: _selectedDayIndex,
           children: List.generate(7, (index) {
+            if (!_loadedDays.contains(index)) {
+              return SizedBox.shrink(
+                key: ValueKey('unloaded_day_${index + 1}_${widget.client.sourcePreset.name}'),
+              );
+            }
+
             final weekdayId = index + 1; // 1=Mon .. 7=Sun
             final dayData = calendarList.firstWhere(
               (d) => d.weekday.id == weekdayId,

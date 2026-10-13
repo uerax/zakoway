@@ -95,6 +95,16 @@ class BangumiClient {
     maxAge: const Duration(hours: 24),
     maxEntries: 60,
   );
+  // 8.4 用户单条目收藏状态缓存：10 分钟缓存，最多保留 100 条 (通过 CollectType.none 负缓存防止频繁 404)
+  final _collectionStatusCache = TimedKeyedCache<String, BangumiCollectionEntry>(
+    maxAge: const Duration(minutes: 10),
+    maxEntries: 100,
+  );
+  // 8.5 用户收藏列表分页缓存：10 分钟缓存，最多保留 50 个分页查询
+  final _userCollectionsCache = TimedKeyedCache<String, List<Map<String, dynamic>>>(
+    maxAge: const Duration(minutes: 10),
+    maxEntries: 50,
+  );
 
   // 8.3 题材作品总量长期磁盘/内存缓存 (180 天超长 TTL，全库真随机 offset 必备)
   static final Map<String, int> _tagTotalMemoryCache = {};
@@ -264,7 +274,9 @@ class BangumiClient {
       _commentsChunkCache.length +
       _recommendationsCache.length +
       _relationCache.length +
-      _similarPoolCache.length;
+      _similarPoolCache.length +
+      _collectionStatusCache.length +
+      _userCollectionsCache.length;
 
   /// O(1) 极速获取当前客户端在内存中缓存的 API 响应数据字节大小，彻底避免在 UI 线程全量 JSON 序列化导致卡顿
   int get dataCacheSizeBytes =>
@@ -277,7 +289,9 @@ class BangumiClient {
       _commentsChunkCache.totalBytes +
       _recommendationsCache.totalBytes +
       _relationCache.totalBytes +
-      _similarPoolCache.totalBytes;
+      _similarPoolCache.totalBytes +
+      _collectionStatusCache.totalBytes +
+      _userCollectionsCache.totalBytes;
 
   void clearCache() {
     _calendarCache.clear();
@@ -290,6 +304,8 @@ class BangumiClient {
     _recommendationsCache.clear();
     _relationCache.clear();
     _similarPoolCache.clear();
+    _collectionStatusCache.clear();
+    _userCollectionsCache.clear();
     _inflight.clear();
     DailyRecommendService.clearCache();
     unawaited(_diskCache?.clearAll() ?? Future.value());
@@ -1566,24 +1582,69 @@ class BangumiClient {
     }
   }
 
-  /// 获取用户对某条目的收藏状态
-  Future<BangumiCollectionEntry?> getCollection(int subjectId, String token) async {
+  /// 获取用户对某条目的收藏状态 (带 10 分钟 L1 内存缓存、Single-Flight 并发去重与负缓存)
+  Future<BangumiCollectionEntry?> getCollection(
+    int subjectId,
+    String token, {
+    bool forceRefresh = false,
+  }) async {
+    if (subjectId <= 0) return null;
+    final cacheKey = '$subjectId:${token.hashCode}';
+
+    if (!forceRefresh) {
+      final cached = _collectionStatusCache.get(cacheKey);
+      if (cached != null) {
+        return cached.type == CollectType.none ? null : cached;
+      }
+    }
+
+    final inflightKey = 'col_status_$cacheKey';
+    if (_inflight.containsKey(inflightKey)) {
+      return await (_inflight[inflightKey] as Future<BangumiCollectionEntry?>);
+    }
+
+    final future = () async {
+      try {
+        final res = await _dio.get(
+          '/v0/users/-/collections/$subjectId',
+          options: Options(
+            headers: {'Authorization': 'Bearer $token'},
+          ),
+        );
+        if (res.data is Map<String, dynamic>) {
+          final entry = BangumiCollectionEntry.fromJson(res.data as Map<String, dynamic>);
+          _collectionStatusCache.set(cacheKey, entry, 256);
+          return entry;
+        }
+        _collectionStatusCache.set(
+          cacheKey,
+          BangumiCollectionEntry(subjectId: subjectId, type: CollectType.none),
+          32,
+        );
+        return null;
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 404) {
+          // 负缓存：未收藏状态也保留 10 分钟，防止详情弹窗反复打 404
+          _collectionStatusCache.set(
+            cacheKey,
+            BangumiCollectionEntry(subjectId: subjectId, type: CollectType.none),
+            32,
+          );
+          return null; // 未收藏
+        }
+        final stale = _collectionStatusCache.getStale(cacheKey);
+        if (stale != null) {
+          return stale.type == CollectType.none ? null : stale;
+        }
+        throw _handleDioError('获取条目收藏状态失败', e);
+      }
+    }();
+
+    _inflight[inflightKey] = future;
     try {
-      final res = await _dio.get(
-        '/v0/users/-/collections/$subjectId',
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
-      );
-      if (res.data is Map<String, dynamic>) {
-        return BangumiCollectionEntry.fromJson(res.data as Map<String, dynamic>);
-      }
-      return null;
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        return null; // 未收藏
-      }
-      throw _handleDioError('获取条目收藏状态失败', e);
+      return await future;
+    } finally {
+      _inflight.remove(inflightKey);
     }
   }
 
@@ -1614,13 +1675,19 @@ class BangumiClient {
           headers: {'Authorization': 'Bearer $token'},
         ),
       );
-      return res.statusCode == 200 || res.statusCode == 202;
+      final success = res.statusCode == 200 || res.statusCode == 202;
+      if (success) {
+        // 特殊处理说明：更新成功后自动使单项收藏与列表缓存失效，确保数据一致
+        _collectionStatusCache.remove('$subjectId:${token.hashCode}');
+        _userCollectionsCache.clear();
+      }
+      return success;
     } on DioException catch (e) {
       throw _handleDioError('更新收藏状态失败', e);
     }
   }
 
-  /// 获取用户收藏列表 (遵循 Bangumi v0 API 规范: /v0/users/{username}/collections)
+  /// 获取用户收藏列表 (遵循 Bangumi v0 API 规范: /v0/users/{username}/collections，带 10 分钟 L1 内存缓存与 Single-Flight)
   Future<List<Map<String, dynamic>>> getUserCollections(
     String username, {
     String? token,
@@ -1628,37 +1695,63 @@ class BangumiClient {
     CollectType? type,
     int limit = 30,
     int offset = 0,
+    bool forceRefresh = false,
   }) async {
-    try {
-      final query = <String, dynamic>{
-        'subject_type': subjectType,
-        'limit': limit,
-        'offset': offset,
-      };
-      final bangumiType = type?.toBangumiType();
-      if (bangumiType != null) {
-        query['type'] = bangumiType;
-      }
+    final cacheKey = '$username|${type?.name ?? 'all'}|$subjectType|$limit|$offset';
 
-      final res = await _dio.get(
-        '/v0/users/$username/collections',
-        queryParameters: query,
-        options: Options(
-          headers: token != null && token.isNotEmpty
-              ? {'Authorization': 'Bearer $token'}
-              : null,
-        ),
-      );
+    if (!forceRefresh) {
+      final cached = _userCollectionsCache.get(cacheKey);
+      if (cached != null) return cached;
+    }
 
-      if (res.data is Map<String, dynamic>) {
-        final data = res.data['data'];
-        if (data is List) {
-          return data.whereType<Map<String, dynamic>>().toList();
+    final inflightKey = 'user_cols_$cacheKey';
+    if (_inflight.containsKey(inflightKey)) {
+      return await (_inflight[inflightKey] as Future<List<Map<String, dynamic>>>);
+    }
+
+    final future = () async {
+      try {
+        final query = <String, dynamic>{
+          'subject_type': subjectType,
+          'limit': limit,
+          'offset': offset,
+        };
+        final bangumiType = type?.toBangumiType();
+        if (bangumiType != null) {
+          query['type'] = bangumiType;
         }
+
+        final res = await _dio.get(
+          '/v0/users/$username/collections',
+          queryParameters: query,
+          options: Options(
+            headers: token != null && token.isNotEmpty
+                ? {'Authorization': 'Bearer $token'}
+                : null,
+          ),
+        );
+
+        if (res.data is Map<String, dynamic>) {
+          final data = res.data['data'];
+          if (data is List) {
+            final list = data.whereType<Map<String, dynamic>>().toList();
+            _userCollectionsCache.set(cacheKey, list, list.length * 512 + 64);
+            return list;
+          }
+        }
+        return const <Map<String, dynamic>>[];
+      } on DioException catch (e) {
+        final stale = _userCollectionsCache.getStale(cacheKey);
+        if (stale != null) return stale;
+        throw _handleDioError('获取用户收藏列表失败', e);
       }
-      return [];
-    } on DioException catch (e) {
-      throw _handleDioError('获取用户收藏列表失败', e);
+    }();
+
+    _inflight[inflightKey] = future;
+    try {
+      return await future;
+    } finally {
+      _inflight.remove(inflightKey);
     }
   }
 
