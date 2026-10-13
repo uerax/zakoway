@@ -690,7 +690,7 @@ void main() {
       expect((progressAfter - progressBefore).abs(), lessThan(0.005));
     });
 
-    testWidgets('滚动弹幕合流吸收后，progress 严格保持不变', (tester) async {
+    testWidgets('滚动弹幕合流吸收后，头部 x 坐标平滑连续零跳变', (tester) async {
       final controller = DanmakuController();
       controller.loadItems([
         DanmakuItem(text: '合流测试', timeMs: 100),
@@ -714,7 +714,9 @@ void main() {
       final state = tester.state(find.byType(DanmakuView)) as dynamic;
       expect(state.activeEntriesForTest.length, equals(1));
       final active = state.activeEntriesForTest.first;
+      final oldWidth = active.layout.size.width;
       final progressBefore = (state.clockMsForTest - active.startMs) / active.durationMs;
+      final xBefore = 800.0 - progressBefore * (800.0 + oldWidth);
 
       // 原地注入一条同名弹幕触发 In-Flight 吸收
       final merged = state.tryMergeInFlight(
@@ -725,9 +727,14 @@ void main() {
       expect(merged, isTrue);
       expect(active.count, equals(2));
 
+      final newWidth = active.layout.size.width;
       final progressAfter = (state.clockMsForTest - active.startMs) / active.durationMs;
-      // 进度必须完全不变
-      expect((progressAfter - progressBefore).abs(), lessThan(0.0001));
+      final xAfter = 800.0 - progressAfter * (800.0 + newWidth);
+
+      // 核心断言：合流前后同一时刻的头部 x 差小于 0.01 像素（保持平滑连续，零跳变）
+      expect((xAfter - xBefore).abs(), lessThan(0.01));
+      final expectedProgress = progressBefore * (800.0 + oldWidth) / (800.0 + newWidth);
+      expect((progressAfter - expectedProgress).abs(), lessThan(0.0001));
     });
   });
 

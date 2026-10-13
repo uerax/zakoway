@@ -399,6 +399,7 @@ class _DanmakuViewState extends State<DanmakuView>
       // === 原地吸收 ===
       _perfStats.recordMerge();
       active.count++;
+      final oldWidth = active.layout.size.width;
       active.layout.dispose();
       final fontPx = _calculateCalculatedFontSize();
       active.layout = _layoutPool.acquire(
@@ -413,9 +414,18 @@ class _DanmakuViewState extends State<DanmakuView>
       final newWidth = active.layout.size.width;
 
       // 特殊处理说明：
-      // 滚动弹幕合流吸收后，严格保持 progress = (nowMs - startMs) / durationMs 不变，
-      // 不再调整 active.startMs；active.speed 仅更新用于轨道防追尾碰撞计算，不参与绘制。
+      // 滚动弹幕合流吸收后文字变宽，若保持原 progress 不变，头部 x 坐标会向左突跳跳变；
+      // 为保持头部 x 坐标完全平滑连续：
+      // 新进度 p' = p * (W + 旧宽度) / (W + 新宽度)，
+      // startMs = nowMs - p' * durationMs。
       if (active.mode == DanmakuMode.scroll) {
+        final pathOld = viewWidth + oldWidth;
+        final pathNew = viewWidth + newWidth;
+        if (pathOld > 0 && pathNew > 0 && active.durationMs > 0) {
+          final oldProgress = (nowMs - active.startMs) / active.durationMs;
+          final newProgress = oldProgress * (pathOld / pathNew);
+          active.startMs = nowMs - newProgress * active.durationMs;
+        }
         active.speed = (viewWidth + newWidth) / active.durationMs;
       }
       return true;
