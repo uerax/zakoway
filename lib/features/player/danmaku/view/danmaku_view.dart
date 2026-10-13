@@ -66,6 +66,9 @@ class _DanmakuViewState extends State<DanmakuView>
   int _lastSeekTimeMs = 0;
   int _lastResizeTimeMs = 0;
   int _cursor = 0;
+  double _lastPaintDurationMs = 0.0;
+  bool _rebuildCalledSinceLastTick = false;
+  String? _lastRebuildReason;
 
   /// 视频时间轴时钟（媒体毫秒，跟随播放器 PTS 与时间轴纠偏，专用于发射与 Seek）
   double _mediaClockMs = 0.0;
@@ -190,6 +193,10 @@ class _DanmakuViewState extends State<DanmakuView>
     _lastElapsed = elapsed;
     if (delta <= Duration.zero) return;
 
+    final onTickSw = _perfStats.isEnabled ? (Stopwatch()..start()) : null;
+    final layoutsBefore = _perfStats.layoutCount;
+    final mergesBefore = _perfStats.mergeCount;
+
     // 1. 微秒级连续平滑时间插值推进 (单调递增，无任何速度扰动)
     final dtMs = delta.inMicroseconds / 1000.0;
     final advanceMs = dtMs * _controller.playbackRate;
@@ -197,7 +204,7 @@ class _DanmakuViewState extends State<DanmakuView>
     _mediaClockMs += advanceMs;
 
     // 2. 发射到期弹幕（基于媒体时钟 _mediaClockMs 调度入场）
-    _emitDue();
+    final emitted = _emitDue();
 
     // 3. 淘汰出界弹幕（基于飞行运动时钟 _motionClockMs 判定）
     _expire();
@@ -210,6 +217,26 @@ class _DanmakuViewState extends State<DanmakuView>
     } else {
       // 5. 无滚动弹幕时立刻挂起 Ticker，进入休眠省电状态
       _scheduleWork();
+    }
+
+    if (_perfStats.isEnabled && onTickSw != null) {
+      final onTickMs = onTickSw.elapsedMicroseconds / 1000.0;
+      final layoutsCreated = _perfStats.layoutCount - layoutsBefore;
+      final merges = _perfStats.mergeCount - mergesBefore;
+      final rebuildReason = _rebuildCalledSinceLastTick ? _lastRebuildReason : null;
+      _rebuildCalledSinceLastTick = false;
+      _lastRebuildReason = null;
+
+      _perfStats.recordTickStutter(
+        dtMs: dtMs,
+        layoutsCreated: layoutsCreated,
+        merges: merges,
+        emitted: emitted,
+        rebuildReason: rebuildReason,
+        onTickMs: onTickMs,
+        paintMs: _lastPaintDurationMs,
+        activeCount: _activeEntries.length,
+      );
     }
   }
 
@@ -324,21 +351,24 @@ class _DanmakuViewState extends State<DanmakuView>
   // 弹幕发射与动态合流逻辑
   // ==========================
 
-  void _emitDue() {
-    if (!_hasViewport || !_controller.settings.enabled) return;
+  int _emitDue() {
+    if (!_hasViewport || !_controller.settings.enabled) return 0;
     developer.Timeline.startSync('Danmaku._emitDue');
     try {
       final items = _controller.items;
       final initialCount = _activeEntries.length;
+      var emitted = 0;
 
       while (_cursor < items.length && items[_cursor].timeMs <= _mediaClockMs) {
         _tryEmit(items[_cursor]);
         _cursor++;
+        emitted++;
       }
 
       if (_activeEntries.length != initialCount) {
         _repaintNotifier.value++;
       }
+      return emitted;
     } finally {
       developer.Timeline.finishSync();
     }
@@ -613,7 +643,7 @@ class _DanmakuViewState extends State<DanmakuView>
         _mediaClockMs = estimated.inMicroseconds / 1000.0;
       }
       _rebuildTracks();
-      _rebuildScreenAt(_mediaClockMs);
+      _rebuildScreenAt(_mediaClockMs, reason: '视口变化');
       return;
     }
 
@@ -630,14 +660,14 @@ class _DanmakuViewState extends State<DanmakuView>
     if (elapsedSinceLastResize > 300) {
       _lastResizeTimeMs = now;
       _rebuildTracks();
-      _rebuildScreenAt(_mediaClockMs, preserveActive: true);
+      _rebuildScreenAt(_mediaClockMs, preserveActive: true, reason: '视口变化');
     } else {
       _viewportResizeTimer = Timer(const Duration(milliseconds: 180), () {
         _viewportResizeTimer = null;
         if (!mounted || !_hasViewport) return;
         _lastResizeTimeMs = DateTime.now().millisecondsSinceEpoch;
         _rebuildTracks();
-        _rebuildScreenAt(_mediaClockMs, preserveActive: true);
+        _rebuildScreenAt(_mediaClockMs, preserveActive: true, reason: '视口变化');
       });
     }
   }
@@ -648,8 +678,14 @@ class _DanmakuViewState extends State<DanmakuView>
   ///    就地保留已有弹幕并维持 progress 严格一致，仅重新排版字号并重配轨道，杜绝空白与瞬移；
   /// 2. 当无在场弹幕或用户触发 Seek 跳转时：
   ///    在当前时钟 targetMediaClockMs 处，清空后按时间顺序补发未过期的弹幕。
-  void _rebuildScreenAt(double targetMediaClockMs, {bool preserveActive = false}) {
+  void _rebuildScreenAt(
+    double targetMediaClockMs, {
+    bool preserveActive = false,
+    String reason = '未知',
+  }) {
     if (!_hasViewport || !_controller.settings.enabled) return;
+    _rebuildCalledSinceLastTick = true;
+    _lastRebuildReason = reason;
 
     final settings = _controller.settings;
     final scrollDurationMs = math.max(1000.0, _scrollBaseDurationMs / settings.speed);
@@ -917,7 +953,7 @@ class _DanmakuViewState extends State<DanmakuView>
       if (elapsedSinceLastSeek > 300) {
         // 单次跳转：前沿立即执行，零延迟原子重建，彻底消除 200ms 的空白与闪烁
         _lastSeekTimeMs = now;
-        _rebuildScreenAt(_mediaClockMs);
+        _rebuildScreenAt(_mediaClockMs, reason: 'Seek');
       } else {
         // 连续高频拖拽中：清屏防拉扯，防抖 180ms 稳定后更新最终位置
         _clearActive();
@@ -926,7 +962,7 @@ class _DanmakuViewState extends State<DanmakuView>
           _seekDebounceTimer = null;
           if (!mounted || !_hasViewport) return;
           _lastSeekTimeMs = DateTime.now().millisecondsSinceEpoch;
-          _rebuildScreenAt(_mediaClockMs);
+          _rebuildScreenAt(_mediaClockMs, reason: 'Seek');
         });
       }
       return;
@@ -953,7 +989,7 @@ class _DanmakuViewState extends State<DanmakuView>
 
   @override
   void onDanmakuItemsChanged() {
-    _rebuildScreenAt(_mediaClockMs);
+    _rebuildScreenAt(_mediaClockMs, reason: '弹幕列表变更');
   }
 
   @override
@@ -1056,6 +1092,7 @@ class _DanmakuPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (!state._controller.settings.enabled) return;
 
+    final paintSw = state._perfStats.isEnabled ? (Stopwatch()..start()) : null;
     developer.Timeline.startSync('Danmaku.paint');
     try {
       final entries = state._activeEntries;
@@ -1108,6 +1145,9 @@ class _DanmakuPainter extends CustomPainter {
         entry.layout.paintAt(canvas, x, y);
       }
     } finally {
+      if (paintSw != null) {
+        state._lastPaintDurationMs = paintSw.elapsedMicroseconds / 1000.0;
+      }
       developer.Timeline.finishSync();
     }
   }

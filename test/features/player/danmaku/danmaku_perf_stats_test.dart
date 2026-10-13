@@ -121,7 +121,93 @@ void main() {
       ]);
       stats.flush();
       expect(logs.isEmpty, isTrue);
+
+      // 卡顿记录在关闭状态下也必须静默
+      stats.recordTickStutter(
+        dtMs: 50.0,
+        layoutsCreated: 5,
+        merges: 2,
+        emitted: 3,
+        rebuildReason: 'Seek',
+        onTickMs: 2.0,
+        paintMs: 3.0,
+        activeCount: 10,
+      );
+      expect(logs.isEmpty, isTrue);
       stats.stop();
+    });
+
+    test('帧卡顿归因日志：dt > 1.5倍中位数时输出归因日志，正常帧静默', () {
+      final logs = <String>[];
+      final stats = DanmakuPerfStats(onLog: logs.add, enabled: true);
+
+      // 准备最新的 frame timing 数据 (build: 1.5ms, raster: 2.5ms)
+      stats.handleTimings([
+        FrameTiming(
+          vsyncStart: 1000000,
+          buildStart: 1000000,
+          buildFinish: 1001500,
+          rasterStart: 1001500,
+          rasterFinish: 1004000,
+          rasterFinishWallTime: 1004000,
+        ),
+      ]);
+
+      // 喂入 10 帧正常的 16.6ms 帧以建立基准中位数
+      for (var i = 0; i < 10; i++) {
+        stats.recordTickStutter(
+          dtMs: 16.6,
+          layoutsCreated: 0,
+          merges: 0,
+          emitted: 1,
+          rebuildReason: null,
+          onTickMs: 0.2,
+          paintMs: 0.5,
+          activeCount: 15,
+        );
+      }
+      expect(logs.isEmpty, isTrue); // 正常帧不输出任何日志
+
+      // 注入一个普通波动帧（例如 20ms <= 1.5 * 16.6 = 24.9ms）
+      stats.recordTickStutter(
+        dtMs: 20.0,
+        layoutsCreated: 1,
+        merges: 0,
+        emitted: 1,
+        rebuildReason: null,
+        onTickMs: 0.3,
+        paintMs: 0.6,
+        activeCount: 16,
+      );
+      expect(logs.isEmpty, isTrue);
+
+      // 注入一个卡顿帧（例如 32.0ms > 24.9ms）
+      stats.recordTickStutter(
+        dtMs: 32.0,
+        layoutsCreated: 3,
+        merges: 2,
+        emitted: 5,
+        rebuildReason: 'Seek',
+        onTickMs: 1.45,
+        paintMs: 2.80,
+        activeCount: 28,
+      );
+
+      expect(logs.length, equals(1));
+      final line = logs.first;
+      expect(line, contains('[DanmakuStutter]'));
+      expect(line, anyOf(contains('[Skia]'), contains('[Impeller]')));
+      expect(line, contains('dt: 32.0ms'));
+      expect(line, contains('中位数: 16.6ms'));
+      expect(line, contains('排版: 3'));
+      expect(line, contains('合流: 2'));
+      expect(line, contains('发射: 5'));
+      expect(line, contains('重建: Seek'));
+      expect(line, contains('在屏: 28'));
+      expect(line, contains('onTick=1.45ms'));
+      expect(line, contains('paint=2.80ms'));
+      expect(line, contains('build=1.50ms'));
+      expect(line, contains('raster=2.50ms'));
     });
   });
 }

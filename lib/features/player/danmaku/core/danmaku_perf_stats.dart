@@ -32,7 +32,6 @@ class DanmakuPerfStats {
   int _totalIntervalUs = 0;
   int _intervalCount = 0;
   int _lastVsyncStartUs = 0;
-  int _lastFlushTimeMs = 0;
 
   // 弹幕业务指标
   int _layoutCount = 0;
@@ -40,11 +39,73 @@ class DanmakuPerfStats {
   int _droppedCount = 0;
   int _activeCount = 0;
 
+  // 最近帧间隔滑动窗口（约 1 秒，用于卡顿中位数基准比对）
+  final List<double> _recentDts = <double>[];
+  int _lastBuildUs = 0;
+  int _lastRasterUs = 0;
+
+  int get layoutCount => _layoutCount;
+  int get mergeCount => _mergeCount;
+  int get activeCount => _activeCount;
+
+  /// 获取当前运行的渲染引擎后端 (Skia / Impeller)
+  static String get renderingBackend {
+    try {
+      return ImageFilter.isShaderFilterSupported ? 'Impeller' : 'Skia';
+    } catch (_) {
+      return 'Unknown';
+    }
+  }
+
+  /// 记录并检查单帧 tick 是否发生卡顿。当 dt > 1.5 * median 时输出归因日志
+  void recordTickStutter({
+    required double dtMs,
+    required int layoutsCreated,
+    required int merges,
+    required int emitted,
+    required String? rebuildReason,
+    required double onTickMs,
+    required double paintMs,
+    required int activeCount,
+  }) {
+    if (!_enabled) return;
+
+    _recentDts.add(dtMs);
+    // 维持最近约 1 秒的样本（在 60Hz 下 60 帧，120Hz 下 120 帧）
+    if (_recentDts.length > 120) {
+      _recentDts.removeAt(0);
+    }
+
+    // 至少累积 10 帧以建立稳定的基准中位数
+    if (_recentDts.length < 10) return;
+
+    final sorted = List<double>.from(_recentDts)..sort();
+    final median = sorted[sorted.length ~/ 2];
+
+    if (dtMs > 1.5 * median) {
+      final backend = renderingBackend;
+      final buildMs = _lastBuildUs / 1000.0;
+      final rasterMs = _lastRasterUs / 1000.0;
+
+      final line = '[DanmakuStutter][$backend] dt: ${dtMs.toStringAsFixed(1)}ms '
+          '(中位数: ${median.toStringAsFixed(1)}ms) | '
+          '排版: $layoutsCreated | 合流: $merges | 发射: $emitted | '
+          '重建: ${rebuildReason ?? '无'} | 在屏: $activeCount | '
+          '耗时: onTick=${onTickMs.toStringAsFixed(2)}ms, paint=${paintMs.toStringAsFixed(2)}ms, '
+          'build=${buildMs.toStringAsFixed(2)}ms, raster=${rasterMs.toStringAsFixed(2)}ms';
+
+      if (onLog != null) {
+        onLog!(line);
+      } else {
+        debugPrint(line);
+      }
+    }
+  }
+
   /// 启动帧性能采集
   void start() {
     if (!_enabled || _isListening) return;
     _isListening = true;
-    _lastFlushTimeMs = DateTime.now().millisecondsSinceEpoch;
     _timingsCallback = _onTimings;
     SchedulerBinding.instance.addTimingsCallback(_timingsCallback!);
   }
@@ -97,6 +158,8 @@ class DanmakuPerfStats {
       _frameCount++;
       final buildUs = timing.buildDuration.inMicroseconds;
       final rasterUs = timing.rasterDuration.inMicroseconds;
+      _lastBuildUs = buildUs;
+      _lastRasterUs = rasterUs;
       _totalBuildUs += buildUs;
       if (buildUs > _maxBuildUs) _maxBuildUs = buildUs;
       _totalRasterUs += rasterUs;
@@ -112,11 +175,6 @@ class DanmakuPerfStats {
         }
       }
       _lastVsyncStartUs = vsyncStartUs;
-    }
-
-    final now = DateTime.now().millisecondsSinceEpoch;
-    if (now - _lastFlushTimeMs >= 1000 && _frameCount > 0) {
-      flush(now);
     }
   }
 
@@ -158,6 +216,5 @@ class DanmakuPerfStats {
     _layoutCount = 0;
     _mergeCount = 0;
     _droppedCount = 0;
-    _lastFlushTimeMs = nowMs ?? DateTime.now().millisecondsSinceEpoch;
   }
 }
