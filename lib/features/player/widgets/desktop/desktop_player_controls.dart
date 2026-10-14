@@ -1234,21 +1234,6 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                     ),
                                   ),
 
-                                  // 快捷键指南帮助按钮 (?) (小窗下隐藏以防挤压，键盘?随时可用)
-                                  if (!isNarrow) ...[
-                                    SizedBox(width: btnSpacing),
-                                    _buildBarButton(
-                                      icon: const Icon(
-                                          Icons.help_outline_rounded,
-                                          color: Colors.white70,
-                                          size: 19),
-                                      size: mainBtnSize,
-                                      tooltip: '快捷键指南 (?)',
-                                      onTap: () =>
-                                          DesktopShortcutHelpDialog.show(context),
-                                    ),
-                                  ],
-
                                   SizedBox(width: btnSpacing),
 
                                   // 全屏切换

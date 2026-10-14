@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:zakoway/core/services/bangumi_oped_service.dart';
+import 'package:zakoway/core/utils/font_manager.dart';
 import 'package:zakoway/features/player/controller/playback_controller.dart';
 import 'package:zakoway/features/player/controller/playback_state.dart';
 import 'package:zakoway/features/player/services/player_preferences_service.dart';
+import '../../desktop/desktop_shortcut_help_dialog.dart';
 import '../super_resolution_dialog_helper.dart';
 import 'player_panel_widgets.dart';
 
@@ -364,6 +366,41 @@ class PlayerSettingsPanelBody extends StatelessWidget {
                 ),
               );
             },
+          ),
+
+          // 7. 快捷键指南
+          const SizedBox(height: 10),
+          const PanelSectionHeader(title: '快捷键'),
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => DesktopShortcutHelpDialog.show(context),
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.keyboard_outlined, size: 16, color: primaryColor),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      '快捷键指南',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        fontFamily: 'MiSans',
+                        fontFamilyFallback: FontManager.fallbackFontFamilies,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, size: 16, color: Colors.white54),
+                ],
+              ),
+            ),
           ),
         ],
       ),

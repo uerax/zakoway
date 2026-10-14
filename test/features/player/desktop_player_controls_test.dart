@@ -251,14 +251,28 @@ void main() {
 
       final settingsBtn = find.byTooltip('播放设置');
       expect(settingsBtn, findsOneWidget);
+      // 验证控制条已移除快捷键指南按钮
+      expect(find.byTooltip('快捷键指南 (?)'), findsNothing);
+
       await tester.tap(settingsBtn);
       await tester.pumpAndSettle();
 
-      // 验证桌面模态弹窗正常打开且标题为「播放设置」
+      // 验证桌面模态弹窗正常打开且包含「播放设置」与「快捷键指南」
       expect(find.text('播放设置'), findsOneWidget);
       expect(find.text('自动播放下一集'), findsOneWidget);
+      expect(find.text('快捷键指南'), findsOneWidget);
 
-      // 关闭弹窗
+      // 点击快捷键指南可唤起桌面快捷键说明对话框
+      await tester.tap(find.text('快捷键指南'));
+      await tester.pumpAndSettle();
+      expect(find.text('键盘快捷键指南'), findsOneWidget);
+
+      // 关闭快捷键对话框
+      await tester.tap(find.byIcon(Icons.close_rounded).last);
+      await tester.pumpAndSettle();
+      expect(find.text('键盘快捷键指南'), findsNothing);
+
+      // 关闭设置弹窗
       await tester.tap(find.byIcon(Icons.close_rounded).last);
       await tester.pumpAndSettle();
       expect(find.text('自动播放下一集'), findsNothing);
