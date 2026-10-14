@@ -74,6 +74,8 @@ class _DanmakuViewState extends State<DanmakuView>
   bool _rebuildCalledSinceLastTick = false;
   String? _lastRebuildReason;
   final List<double> _dtWindow = <double>[];
+  double _cachedExpectedDt = 16.6;
+  int _expectedDtFrameCount = 0;
   double _lagMs = 0.0;
 
   /// 视频时间轴时钟（媒体毫秒，跟随播放器 PTS 与时间轴纠偏，专用于发射与 Seek）
@@ -108,6 +110,10 @@ class _DanmakuViewState extends State<DanmakuView>
 
   @visibleForTesting
   List<DanmakuScrollTrack> get scrollTracksForTest => _scrollTracks;
+
+  @visibleForTesting
+  double calculateExpectedDtForTest(double dtMs, {bool isInterruption = false}) =>
+      _calculateExpectedDt(dtMs, isInterruption: isInterruption);
 
   DanmakuController get _controller => widget.controller;
   bool get _hasViewport => _viewWidth > 0 && _viewHeight > 0;
@@ -302,8 +308,14 @@ class _DanmakuViewState extends State<DanmakuView>
       }
     }
     if (_dtWindow.isEmpty) return dtMs > 0 ? dtMs : 16.6;
-    final sorted = List<double>.from(_dtWindow)..sort();
-    return sorted[sorted.length ~/ 2];
+
+    // 每 15 帧重算一次中位数，期间沿用上次结果，避免每帧复制并排序整个窗口
+    if (_expectedDtFrameCount % 15 == 0 || _cachedExpectedDt <= 0) {
+      final sorted = List<double>.from(_dtWindow)..sort();
+      _cachedExpectedDt = sorted[sorted.length ~/ 2];
+    }
+    _expectedDtFrameCount++;
+    return _cachedExpectedDt;
   }
 
   /// 特殊处理说明：
@@ -454,27 +466,28 @@ class _DanmakuViewState extends State<DanmakuView>
     }
 
     final nowMotion = explicitStartMotionMs ?? _motionClockMs;
+    final normKey = DanmakuTextNormalizer.normalize(item.text);
 
     // === 核心算法：In-Flight 飞行中动态合流 (animaku 经典算法) ===
-    if (tryMergeInFlight(item, nowMotion, _viewWidth)) {
+    if (tryMergeInFlight(item, nowMotion, _viewWidth, normalizedKey: normKey)) {
       // 成功被屏幕上飞行的同类弹幕吸收，不再分配新轨道
       return;
     }
 
-    // 无法合流，进入轨道分配流程
+    // 无法合流，进入轨道分配流程，将已计算出的 normalizedKey 透传至 DanmakuEntry，避免二次归一化
     switch (item.mode) {
       case DanmakuMode.scroll:
-        _emitScroll(item, explicitStartMotionMs: explicitStartMotionMs);
+        _emitScroll(item, explicitStartMotionMs: explicitStartMotionMs, normalizedKey: normKey);
       case DanmakuMode.top:
-        _emitFixed(item, isTop: true, explicitStartMotionMs: explicitStartMotionMs);
+        _emitFixed(item, isTop: true, explicitStartMotionMs: explicitStartMotionMs, normalizedKey: normKey);
       case DanmakuMode.bottom:
-        _emitFixed(item, isTop: false, explicitStartMotionMs: explicitStartMotionMs);
+        _emitFixed(item, isTop: false, explicitStartMotionMs: explicitStartMotionMs, normalizedKey: normKey);
     }
   }
 
   /// 飞行中动态合流判定
-  bool tryMergeInFlight(DanmakuItem incoming, double nowMs, double viewWidth) {
-    final normKey = DanmakuTextNormalizer.normalize(incoming.text);
+  bool tryMergeInFlight(DanmakuItem incoming, double nowMs, double viewWidth, {String? normalizedKey}) {
+    final normKey = normalizedKey ?? DanmakuTextNormalizer.normalize(incoming.text);
     if (normKey.isEmpty) return false;
 
     for (var i = 0; i < _activeEntries.length; i++) {
@@ -545,7 +558,7 @@ class _DanmakuViewState extends State<DanmakuView>
     return false;
   }
 
-  void _emitScroll(DanmakuItem item, {double? explicitStartMotionMs}) {
+  void _emitScroll(DanmakuItem item, {double? explicitStartMotionMs, String? normalizedKey}) {
     if (_scrollTracks.isEmpty) return;
     final settings = _controller.settings;
     final durationMs = math.max(1000.0, _scrollBaseDurationMs / settings.speed);
@@ -621,6 +634,7 @@ class _DanmakuViewState extends State<DanmakuView>
       y: bestTrack * _lineHeight * _kTrackSpacing,
       baseText: item.text,
       layout: layout,
+      normalizedKey: normalizedKey,
     );
 
     _activeEntries.add(entry);
@@ -634,7 +648,7 @@ class _DanmakuViewState extends State<DanmakuView>
     );
   }
 
-  void _emitFixed(DanmakuItem item, {required bool isTop, double? explicitStartMotionMs}) {
+  void _emitFixed(DanmakuItem item, {required bool isTop, double? explicitStartMotionMs, String? normalizedKey}) {
     final busyList = isTop ? _topBusyUntil : _bottomBusyUntil;
     if (busyList.isEmpty) return;
 
@@ -679,6 +693,7 @@ class _DanmakuViewState extends State<DanmakuView>
           : _viewHeight - (targetTrack + 1) * _lineHeight * _kTrackSpacing,
       baseText: item.text,
       layout: layout,
+      normalizedKey: normalizedKey,
     );
 
     _activeEntries.add(entry);
@@ -1156,6 +1171,8 @@ class _DanmakuViewState extends State<DanmakuView>
     _motionClockMs = 0.0;
     _lagMs = 0.0;
     _dtWindow.clear();
+    _expectedDtFrameCount = 0;
+    _cachedExpectedDt = 16.6;
     _repaintNotifier.value++;
   }
 

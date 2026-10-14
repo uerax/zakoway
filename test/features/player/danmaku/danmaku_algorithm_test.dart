@@ -487,9 +487,64 @@ void main() {
       expect(entry.normalizedKey, equals('hello'));
       entry.dispose();
     });
+
+    test('Entry 构造时接收显式 normalizedKey 并跳过二次归一化', () {
+      final item = DanmakuItem(text: '！！！Hello？？？', timeMs: 0);
+      final layout = DanmakuTextLayout(
+        text: item.text,
+        color: Colors.white,
+        fontSize: 18.0,
+        strokeWidth: 1.0,
+      );
+      final entry = DanmakuEntry(
+        item: item,
+        track: 0,
+        startMs: 0,
+        durationMs: 7000,
+        speed: 0.1,
+        x: 800,
+        y: 0,
+        baseText: item.text,
+        layout: layout,
+        normalizedKey: 'precalculated_key',
+      );
+
+      expect(entry.normalizedKey, equals('precalculated_key'));
+      entry.dispose();
+    });
   });
 
   group('DanmakuView 屏幕重建与状态保持测试', () {
+    testWidgets('_calculateExpectedDt 每 15 帧重算一次中位数，期间沿用上次结果', (tester) async {
+      final controller = DanmakuController();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      final state = tester.state(find.byType(DanmakuView)) as dynamic;
+
+      // 帧 0: 初始计算 16.0ms
+      final dt0 = state.calculateExpectedDtForTest(16.0);
+      expect(dt0, equals(16.0));
+
+      // 帧 1~14: 即使输入大幅变化 (8.0ms)，依然沿用帧 0 计算的中位数 16.0
+      for (var f = 1; f < 15; f++) {
+        final dt = state.calculateExpectedDtForTest(8.0);
+        expect(dt, equals(16.0));
+      }
+
+      // 帧 15: 达到第 15 帧周期，触发重新计算中位数，此时大量 8.0ms 成为新中位数
+      final dt15 = state.calculateExpectedDtForTest(8.0);
+      expect(dt15, equals(8.0));
+    });
     testWidgets('控制器记住位置：首次布局从控制器记忆位置开始重建，不从 0 开始', (tester) async {
       final controller = DanmakuController();
       controller.loadItems([
