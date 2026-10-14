@@ -106,6 +106,9 @@ class _DanmakuViewState extends State<DanmakuView>
   @visibleForTesting
   double get lagMsForTest => _lagMs;
 
+  @visibleForTesting
+  List<DanmakuScrollTrack> get scrollTracksForTest => _scrollTracks;
+
   DanmakuController get _controller => widget.controller;
   bool get _hasViewport => _viewWidth > 0 && _viewHeight > 0;
 
@@ -494,6 +497,7 @@ class _DanmakuViewState extends State<DanmakuView>
       _perfStats.recordMerge();
       active.count++;
       final oldWidth = active.layout.size.width;
+      final oldStartMs = active.startMs;
       active.layout.dispose();
       final fontPx = _calculateCalculatedFontSize();
       active.layout = _layoutPool.acquire(
@@ -521,6 +525,20 @@ class _DanmakuViewState extends State<DanmakuView>
           active.startMs = nowMs - newProgress * active.durationMs;
         }
         active.speed = (viewWidth + newWidth) / active.durationMs;
+
+        // 特殊处理说明：
+        // 滚动弹幕合流导致宽度变化时，若该弹幕是所在轨道最后登记的一条，
+        // 必须按新宽度和更新后的时刻重新计算轨道的尾部腾空时刻与到达终点时刻，
+        // 确保紧随其后的弹幕与其保持不小于安全间隙的距离，彻底杜绝穿模碰撞。
+        if (active.track >= 0 && active.track < _scrollTracks.length) {
+          _scrollTracks[active.track].updateTailIfLast(
+            oldStartMs: oldStartMs,
+            newStartMs: active.startMs,
+            newWidth: newWidth,
+            newSpeed: active.speed,
+            viewWidth: viewWidth,
+          );
+        }
       }
       return true;
     }

@@ -86,6 +86,50 @@ void main() {
       // 若新弹幕速度合理（如 0.04，比慢弹幕还慢），绝不会反超，允许入场
       expect(track.canAccept(4000, 0.04, 800, safetyGapPx: 28), isTrue);
     });
+
+    test('合流后重新计算尾部腾空与终点时刻：若为最后一条则更新，否则保持后续弹幕状态', () {
+      track.register(
+        startMs: 1000,
+        width: 100,
+        speed: 0.1,
+        viewWidth: 800,
+        safetyGapPx: 28,
+      );
+      // 原 tailFreeMs = 1000 + 128 / 0.1 = 2280
+      expect(track.tailFreeMs, closeTo(2280, 0.01));
+
+      // 合流变宽至 160，速度重新计算为 0.12，startMs 变为 1010
+      final updated = track.updateTailIfLast(
+        oldStartMs: 1000,
+        newStartMs: 1010,
+        newWidth: 160,
+        newSpeed: 0.12,
+        viewWidth: 800,
+        safetyGapPx: 28,
+      );
+      expect(updated, isTrue);
+      // 新 tailFreeMs = 1010 + (160 + 28) / 0.12 = 1010 + 1566.67 = 2576.67
+      expect(track.tailFreeMs, closeTo(2576.67, 0.1));
+
+      // 若已有后续弹幕在 3000ms 登记
+      track.register(
+        startMs: 3000,
+        width: 80,
+        speed: 0.1,
+        viewWidth: 800,
+        safetyGapPx: 28,
+      );
+      // 此时对旧弹幕 (1010ms) 的合流尝试更新应被拒绝
+      final staleUpdate = track.updateTailIfLast(
+        oldStartMs: 1010,
+        newStartMs: 1015,
+        newWidth: 200,
+        newSpeed: 0.12,
+        viewWidth: 800,
+        safetyGapPx: 28,
+      );
+      expect(staleUpdate, isFalse);
+    });
   });
 
   group('DanmakuController 控制器测试', () {
@@ -846,6 +890,62 @@ void main() {
       expect((xAfter - xBefore).abs(), lessThan(0.01));
       final expectedProgress = progressBefore * (800.0 + oldWidth) / (800.0 + newWidth);
       expect((progressAfter - expectedProgress).abs(), lessThan(0.0001));
+    });
+
+    testWidgets('合流后更新轨道尾部信息：紧随其后的弹幕与其保持不小于安全间隙的距离', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '前导弹幕', timeMs: 100),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final state = tester.state(find.byType(DanmakuView)) as dynamic;
+      final active = state.activeEntriesForTest.first;
+      final trackIndex = active.track;
+      final track = state.scrollTracksForTest[trackIndex] as DanmakuScrollTrack;
+
+      final tailFreeBefore = track.tailFreeMs;
+
+      // 触发合流吸收，文本变长变宽
+      state.tryMergeInFlight(
+        DanmakuItem(text: '前导弹幕！', timeMs: 300),
+        state.clockMsForTest,
+        800.0,
+      );
+
+      final tailFreeAfter = track.tailFreeMs;
+      // 变宽后，尾部安全腾空时刻必须延后
+      expect(tailFreeAfter, greaterThan(tailFreeBefore));
+
+      // 在旧的 tailFree 时刻，轨道仍未腾空，应拒绝入场
+      expect(track.canAccept(tailFreeBefore, active.speed, 800.0), isFalse);
+
+      // 在新的 tailFreeAfter 准点入场
+      expect(track.canAccept(tailFreeAfter, active.speed, 800.0), isTrue);
+
+      // 计算此时前导弹幕的尾部 x 坐标
+      final progressAtTailFree = (tailFreeAfter - active.startMs) / active.durationMs;
+      final headX = 800.0 - progressAtTailFree * (800.0 + active.layout.size.width);
+      final tailX = headX + active.layout.size.width;
+
+      // 新弹幕从右边缘 (800.0) 入场，与前导弹幕尾部的距离必须 >= 28.0 (允许 0.01 浮点容差)
+      final distanceToTail = 800.0 - tailX;
+      expect(distanceToTail, greaterThanOrEqualTo(28.0 - 0.01));
     });
   });
 

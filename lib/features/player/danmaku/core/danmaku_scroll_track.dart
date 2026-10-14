@@ -9,6 +9,15 @@ class DanmakuScrollTrack {
   /// 前一条弹幕尾部腾出入场间隙的时刻 (ms)
   double get tailFreeMs => _tailFreeMs;
 
+  /// 最后一次登记的入场时刻 (ms)
+  double get lastStartMs => _lastStartMs;
+
+  /// 前一条弹幕完全离开屏幕左边缘的时刻 (ms)
+  double get lastEndMs => _lastEndMs;
+
+  /// 前一条弹幕的飞行速度
+  double get lastSpeed => _lastSpeed;
+
   /// 重置轨道状态
   void reset() {
     _lastStartMs = -double.infinity;
@@ -52,5 +61,24 @@ class DanmakuScrollTrack {
     _lastSpeed = speed;
     _tailFreeMs = startMs + (width + safetyGapPx) / speed;
     _lastEndMs = startMs + (viewWidth + width) / speed;
+  }
+
+  /// 当最后登记的弹幕合流宽度或速度发生变化时，重新更新该轨道的尾部腾空与到达终点时刻
+  bool updateTailIfLast({
+    required double oldStartMs,
+    required double newStartMs,
+    required double newWidth,
+    required double newSpeed,
+    required double viewWidth,
+    double safetyGapPx = 28.0,
+  }) {
+    if ((_lastStartMs - oldStartMs).abs() > 1e-3) {
+      return false;
+    }
+    _lastStartMs = newStartMs;
+    _lastSpeed = newSpeed;
+    _tailFreeMs = newStartMs + (newWidth + safetyGapPx) / newSpeed;
+    _lastEndMs = newStartMs + (viewWidth + newWidth) / newSpeed;
+    return true;
   }
 }
