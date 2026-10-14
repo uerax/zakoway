@@ -679,9 +679,9 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
             _buildSliderSetting(
               title: '飞行速度',
               displayValue: '${cfg.speed.toStringAsFixed(1)}x',
-              value: cfg.speed,
-              min: 0.6,
-              max: 1.6,
+              value: cfg.speed.clamp(0.5, 2.0),
+              min: 0.5,
+              max: 2.0,
               primaryColor: primaryColor,
               onChanged: (val) {
                 danmaku.updateSettings(cfg.copyWith(speed: val));
