@@ -754,96 +754,117 @@ class _DanmakuViewState extends State<DanmakuView>
     final settings = _controller.settings;
     final scrollDurationMs = math.max(1000.0, _scrollBaseDurationMs / settings.speed);
 
-    // 分支 1：视口变化且在场弹幕保活（保持 progress 不变，位置连续，不产生空白帧）
-    if (preserveActive && _activeEntries.isNotEmpty) {
-      final oldEntries = List<DanmakuEntry>.from(_activeEntries);
-      _activeEntries.clear();
-      _scrollingCount = 0;
-      var nextExp = double.infinity;
-      final fontPx = _calculateCalculatedFontSize();
+    // 分支 1：视口变化或设置变更且在场弹幕保活（保持 progress 不变，位置连续，不产生空白帧）
+    if (preserveActive) {
+      if (_activeEntries.isNotEmpty) {
+        final oldEntries = List<DanmakuEntry>.from(_activeEntries);
+        // 按 startMs 升序排序，确保向轨道 register 时时间戳单调递增
+        oldEntries.sort((a, b) => a.startMs.compareTo(b.startMs));
+        _activeEntries.clear();
+        _scrollingCount = 0;
+        var nextExp = double.infinity;
+        final fontPx = _calculateCalculatedFontSize();
 
-      for (final entry in oldEntries) {
-        if (entry.durationMs <= 0) {
-          entry.dispose();
-          continue;
-        }
-        final oldProgress = (_motionClockMs - entry.startMs) / entry.durationMs;
-        if (oldProgress < 0.0 || oldProgress >= 1.0) {
-          entry.dispose();
-          continue;
-        }
+        for (final entry in oldEntries) {
+          if (entry.durationMs <= 0) {
+            entry.dispose();
+            continue;
+          }
+          final oldProgress = (_motionClockMs - entry.startMs) / entry.durationMs;
+          if (oldProgress < 0.0 || oldProgress >= 1.0) {
+            entry.dispose();
+            continue;
+          }
 
-        if (entry.mode == DanmakuMode.scroll) {
-          // 保持 progress 严格一致，按新 durationMs 换算新的 startMs
-          entry.durationMs = scrollDurationMs;
-          entry.startMs = _motionClockMs - oldProgress * scrollDurationMs;
+          // 设置隐藏模式过滤：若对应类型已隐藏，立即丢弃并释放轨道
+          if (entry.mode == DanmakuMode.scroll && settings.hideScroll) {
+            entry.dispose();
+            continue;
+          }
+          if (entry.mode == DanmakuMode.top && settings.hideTop) {
+            entry.dispose();
+            continue;
+          }
+          if (entry.mode == DanmakuMode.bottom && settings.hideBottom) {
+            entry.dispose();
+            continue;
+          }
 
-          // 采用新视口字号重新排版
-          entry.layout.dispose();
-          final text = entry.count > 1 ? '${entry.baseText} ×${entry.count}' : entry.baseText;
-          entry.layout = _layoutPool.acquire(
-            text: text,
-            color: settings.hideColor ? Colors.white : entry.item.color,
-            fontSize: fontPx,
-            strokeWidth: settings.strokeWidth,
-            opacity: settings.opacity,
-            fontFamily: widget.fontFamily,
-            onCacheMiss: _perfStats.recordLayoutCreated,
-          );
+          if (entry.mode == DanmakuMode.scroll) {
+            // 保持 progress 严格一致，按新 durationMs 换算新的 startMs
+            entry.durationMs = scrollDurationMs;
+            entry.startMs = _motionClockMs - oldProgress * scrollDurationMs;
 
-          final speed = (_viewWidth + entry.layout.size.width) / scrollDurationMs;
-          entry.speed = speed;
-
-          var newTrack = 0;
-          if (_scrollTracks.isNotEmpty) {
-            newTrack = entry.track.clamp(0, _scrollTracks.length - 1);
-            _scrollTracks[newTrack].register(
-              startMs: entry.startMs,
-              width: entry.layout.size.width,
-              speed: speed,
-              viewWidth: _viewWidth,
+            // 采用新设置重新排版
+            entry.layout.dispose();
+            final text = entry.count > 1 ? '${entry.baseText} ×${entry.count}' : entry.baseText;
+            entry.layout = _layoutPool.acquire(
+              text: text,
+              color: settings.hideColor ? Colors.white : entry.item.color,
+              fontSize: fontPx,
+              strokeWidth: settings.strokeWidth,
+              opacity: settings.opacity,
+              fontFamily: widget.fontFamily,
+              onCacheMiss: _perfStats.recordLayoutCreated,
             );
+
+            final speed = (_viewWidth + entry.layout.size.width) / scrollDurationMs;
+            entry.speed = speed;
+
+            var newTrack = 0;
+            if (_scrollTracks.isNotEmpty) {
+              newTrack = entry.track.clamp(0, _scrollTracks.length - 1);
+              _scrollTracks[newTrack].register(
+                startMs: entry.startMs,
+                width: entry.layout.size.width,
+                speed: speed,
+                viewWidth: _viewWidth,
+              );
+            }
+            entry.track = newTrack;
+            entry.y = newTrack * _lineHeight * _kTrackSpacing;
+
+            _activeEntries.add(entry);
+            _scrollingCount++;
+            nextExp = math.min(nextExp, entry.endMs);
+          } else {
+            // 固定弹幕（top 或 bottom）
+            final isTop = entry.mode == DanmakuMode.top;
+            final busyList = isTop ? _topBusyUntil : _bottomBusyUntil;
+
+            entry.layout.dispose();
+            final text = entry.count > 1 ? '${entry.baseText} ×${entry.count}' : entry.baseText;
+            entry.layout = _layoutPool.acquire(
+              text: text,
+              color: settings.hideColor ? Colors.white : entry.item.color,
+              fontSize: fontPx,
+              strokeWidth: settings.strokeWidth,
+              opacity: settings.opacity,
+              fontFamily: widget.fontFamily,
+              onCacheMiss: _perfStats.recordLayoutCreated,
+            );
+
+            var newTrack = 0;
+            if (busyList.isNotEmpty) {
+              newTrack = entry.track.clamp(0, busyList.length - 1);
+              busyList[newTrack] = math.max(busyList[newTrack], entry.startMs + entry.durationMs);
+            }
+            entry.track = newTrack;
+            entry.y = isTop
+                ? newTrack * _lineHeight * _kTrackSpacing
+                : _viewHeight - (newTrack + 1) * _lineHeight * _kTrackSpacing;
+
+            _activeEntries.add(entry);
+            nextExp = math.min(nextExp, entry.endMs);
           }
-          entry.track = newTrack;
-          entry.y = newTrack * _lineHeight * _kTrackSpacing;
-
-          _activeEntries.add(entry);
-          _scrollingCount++;
-          nextExp = math.min(nextExp, entry.endMs);
-        } else {
-          // 固定弹幕（top 或 bottom）
-          final isTop = entry.mode == DanmakuMode.top;
-          final busyList = isTop ? _topBusyUntil : _bottomBusyUntil;
-
-          entry.layout.dispose();
-          entry.layout = _layoutPool.acquire(
-            text: entry.baseText,
-            color: settings.hideColor ? Colors.white : entry.item.color,
-            fontSize: fontPx,
-            strokeWidth: settings.strokeWidth,
-            opacity: settings.opacity,
-            fontFamily: widget.fontFamily,
-            onCacheMiss: _perfStats.recordLayoutCreated,
-          );
-
-          var newTrack = 0;
-          if (busyList.isNotEmpty) {
-            newTrack = entry.track.clamp(0, busyList.length - 1);
-            busyList[newTrack] = entry.startMs + entry.durationMs;
-          }
-          entry.track = newTrack;
-          entry.y = isTop
-              ? newTrack * _lineHeight * _kTrackSpacing
-              : _viewHeight - (newTrack + 1) * _lineHeight * _kTrackSpacing;
-
-          _activeEntries.add(entry);
-          nextExp = math.min(nextExp, entry.endMs);
         }
+        _nextExpiryMs = nextExp;
+      } else {
+        _nextExpiryMs = double.infinity;
       }
 
       _mediaClockMs = targetMediaClockMs;
       _cursor = _lowerBound(_controller.items, targetMediaClockMs + 0.0001);
-      _nextExpiryMs = nextExp;
       _perfStats.updateActiveCount(_activeEntries.length);
       _repaintNotifier.value++;
       _scheduleWork(forceWake: true);
@@ -1069,15 +1090,29 @@ class _DanmakuViewState extends State<DanmakuView>
     if (!next.enabled) {
       _clearActive();
       _stopWork();
+      return;
     } else if (!previous.enabled) {
       _cursor = _lowerBound(_controller.items, _mediaClockMs);
     }
+
+    final styleOrLayoutChanged = next.fontSizeScale != previous.fontSizeScale ||
+        next.strokeWidth != previous.strokeWidth ||
+        next.opacity != previous.opacity ||
+        next.area != previous.area ||
+        next.speed != previous.speed ||
+        next.hideColor != previous.hideColor;
+
+    final hideTypeOpened = (!previous.hideScroll && next.hideScroll) ||
+        (!previous.hideTop && next.hideTop) ||
+        (!previous.hideBottom && next.hideBottom);
+
     if (_hasViewport) {
       _rebuildTracks();
+      if (styleOrLayoutChanged || hideTypeOpened) {
+        _rebuildScreenAt(_mediaClockMs, preserveActive: true, reason: '设置变更');
+      }
     }
-    if (next.opacity != previous.opacity) {
-      _layoutPool.clear();
-    }
+
     _repaintNotifier.value++;
     if (next.enabled) {
       _scheduleWork(forceWake: true);

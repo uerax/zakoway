@@ -711,6 +711,96 @@ void main() {
       expect((progressAfter - progressBefore).abs(), lessThan(0.005));
     });
 
+    testWidgets('设置变化时重建在屏弹幕：fontSizeScale/opacity/hideColor 等变化就地重建并保持进度', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '彩色弹幕', timeMs: 100, color: Colors.red),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final state = tester.state(find.byType(DanmakuView)) as dynamic;
+      expect(state.activeEntriesForTest.length, equals(1));
+      final entryBefore = state.activeEntriesForTest.first;
+      final progressBefore = (state.clockMsForTest - entryBefore.startMs) / entryBefore.durationMs;
+      expect(entryBefore.layout.color, equals(Colors.red));
+      final oldFontSize = entryBefore.layout.fontSize;
+
+      // 调整设置：增大字号、改描边、改不透明度、开启白字过滤
+      controller.updateSettings(
+        controller.settings.copyWith(
+          fontSizeScale: 1.5,
+          strokeWidth: 3.5,
+          opacity: 0.6,
+          hideColor: true,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+
+      expect(state.activeEntriesForTest.length, equals(1));
+      final entryAfter = state.activeEntriesForTest.first;
+      final progressAfter = (state.clockMsForTest - entryAfter.startMs) / entryAfter.durationMs;
+
+      // 验证进度保持严格一致
+      expect((progressAfter - progressBefore).abs(), lessThan(0.005));
+      // 验证样式立刻与新设置同步
+      expect(entryAfter.layout.color, equals(Colors.white));
+      expect(entryAfter.layout.fontSize, greaterThan(oldFontSize));
+      expect(entryAfter.layout.strokeWidth, equals(3.5));
+      expect(entryAfter.layout.opacity, equals(0.6));
+    });
+
+    testWidgets('hideScroll 打开时立即移除在屏滚动弹幕并释放其轨道', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '滚动弹幕', timeMs: 100, mode: DanmakuMode.scroll),
+        DanmakuItem(text: '顶部弹幕', timeMs: 100, mode: DanmakuMode.top),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final state = tester.state(find.byType(DanmakuView)) as dynamic;
+      expect(state.activeEntriesForTest.length, equals(2));
+
+      // 打开 hideScroll 屏蔽滚动弹幕
+      controller.updateSettings(
+        controller.settings.copyWith(hideScroll: true),
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+
+      // 滚动弹幕已被立即移除，仅剩顶部固定弹幕
+      expect(state.activeEntriesForTest.length, equals(1));
+      expect(state.activeEntriesForTest.first.mode, equals(DanmakuMode.top));
+    });
+
     testWidgets('滚动弹幕合流吸收后，头部 x 坐标平滑连续零跳变', (tester) async {
       final controller = DanmakuController();
       controller.loadItems([
