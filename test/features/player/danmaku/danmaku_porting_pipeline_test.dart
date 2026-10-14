@@ -178,6 +178,98 @@ void main() {
       expect(flattened[1].text, equals('B站B'));
       expect(flattened[1].timeMs, equals(3500));
     });
+
+    test('二分判断时间窗去重准确性 (多同名时间段覆盖与边界值)', () {
+      final base = [
+        DanmakuItem(text: '233', timeMs: 1000),
+        DanmakuItem(text: '233', timeMs: 10000),
+        DanmakuItem(text: '233', timeMs: 20000),
+      ];
+
+      final extra = [
+        // 距离 1000ms 仅 500ms -> 重复剔除
+        DanmakuItem(text: '233', timeMs: 1500),
+        // 距离 10000ms 刚好 2500ms (12500 - 10000 = 2500) -> 边界命中剔除
+        DanmakuItem(text: '233', timeMs: 12500),
+        // 距离 10000ms 为 2501ms，距离 20000ms 为 7499ms -> 处于两窗之间安全保留
+        DanmakuItem(text: '233', timeMs: 12501),
+        // 远超 20000ms -> 保留
+        DanmakuItem(text: '233', timeMs: 30000),
+      ];
+
+      final res = DanmakuPoolsManager.deduplicateDanmakuIncremental(
+        base,
+        extra,
+        windowSeconds: 2.5,
+      );
+      expect(res.duplicatesCount, equals(2));
+      expect(res.incremental.length, equals(2));
+      expect(res.incremental[0].timeMs, equals(12501));
+      expect(res.incremental[1].timeMs, equals(30000));
+    });
+
+    test('flattenEnabledPoolsAsync 异步隔离执行正确性', () async {
+      final mgr = DanmakuPoolsManager();
+      mgr.writePool(
+        DanmakuPoolId.dandan,
+        [DanmakuItem(text: '弹幕1', timeMs: 1000)],
+      );
+      mgr.writePool(
+        DanmakuPoolId.bilibiliAuto,
+        [DanmakuItem(text: '弹幕2', timeMs: 1500)],
+      );
+      mgr.globalTimeOffsetMs = 200;
+
+      final flattened = await mgr.flattenEnabledPoolsAsync();
+      expect(flattened.length, equals(2));
+      expect(flattened[0].timeMs, equals(1200));
+      expect(flattened[1].timeMs, equals(1700));
+    });
+
+    test('DanmakuSessionCoordinator 时移调节 200ms 防抖测试', () async {
+      final controller = DanmakuController();
+      final coord = DanmakuSessionCoordinator(danmakuController: controller);
+
+      coord.poolsManager.writePool(
+        DanmakuPoolId.dandan,
+        [DanmakuItem(text: '测试弹幕', timeMs: 1000)],
+      );
+      // 等待 writePool 初始异步加载完成
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(controller.items.length, equals(1));
+      expect(controller.items[0].timeMs, equals(1000));
+
+      var coordNotified = 0;
+      coord.addListener(() => coordNotified++);
+
+      // 连续 3 次调整时移 (模拟快速连点 stepper)
+      coord.poolsManager.globalTimeOffsetMs = 500;
+      expect(coordNotified, equals(1));
+      expect(coord.poolsManager.globalTimeOffsetMs, equals(500));
+      // 此时防抖中，控制器中的弹幕尚未更新
+      expect(controller.items[0].timeMs, equals(1000));
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      coord.poolsManager.globalTimeOffsetMs = 1000;
+      expect(coordNotified, equals(2));
+      expect(controller.items[0].timeMs, equals(1000));
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      coord.poolsManager.globalTimeOffsetMs = 1500;
+      expect(coordNotified, equals(3));
+      expect(controller.items[0].timeMs, equals(1000));
+
+      // 前进 100ms（距最后一次调整仅 100ms，防抖未超时）
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(controller.items[0].timeMs, equals(1000));
+
+      // 推进 250ms（超过 200ms 防抖时间并等待 compute 完成），防抖结束触发实际重建
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      expect(controller.items[0].timeMs, equals(2500));
+
+      coord.dispose();
+      controller.dispose();
+    });
   });
 
   group('DanmakuFilterEngine 滑动窗口精简测试', () {

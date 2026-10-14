@@ -31,6 +31,10 @@ class DanmakuPoolsManager extends ChangeNotifier {
 
   late Map<DanmakuPoolId, DanmakuPoolSlice> _pools;
   int _globalTimeOffsetMs = 0;
+  int _poolVersion = 0;
+
+  /// 数据池结构版本（写入、切换、清空时递增；单纯时移不递增）
+  int get poolVersion => _poolVersion;
 
   Map<DanmakuPoolId, DanmakuPoolSlice> get pools => Map.unmodifiable(_pools);
 
@@ -66,6 +70,7 @@ class DanmakuPoolsManager extends ChangeNotifier {
         ? tagged
         : _mergeComments(prev.items, tagged);
 
+    _poolVersion++;
     _pools = Map.of(_pools)
       ..[id] = DanmakuPoolSlice(
         items: nextItems,
@@ -80,6 +85,7 @@ class DanmakuPoolsManager extends ChangeNotifier {
   /// 切换指定池的启用/禁用状态
   void togglePool(DanmakuPoolId id) {
     final prev = getPool(id);
+    _poolVersion++;
     _pools = Map.of(_pools)
       ..[id] = prev.copyWith(enabled: !prev.enabled);
     notifyListeners();
@@ -96,6 +102,7 @@ class DanmakuPoolsManager extends ChangeNotifier {
 
   /// 清空指定池
   void clearPool(DanmakuPoolId id) {
+    _poolVersion++;
     _pools = Map.of(_pools)
       ..[id] = const DanmakuPoolSlice();
     notifyListeners();
@@ -103,6 +110,7 @@ class DanmakuPoolsManager extends ChangeNotifier {
 
   /// 清空所有池与时移
   void clearAll() {
+    _poolVersion++;
     _globalTimeOffsetMs = 0;
     _pools = {
       DanmakuPoolId.dandan: const DanmakuPoolSlice(enabled: true),
@@ -149,45 +157,19 @@ class DanmakuPoolsManager extends ChangeNotifier {
 
   /// 聚合所有启用的源池，应用各自独立时移与全局时移，并执行渐进式 O(1) 交叉增量去重
   List<DanmakuItem> flattenEnabledPools() {
-    final enabledSlices = <List<DanmakuItem>>[];
+    return _flattenEnabledPoolsWorker(_createFlattenPayload());
+  }
 
-    for (final id in DanmakuPoolId.values) {
-      final slice = getPool(id);
-      if (!slice.enabled || slice.items.isEmpty) continue;
+  /// 异步在 compute 隔离中执行时移 + 去重 + 排序
+  Future<List<DanmakuItem>> flattenEnabledPoolsAsync() {
+    return compute(_flattenEnabledPoolsWorker, _createFlattenPayload());
+  }
 
-      final totalOffset = slice.timeOffsetMs + _globalTimeOffsetMs;
-      if (totalOffset == 0) {
-        enabledSlices.add(slice.items);
-      } else {
-        enabledSlices.add(
-          slice.items.map((c) {
-            final newTime = math.max(0, c.timeMs + totalOffset);
-            return c.copyWith(timeMs: newTime);
-          }).toList(),
-        );
-      }
-    }
-
-    if (enabledSlices.isEmpty) return const [];
-    if (enabledSlices.length == 1) {
-      final single = List.of(enabledSlices.first);
-      single.sort((a, b) => a.timeMs.compareTo(b.timeMs));
-      return single;
-    }
-
-    // 渐进式多源增量交叉去重 (Progressive cross-source deduplication)
-    final result = List.of(enabledSlices.first);
-    for (var i = 1; i < enabledSlices.length; i++) {
-      final dedup = deduplicateDanmakuIncremental(
-        result,
-        enabledSlices[i],
-        windowSeconds: 2.5,
-      );
-      result.addAll(dedup.incremental);
-    }
-
-    result.sort((a, b) => a.timeMs.compareTo(b.timeMs));
-    return result;
+  DanmakuFlattenPayload _createFlattenPayload() {
+    return DanmakuFlattenPayload(
+      slices: DanmakuPoolId.values.map(getPool).toList(),
+      globalTimeOffsetMs: _globalTimeOffsetMs,
+    );
   }
 
   /// 核心去重算法：在 extraComments 中筛除已存在于 baseComments 中的重复弹幕 (1:1 对齐 animaku)
@@ -213,6 +195,11 @@ class DanmakuPoolsManager extends ChangeNotifier {
       baseTimeBuckets.putIfAbsent(text, () => <int>[]).add(c.timeMs);
     }
 
+    // 优化：对每个文本的时间列表进行升序排序，便于二分查找，去掉线性 any(...)
+    for (final times in baseTimeBuckets.values) {
+      times.sort();
+    }
+
     final incremental = <DanmakuItem>[];
     var duplicatesCount = 0;
 
@@ -228,12 +215,28 @@ class DanmakuPoolsManager extends ChangeNotifier {
         continue;
       }
 
-      // 规则 2: 时间窗口内容匹配 (同一文本在 ±2.5s 范围内出现)
+      // 规则 2: 时间窗口内容匹配 (同一文本在 ±windowMs 范围内出现)
+      // 使用二分查找判断 [c.timeMs - windowMs, c.timeMs + windowMs] 窗口内是否存在时间点
       final existingTimes = baseTimeBuckets[text];
-      if (existingTimes != null &&
-          existingTimes.any((t) => (t - c.timeMs).abs() <= windowMs)) {
-        duplicatesCount++;
-        continue;
+      if (existingTimes != null && existingTimes.isNotEmpty) {
+        final targetMin = c.timeMs - windowMs;
+        final targetMax = c.timeMs + windowMs;
+
+        var min = 0;
+        var max = existingTimes.length;
+        while (min < max) {
+          final mid = min + ((max - min) >> 1);
+          if (existingTimes[mid] < targetMin) {
+            min = mid + 1;
+          } else {
+            max = mid;
+          }
+        }
+
+        if (min < existingTimes.length && existingTimes[min] <= targetMax) {
+          duplicatesCount++;
+          continue;
+        }
       }
 
       incremental.add(c);
@@ -275,4 +278,57 @@ class DanmakuPoolsManager extends ChangeNotifier {
     merged.sort((a, b) => a.timeMs.compareTo(b.timeMs));
     return merged;
   }
+}
+
+/// 聚合计算入参载荷（支持跨 isolate 传递）
+class DanmakuFlattenPayload {
+  const DanmakuFlattenPayload({
+    required this.slices,
+    required this.globalTimeOffsetMs,
+  });
+
+  final List<DanmakuPoolSlice> slices;
+  final int globalTimeOffsetMs;
+}
+
+/// 独立 Top-level 隔离区 worker 函数，负责执行时移变换、交叉增量去重与全局时间排序
+List<DanmakuItem> _flattenEnabledPoolsWorker(DanmakuFlattenPayload payload) {
+  final enabledSlices = <List<DanmakuItem>>[];
+
+  for (final slice in payload.slices) {
+    if (!slice.enabled || slice.items.isEmpty) continue;
+
+    final totalOffset = slice.timeOffsetMs + payload.globalTimeOffsetMs;
+    if (totalOffset == 0) {
+      enabledSlices.add(slice.items);
+    } else {
+      enabledSlices.add(
+        slice.items.map((c) {
+          final newTime = math.max(0, c.timeMs + totalOffset);
+          return c.copyWith(timeMs: newTime);
+        }).toList(),
+      );
+    }
+  }
+
+  if (enabledSlices.isEmpty) return const [];
+  if (enabledSlices.length == 1) {
+    final single = List.of(enabledSlices.first);
+    single.sort((a, b) => a.timeMs.compareTo(b.timeMs));
+    return single;
+  }
+
+  // 渐进式多源增量交叉去重 (Progressive cross-source deduplication)
+  final result = List.of(enabledSlices.first);
+  for (var i = 1; i < enabledSlices.length; i++) {
+    final dedup = DanmakuPoolsManager.deduplicateDanmakuIncremental(
+      result,
+      enabledSlices[i],
+      windowSeconds: 2.5,
+    );
+    result.addAll(dedup.incremental);
+  }
+
+  result.sort((a, b) => a.timeMs.compareTo(b.timeMs));
+  return result;
 }

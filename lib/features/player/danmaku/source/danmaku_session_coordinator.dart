@@ -49,6 +49,7 @@ class DanmakuSessionCoordinator extends ChangeNotifier {
   })  : dandanClient = dandanClient ?? DandanClient.instance,
         bilibiliClient = bilibiliClient ?? BilibiliDanmakuClient.instance,
         poolsManager = DanmakuPoolsManager() {
+    _lastPoolVersion = poolsManager.poolVersion;
     poolsManager.addListener(_onPoolsChanged);
   }
 
@@ -56,6 +57,10 @@ class DanmakuSessionCoordinator extends ChangeNotifier {
   final DandanClient dandanClient;
   final BilibiliDanmakuClient bilibiliClient;
   final DanmakuPoolsManager poolsManager;
+
+  int _lastPoolVersion = 0;
+  int _refreshGen = 0;
+  Timer? _offsetDebounceTimer;
 
   // L1 内存缓存池（保证切集 0ms 瞬间秒切）
   final Map<String, _CachedCommentsPayload> _commentsMemoryCache = {};
@@ -94,13 +99,32 @@ class DanmakuSessionCoordinator extends ChangeNotifier {
 
   void _onPoolsChanged() {
     if (_disposed) return;
-    _refreshController();
-    notifyListeners();
+    final curVersion = poolsManager.poolVersion;
+    final isOffsetOnly = curVersion == _lastPoolVersion;
+    _lastPoolVersion = curVersion;
+
+    if (isOffsetOnly) {
+      // 时移调节增加 200ms 防抖，防抖期间界面上的数值立即更新，实际重建在防抖结束后触发一次
+      notifyListeners();
+      _offsetDebounceTimer?.cancel();
+      _offsetDebounceTimer = Timer(const Duration(milliseconds: 200), () {
+        _offsetDebounceTimer = null;
+        if (_disposed) return;
+        _refreshController();
+      });
+    } else {
+      _offsetDebounceTimer?.cancel();
+      _offsetDebounceTimer = null;
+      _refreshController();
+      notifyListeners();
+    }
   }
 
-  void _refreshController() {
+  Future<void> _refreshController() async {
     if (_disposed) return;
-    final flattened = poolsManager.flattenEnabledPools();
+    final gen = ++_refreshGen;
+    final flattened = await poolsManager.flattenEnabledPoolsAsync();
+    if (_disposed || gen != _refreshGen) return;
     danmakuController.loadItems(flattened);
   }
 
@@ -539,6 +563,8 @@ class DanmakuSessionCoordinator extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _offsetDebounceTimer?.cancel();
+    _offsetDebounceTimer = null;
     poolsManager.removeListener(_onPoolsChanged);
     poolsManager.dispose();
     super.dispose();
