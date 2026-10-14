@@ -824,6 +824,14 @@ class _DanmakuViewState extends State<DanmakuView>
           }
 
           if (entry.mode == DanmakuMode.scroll) {
+            // 特殊处理说明：
+            // 当 area 缩窄或字号变大导致可用轨道减少时，超出新轨道范围的在屏弹幕直接丢弃，
+            // 绝不可 clamp 到最后一行，避免多条不同轨道的弹幕挤压在同一行导致文字严重重叠糊屏。
+            if (entry.track >= _scrollTracks.length) {
+              entry.dispose();
+              continue;
+            }
+
             // 保持 progress 严格一致，按新 durationMs 换算新的 startMs
             entry.durationMs = scrollDurationMs;
             entry.startMs = _motionClockMs - oldProgress * scrollDurationMs;
@@ -844,18 +852,14 @@ class _DanmakuViewState extends State<DanmakuView>
             final speed = (_viewWidth + entry.layout.size.width) / scrollDurationMs;
             entry.speed = speed;
 
-            var newTrack = 0;
-            if (_scrollTracks.isNotEmpty) {
-              newTrack = entry.track.clamp(0, _scrollTracks.length - 1);
-              _scrollTracks[newTrack].register(
-                startMs: entry.startMs,
-                width: entry.layout.size.width,
-                speed: speed,
-                viewWidth: _viewWidth,
-              );
-            }
-            entry.track = newTrack;
-            entry.y = newTrack * _lineHeight * _kTrackSpacing;
+            final track = entry.track;
+            _scrollTracks[track].register(
+              startMs: entry.startMs,
+              width: entry.layout.size.width,
+              speed: speed,
+              viewWidth: _viewWidth,
+            );
+            entry.y = track * _lineHeight * _kTrackSpacing;
 
             _activeEntries.add(entry);
             _scrollingCount++;
@@ -864,6 +868,10 @@ class _DanmakuViewState extends State<DanmakuView>
             // 固定弹幕（top 或 bottom）
             final isTop = entry.mode == DanmakuMode.top;
             final busyList = isTop ? _topBusyUntil : _bottomBusyUntil;
+            if (entry.track >= busyList.length) {
+              entry.dispose();
+              continue;
+            }
 
             entry.layout.dispose();
             final text = entry.count > 1 ? '${entry.baseText} ×${entry.count}' : entry.baseText;
@@ -877,15 +885,11 @@ class _DanmakuViewState extends State<DanmakuView>
               onCacheMiss: _perfStats.recordLayoutCreated,
             );
 
-            var newTrack = 0;
-            if (busyList.isNotEmpty) {
-              newTrack = entry.track.clamp(0, busyList.length - 1);
-              busyList[newTrack] = math.max(busyList[newTrack], entry.startMs + entry.durationMs);
-            }
-            entry.track = newTrack;
+            final track = entry.track;
+            busyList[track] = math.max(busyList[track], entry.startMs + entry.durationMs);
             entry.y = isTop
-                ? newTrack * _lineHeight * _kTrackSpacing
-                : _viewHeight - (newTrack + 1) * _lineHeight * _kTrackSpacing;
+                ? track * _lineHeight * _kTrackSpacing
+                : _viewHeight - (track + 1) * _lineHeight * _kTrackSpacing;
 
             _activeEntries.add(entry);
             nextExp = math.min(nextExp, entry.endMs);

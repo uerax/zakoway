@@ -938,6 +938,73 @@ void main() {
       expect(state.repaintNotifierForTest.value, greaterThan(repaintCountBefore));
     });
 
+    testWidgets('把 area 从大变小后，在屏弹幕不会出现多条挤在同一轨道的情况', (tester) async {
+      final controller = DanmakuController(
+        initialSettings: const DanmakuSettings(area: 1.0),
+      );
+      // 同时发射多条弹幕分布在不同轨道
+      controller.loadItems([
+        DanmakuItem(text: '滚动弹幕0', timeMs: 100),
+        DanmakuItem(text: '滚动弹幕1', timeMs: 100),
+        DanmakuItem(text: '滚动弹幕2', timeMs: 100),
+        DanmakuItem(text: '滚动弹幕3', timeMs: 100),
+        DanmakuItem(text: '滚动弹幕4', timeMs: 100),
+        DanmakuItem(text: '顶部固定0', timeMs: 100, mode: DanmakuMode.top),
+        DanmakuItem(text: '顶部固定1', timeMs: 100, mode: DanmakuMode.top),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final state = tester.state(find.byType(DanmakuView)) as dynamic;
+      final initialEntries = List<dynamic>.from(state.activeEntriesForTest);
+      expect(initialEntries.length, greaterThanOrEqualTo(5));
+
+      final initialScroll = initialEntries.where((e) => e.mode == DanmakuMode.scroll).toList();
+      final initialTracks = initialScroll.map((e) => e.track as int).toList();
+      // 验证初始状态下各弹幕占用不同轨道（0, 1, 2, 3, 4）
+      expect(initialTracks.toSet().length, equals(initialTracks.length));
+      expect(initialTracks.any((t) => t >= 3), isTrue);
+
+      // 将 area 大幅调小（如 0.25），使轨道总数减少到 3 轨
+      controller.updateSettings(
+        controller.settings.copyWith(area: 0.25),
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+
+      final tracksAfter = state.scrollTracksForTest as List<dynamic>;
+      final remainingEntries = List<dynamic>.from(state.activeEntriesForTest);
+
+      // 滚动弹幕检查
+      final remainingScroll = remainingEntries.where((e) => e.mode == DanmakuMode.scroll).toList();
+      expect(remainingScroll.isNotEmpty, isTrue);
+
+      final remainingTracks = remainingScroll.map((e) => e.track as int).toList();
+
+      // 核心断言 1：所有在屏弹幕的 track 严格处于新轨道范围内
+      expect(remainingTracks.every((t) => t < tracksAfter.length), isTrue);
+
+      // 核心断言 2：绝不 clamp 到最后一行，不会出现多条挤在同一轨道的情况
+      expect(remainingTracks.toSet().length, equals(remainingTracks.length));
+
+      // 核心断言 3：固定弹幕同样不挤在同一轨道
+      final remainingTop = remainingEntries.where((e) => e.mode == DanmakuMode.top).toList();
+      final remainingTopTracks = remainingTop.map((e) => e.track as int).toList();
+      expect(remainingTopTracks.toSet().length, equals(remainingTopTracks.length));
+    });
+
     testWidgets('滚动弹幕合流吸收后，头部 x 坐标平滑连续零跳变', (tester) async {
       final controller = DanmakuController();
       controller.loadItems([
