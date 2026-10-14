@@ -900,6 +900,44 @@ void main() {
       expect(state.activeEntriesForTest.first.mode, equals(DanmakuMode.top));
     });
 
+    testWidgets('弹幕从开到关后，在屏弹幕数量为 0 且触发重绘通知清空画布', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '在屏弹幕1', timeMs: 100),
+        DanmakuItem(text: '在屏弹幕2', timeMs: 100, mode: DanmakuMode.top),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final state = tester.state(find.byType(DanmakuView)) as dynamic;
+      expect(state.activeEntriesForTest.length, equals(2));
+
+      final repaintCountBefore = state.repaintNotifierForTest.value as int;
+
+      // 关闭弹幕
+      controller.updateSettings(
+        controller.settings.copyWith(enabled: false),
+      );
+      await tester.pump();
+
+      // 在屏弹幕数量为 0，且触发了一次重绘通知
+      expect(state.activeEntriesForTest.length, equals(0));
+      expect(state.repaintNotifierForTest.value, greaterThan(repaintCountBefore));
+    });
+
     testWidgets('滚动弹幕合流吸收后，头部 x 坐标平滑连续零跳变', (tester) async {
       final controller = DanmakuController();
       controller.loadItems([

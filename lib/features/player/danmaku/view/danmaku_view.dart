@@ -1123,6 +1123,8 @@ class _DanmakuViewState extends State<DanmakuView>
     if (!next.enabled) {
       _clearActive();
       _stopWork();
+      // 关闭弹幕时必须主动通知重绘以立即清屏，避免残留在屏画面
+      _repaintNotifier.value++;
       return;
     } else if (!previous.enabled) {
       _cursor = _lowerBound(_controller.items, _mediaClockMs);
