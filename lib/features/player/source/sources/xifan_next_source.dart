@@ -44,8 +44,9 @@ class XifanNextSource extends VideoSource {
   final Map<String, ({int time, List<SourceChapterRoad> roads})> _chaptersCache = {};
   final Map<String, Future<List<SourceChapterRoad>>> _inflightChapters = {};
 
-  // 3. 播放直链 LRU 短期缓存 (20分钟)
-  final Map<String, ({int time, SourceResolveResult result})> _resolveCache = {};
+  // 特殊处理说明：
+  // 稀饭（xifan-next）播放直链带有短时效 CDN 签名与临时会话凭证，
+  // 视频源自身绝不私自做播放直链缓存，统一交由 NativeSourceRuntime 统一调度层处理，避免缓存过期导致 403 播放失败。
 
   void _log(String message) {
     debugPrint('[XifanNext] $message');
@@ -466,66 +467,10 @@ class XifanNextSource extends VideoSource {
         } catch (_) {}
       }
 
-      // 极速轨 (Fast-Path): Supabase REST 表查询 (过滤 available_at 排除未播日程，仅 ~1.5KB JSON，500ms 内瞬间直出)
-      Future<List<SourceChapterRoad>?> fetchFastRest() async {
-        try {
-          final res = await _fetchSupabase(
-            '/rest/v1/episodes?anime_id=eq.$animeId&available_at=not.is.null&select=id,title,episode_number,kind&order=episode_number.asc',
-            timeout: const Duration(seconds: 4),
-          );
-          if (res is List && res.isNotEmpty) {
-            final mainEps = <SourceEpisode>[];
-            final spEps = <SourceEpisode>[];
-
-            for (final item in res.whereType<Map<String, dynamic>>()) {
-              final epId = item['id'];
-              final epNum = item['episode_number'] ?? 1;
-              final kind = item['kind']?.toString();
-              final epUrl = 'https://next.xifanacg.com/anime/$animeId/play/$epId';
-
-              if (kind == null || kind == 'main') {
-                mainEps.add(SourceEpisode(name: '第$epNum集', url: epUrl));
-              } else {
-                spEps.add(SourceEpisode(name: 'SP $epNum', url: epUrl));
-              }
-            }
-
-            final roads = <SourceChapterRoad>[];
-            if (mainEps.isNotEmpty) {
-              // 特殊处理说明：
-              // 为杜绝首屏白屏等待，Fast-Path 在 300ms 内依据 REST episodes 表生成稀饭标准三线路（主线1-沃云、主线2-海外、备用1-切片），
-              // 严格携带各线路专属 source_id 与 source_code，确保用户秒开即可自由选线，同时后台平滑拉取 SSR 页面多线路元数据。
-              roads.add(SourceChapterRoad(
-                name: '稀饭新番主线-1',
-                episodes: mainEps
-                    .map((e) => SourceEpisode(name: e.name, url: '${e.url}?source_id=4&source=xfxf1'))
-                    .toList(),
-              ));
-              roads.add(SourceChapterRoad(
-                name: '稀饭新番主线-2',
-                episodes: mainEps
-                    .map((e) => SourceEpisode(name: e.name, url: '${e.url}?source_id=1&source=AL'))
-                    .toList(),
-              ));
-              roads.add(SourceChapterRoad(
-                name: '稀饭备用-1',
-                episodes: mainEps
-                    .map((e) => SourceEpisode(name: e.name, url: '${e.url}?source_id=2&source=CS'))
-                    .toList(),
-              ));
-            }
-            if (spEps.isNotEmpty) {
-              roads.add(SourceChapterRoad(name: 'SP / 特典', episodes: spEps));
-            }
-            return roads.isNotEmpty ? roads : null;
-          }
-        } catch (e) {
-          _log('Fast-Path REST 查询异常: $e');
-        }
-        return null;
-      }
-
-      // 完整轨 (Full-Path): 抓取详情页 HTML 解析 RSC 块多线路 (严格携带 source_id 与 source_code)
+      // 完整轨 (Full-Path): 优先抓取详情页 HTML 解析源站真实的 sources 多线路
+      // 特殊处理说明：
+      // 源站每部番剧的真实线路数量各不相同（部分番剧仅有海外主线或备用线，并不存在新番主线-1），
+      // 必须严格解析 SSR 页面声明的真实线路与 source_id，严禁主观硬编码伪造不存在的线路。
       Future<List<SourceChapterRoad>?> fetchFullSsr() async {
         try {
           final res = await _dio.get<String>(
@@ -580,35 +525,64 @@ class XifanNextSource extends VideoSource {
         return null;
       }
 
-      // 特殊处理说明：
-      // 1. 并发启动 Fast-Path 与 Full-Path，彻底移除原先等待 SSR 2 秒的阻塞超时；
-      // 2. 优先等待 200~300ms 的 Fast-Path 直出分集，消除首屏白屏卡顿；
-      // 3. 后台静默等待 SSR 完成后平滑升级多线路并持久化到本地磁盘，保证不遗漏源站完整线路。
-      final restFuture = fetchFastRest();
-      final ssrFuture = fetchFullSsr();
+      // 兜底轨 (Fallback-Path): 仅在 SSR 抓取失败时，使用 Supabase REST episodes 表生成纯净默认线路
+      // 特殊处理说明：REST 表仅记录分集元数据，不包含线路信息，因此此处只生成一条无参默认线路，
+      // 交由 issue-web-playback 接口自适应决策，绝不伪造硬编码线路。
+      Future<List<SourceChapterRoad>?> fetchFallbackRest() async {
+        try {
+          final res = await _fetchSupabase(
+            '/rest/v1/episodes?anime_id=eq.$animeId&available_at=not.is.null&select=id,title,episode_number,kind&order=episode_number.asc',
+            timeout: const Duration(seconds: 4),
+          );
+          if (res is List && res.isNotEmpty) {
+            final mainEps = <SourceEpisode>[];
+            final spEps = <SourceEpisode>[];
 
-      final fastRest = await restFuture;
-      if (fastRest != null && fastRest.isNotEmpty) {
-        _log('极速 Fast-Path 抢先直出 (${fastRest.length}条线路)，分集列表瞬时呈现');
-        saveToCache(fastRest);
+            for (final item in res.whereType<Map<String, dynamic>>()) {
+              final epId = item['id'];
+              final epNum = item['episode_number'] ?? 1;
+              final kind = item['kind']?.toString();
+              final epUrl = 'https://next.xifanacg.com/anime/$animeId/play/$epId';
 
-        // 后台静默等待 SSR 完成后平滑升级多线路内存与磁盘缓存
-        ssrFuture.then((ssrRoads) {
-          if (ssrRoads != null && ssrRoads.isNotEmpty) {
-            _log('后台 SSR 线路解析就绪，已平滑升级多线路内存与磁盘缓存');
-            saveToCache(ssrRoads);
+              if (kind == null || kind == 'main') {
+                mainEps.add(SourceEpisode(name: '第$epNum集', url: epUrl));
+              } else {
+                spEps.add(SourceEpisode(name: 'SP $epNum', url: epUrl));
+              }
+            }
+
+            final roads = <SourceChapterRoad>[];
+            if (mainEps.isNotEmpty) {
+              roads.add(SourceChapterRoad(
+                name: '默认线路',
+                episodes: mainEps,
+              ));
+            }
+            if (spEps.isNotEmpty) {
+              roads.add(SourceChapterRoad(name: 'SP / 特典', episodes: spEps));
+            }
+            return roads.isNotEmpty ? roads : null;
           }
-        }).catchError((_) {});
-
-        return fastRest;
+        } catch (e) {
+          _log('Fallback-Path REST 查询异常: $e');
+        }
+        return null;
       }
 
-      // 若 Fast-Path 异常，回退等待 SSR 兜底
-      final lateSsr = await ssrFuture;
-      if (lateSsr != null && lateSsr.isNotEmpty) {
-        _log('SSR 完整线路兜底就绪 (${lateSsr.length}条线路)');
-        saveToCache(lateSsr);
-        return lateSsr;
+      // 1. 优先抓取详情页 HTML 解析源站真实的 sources 多线路
+      final ssrRoads = await fetchFullSsr();
+      if (ssrRoads != null && ssrRoads.isNotEmpty) {
+        _log('成功从 SSR 页面解析出真实线路 (${ssrRoads.length}条)');
+        saveToCache(ssrRoads);
+        return ssrRoads;
+      }
+
+      // 2. 兜底回退：若 SSR 页面抓取异常，使用 REST episodes 表纯净单线路兜底
+      final fallbackRoads = await fetchFallbackRest();
+      if (fallbackRoads != null && fallbackRoads.isNotEmpty) {
+        _log('SSR 解析异常，回退使用 REST 表默认单线路 (${fallbackRoads.length}条)');
+        saveToCache(fallbackRoads);
+        return fallbackRoads;
       }
 
       _log('未解析到任何有效分集');
@@ -626,12 +600,6 @@ class XifanNextSource extends VideoSource {
   @override
   Future<SourceResolveResult> resolve(String episodeUrl) async {
     final trimmed = episodeUrl.trim();
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final cached = _resolveCache[trimmed];
-    if (cached != null && now - cached.time < 20 * 60 * 1000) {
-      _log('命中播放直链内存缓存: $trimmed -> ${cached.result.url}');
-      return cached.result;
-    }
 
     final playMatch = RegExp(r'/play/(\d+)').firstMatch(trimmed);
     final episodeId = playMatch != null ? int.tryParse(playMatch.group(1)!) : null;
@@ -825,7 +793,7 @@ class XifanNextSource extends VideoSource {
       format: format,
     );
 
-    _resolveCache[trimmed] = (time: DateTime.now().millisecondsSinceEpoch, result: result);
+    // 特殊处理说明：源内部不维护 _resolveCache，直接返回新鲜直链
     return result;
   }
 
@@ -924,7 +892,6 @@ class XifanNextSource extends VideoSource {
   void clearCache() {
     _searchCache.clear();
     _chaptersCache.clear();
-    _resolveCache.clear();
     _inflightSearch.clear();
     _inflightChapters.clear();
   }

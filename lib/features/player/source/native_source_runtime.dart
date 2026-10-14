@@ -49,9 +49,9 @@ class NativeSourceRuntime {
   final TimedKeyedCache<String, List<SourceChapterRoad>> _chaptersMemoryCache =
       TimedKeyedCache(maxAge: const Duration(minutes: 30), maxEntries: 200);
 
-  // 3. 直链解析: 20 分钟
+  // 3. 直链解析: 1 分钟短时防抖缓存 (绝不做 L2 磁盘持久化)
   final TimedKeyedCache<String, SourceResolveResult> _resolveMemoryCache =
-      TimedKeyedCache(maxAge: const Duration(minutes: 20), maxEntries: 100);
+      TimedKeyedCache(maxAge: const Duration(minutes: 1), maxEntries: 100);
 
   // 并发去重单飞锁 (杜绝并发探测时的重复网络请求)
   final Map<String, Future<List<SourceSearchResult>>> _inflightSearch = {};
@@ -259,11 +259,11 @@ class NativeSourceRuntime {
     }
   }
 
-  /// 解析播放直链 (带 L1 内存 20 分钟缓存与 Single-Flight 请求去重)
+  /// 解析播放直链 (带 L1 内存 1 分钟短时防抖缓存与 Single-Flight 请求去重)
   ///
   /// 特殊处理说明：视频直链通常包含临时鉴权令牌、短期 CDN 签名或会话 Cookie，
-  /// 跨进程持久化到磁盘极易导致重启后读取过期废链引发 403 播放失败。
-  /// 因此直链仅保留 20 分钟 L1 内存缓存与单飞去重，不进行 L2 磁盘持久化。
+  /// 跨进程持久化到磁盘或较长缓存极易导致读取过期废链引发 403 播放失败。
+  /// 因此直链仅保留 1 分钟短时 L1 内存缓存（防止用户频繁刷新/快速连点重复请求）与单飞去重，不进行 L2 磁盘持久化。
   Future<SourceResolveResult> resolve(
     String sourceId,
     String episodeUrl, {
@@ -291,7 +291,7 @@ class NativeSourceRuntime {
       try {
         final result = await s.resolve(episodeUrl);
         if (result.url.isNotEmpty) {
-          // 回填 L1 内存 (20 分钟)
+          // 回填 L1 内存 (1 分钟短时防抖)
           _resolveMemoryCache.set(cacheKey, result, 256);
         }
         return result;
