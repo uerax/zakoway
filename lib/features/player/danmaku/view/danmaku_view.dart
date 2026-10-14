@@ -64,6 +64,10 @@ class _DanmakuViewState extends State<DanmakuView>
   Timer? _wakeTimer;
   Timer? _seekDebounceTimer;
   Timer? _viewportResizeTimer;
+  Timer? _settingsRebuildTimer;
+  int _lastSettingsRebuildTimeMs = 0;
+  bool _hasPendingSettingsRebuild = false;
+  int _rebuildScreenCount = 0;
   final Stopwatch _tickerDowntime = Stopwatch();
   int _lastSeekTimeMs = 0;
   int _lastResizeTimeMs = 0;
@@ -107,6 +111,9 @@ class _DanmakuViewState extends State<DanmakuView>
 
   @visibleForTesting
   double get lagMsForTest => _lagMs;
+
+  @visibleForTesting
+  int get rebuildScreenCountForTest => _rebuildScreenCount;
 
   @visibleForTesting
   List<DanmakuScrollTrack> get scrollTracksForTest => _scrollTracks;
@@ -190,6 +197,7 @@ class _DanmakuViewState extends State<DanmakuView>
 
   @override
   void dispose() {
+    _cancelSettingsRebuild();
     _controller.detach(this);
     _stopWork();
     _seekDebounceTimer?.cancel();
@@ -781,6 +789,7 @@ class _DanmakuViewState extends State<DanmakuView>
     String reason = '未知',
   }) {
     if (!_hasViewport || !_controller.settings.enabled) return;
+    _rebuildScreenCount++;
     _rebuildCalledSinceLastTick = true;
     _lastRebuildReason = reason;
 
@@ -1125,6 +1134,7 @@ class _DanmakuViewState extends State<DanmakuView>
   @override
   void onDanmakuSettingsChanged(DanmakuSettings next, DanmakuSettings previous) {
     if (!next.enabled) {
+      _cancelSettingsRebuild();
       _clearActive();
       _stopWork();
       // 关闭弹幕时必须主动通知重绘以立即清屏，避免残留在屏画面
@@ -1134,28 +1144,85 @@ class _DanmakuViewState extends State<DanmakuView>
       _cursor = _lowerBound(_controller.items, _mediaClockMs);
     }
 
-    final styleOrLayoutChanged = next.fontSizeScale != previous.fontSizeScale ||
+    final continuousChanged = next.fontSizeScale != previous.fontSizeScale ||
         next.strokeWidth != previous.strokeWidth ||
         next.opacity != previous.opacity ||
         next.area != previous.area ||
-        next.speed != previous.speed ||
+        next.speed != previous.speed;
+
+    final discreteChanged = (!previous.enabled && next.enabled) ||
+        next.hideScroll != previous.hideScroll ||
+        next.hideTop != previous.hideTop ||
+        next.hideBottom != previous.hideBottom ||
         next.hideColor != previous.hideColor;
 
-    final hideTypeOpened = (!previous.hideScroll && next.hideScroll) ||
-        (!previous.hideTop && next.hideTop) ||
-        (!previous.hideBottom && next.hideBottom);
+    if (!_hasViewport) return;
 
-    if (_hasViewport) {
-      _rebuildTracks();
-      if (styleOrLayoutChanged || hideTypeOpened) {
-        _rebuildScreenAt(_mediaClockMs, preserveActive: true, reason: '设置变更');
+    if (discreteChanged) {
+      // 开关类单次点击事件：绕过节流，取消之前挂起的连续节流并立即执行重建
+      _cancelSettingsRebuild();
+      _executeSettingsRebuild();
+    } else if (continuousChanged) {
+      // 滑块连续变化事件：执行 100ms 节流（首次立即，窗口内合并，尾沿补发）
+      _scheduleThrottledSettingsRebuild();
+    }
+  }
+
+  /// 特殊处理说明：
+  /// 设置滑块高频连续事件 100ms 节流模型：
+  /// 1. 首次变化立即执行，零延迟呈现最新效果；
+  /// 2. 之后 100ms 窗口内的连续拖拽事件被合并，不进行重复的 _rebuildTracks 与在场弹幕排版；
+  /// 3. 窗口结束时若有挂起的新设置，尾沿补发一次原子重建，并维持下一个 100ms 窗口冷却。
+  void _scheduleThrottledSettingsRebuild() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final elapsed = now - _lastSettingsRebuildTimeMs;
+
+    if (elapsed >= 100 && _settingsRebuildTimer == null) {
+      _lastSettingsRebuildTimeMs = now;
+      _executeSettingsRebuild();
+    } else {
+      _hasPendingSettingsRebuild = true;
+      if (_settingsRebuildTimer == null) {
+        final remaining = math.max(1, 100 - elapsed);
+        _settingsRebuildTimer = Timer(
+          Duration(milliseconds: remaining),
+          _onSettingsThrottleWindowEnd,
+        );
       }
     }
+  }
 
-    _repaintNotifier.value++;
-    if (next.enabled) {
-      _scheduleWork(forceWake: true);
+  void _onSettingsThrottleWindowEnd() {
+    if (!mounted) {
+      _settingsRebuildTimer = null;
+      return;
     }
+
+    if (_hasPendingSettingsRebuild) {
+      _hasPendingSettingsRebuild = false;
+      _lastSettingsRebuildTimeMs = DateTime.now().millisecondsSinceEpoch;
+      _executeSettingsRebuild();
+      _settingsRebuildTimer = Timer(
+        const Duration(milliseconds: 100),
+        _onSettingsThrottleWindowEnd,
+      );
+    } else {
+      _settingsRebuildTimer = null;
+    }
+  }
+
+  void _executeSettingsRebuild() {
+    if (!mounted || !_hasViewport || !_controller.settings.enabled) return;
+    _rebuildTracks();
+    _rebuildScreenAt(_mediaClockMs, preserveActive: true, reason: '设置变更');
+    _repaintNotifier.value++;
+    _scheduleWork(forceWake: true);
+  }
+
+  void _cancelSettingsRebuild() {
+    _settingsRebuildTimer?.cancel();
+    _settingsRebuildTimer = null;
+    _hasPendingSettingsRebuild = false;
   }
 
   @override

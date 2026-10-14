@@ -1,7 +1,10 @@
 import 'dart:collection';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zakoway/features/player/danmaku/danmaku.dart';
+import 'package:zakoway/features/player/services/player_preferences_service.dart';
 
 void main() {
   group('DanmakuTextNormalizer 文本归一化测试', () {
@@ -861,6 +864,7 @@ void main() {
       expect(entryAfter.layout.fontSize, greaterThan(oldFontSize));
       expect(entryAfter.layout.strokeWidth, equals(3.5));
       expect(entryAfter.layout.opacity, equals(0.6));
+      controller.dispose();
     });
 
     testWidgets('hideScroll 打开时立即移除在屏滚动弹幕并释放其轨道', (tester) async {
@@ -898,6 +902,7 @@ void main() {
       // 滚动弹幕已被立即移除，仅剩顶部固定弹幕
       expect(state.activeEntriesForTest.length, equals(1));
       expect(state.activeEntriesForTest.first.mode, equals(DanmakuMode.top));
+      controller.dispose();
     });
 
     testWidgets('弹幕从开到关后，在屏弹幕数量为 0 且触发重绘通知清空画布', (tester) async {
@@ -936,6 +941,7 @@ void main() {
       // 在屏弹幕数量为 0，且触发了一次重绘通知
       expect(state.activeEntriesForTest.length, equals(0));
       expect(state.repaintNotifierForTest.value, greaterThan(repaintCountBefore));
+      controller.dispose();
     });
 
     testWidgets('把 area 从大变小后，在屏弹幕不会出现多条挤在同一轨道的情况', (tester) async {
@@ -1003,6 +1009,7 @@ void main() {
       final remainingTop = remainingEntries.where((e) => e.mode == DanmakuMode.top).toList();
       final remainingTopTracks = remainingTop.map((e) => e.track as int).toList();
       expect(remainingTopTracks.toSet().length, equals(remainingTopTracks.length));
+      controller.dispose();
     });
 
     testWidgets('滚动弹幕合流吸收后，头部 x 坐标平滑连续零跳变', (tester) async {
@@ -1360,6 +1367,163 @@ void main() {
       // 运动时钟仅推进基准步长，严禁向 lagMs 累积欠账
       await tester.pump(const Duration(milliseconds: 300));
       expect(state.lagMsForTest as double, equals(0.0));
+    });
+  });
+
+  group('DanmakuView 与 Controller 设置变更节流与防抖测试', () {
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      await PlayerPreferencesService.instance.initialize();
+    });
+
+    testWidgets('模拟 60 次连续的 fontSizeScale 变化：_rebuildScreenAt 调用次数不超过约 10 次，最终样式一致，落盘防抖生效', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '连续字号测试弹幕', timeMs: 100),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final state = tester.state(find.byType(DanmakuView)) as dynamic;
+      final initialRebuilds = state.rebuildScreenCountForTest as int;
+
+      // 模拟 60 次连续的 fontSizeScale 变化，每帧 16ms 推进
+      for (var i = 0; i < 60; i++) {
+        final scale = 1.0 + (i + 1) * 0.005;
+        controller.updateSettings(
+          controller.settings.copyWith(fontSizeScale: scale),
+        );
+        // 控制器 settings 与 preferences 内存态在每次变化后立即反映最新值
+        expect(controller.settings.fontSizeScale, equals(scale));
+        expect(PlayerPreferencesService.instance.danmakuSettings.fontSizeScale, equals(scale));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+
+      // 等待 100ms 推进到节流窗口结束（触发尾沿补发）
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final rebuildsAfter = (state.rebuildScreenCountForTest as int) - initialRebuilds;
+      // 核心断言 1：60 次密集变化中，_rebuildScreenAt 调用次数不超过约 10 次
+      expect(rebuildsAfter, lessThanOrEqualTo(11));
+
+      // 核心断言 2：最终在屏弹幕样式与最后一次设置严格一致
+      final entries = state.activeEntriesForTest as List<dynamic>;
+      expect(entries.length, equals(1));
+      final finalEntry = entries.first;
+      expect(controller.settings.fontSizeScale, closeTo(1.30, 0.001));
+      expect(finalEntry.layout.fontSize, greaterThan(25.0));
+
+      // 核心断言 3：此时距最后一次变更过去 100ms (< 400ms)，落盘防抖生效，尚未写入本地存储
+      expect(controller.hasPendingSaveForTest, isTrue);
+
+      // 继续推进 300ms（总计 400ms），防抖触发，落盘完成
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+      expect(controller.hasPendingSaveForTest, isFalse);
+
+      final sp = await SharedPreferences.getInstance();
+      final raw = sp.getString('zakoway_player_danmaku_settings');
+      expect(raw, isNotNull);
+      final decoded = jsonDecode(raw!) as Map<String, dynamic>;
+      expect(decoded['fontSizeScale'], closeTo(1.30, 0.001));
+
+      controller.dispose();
+    });
+
+    testWidgets('开关类点击事件（enabled、hideScroll、hideColor 等）绕过节流立即执行重建', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '开关测试弹幕', timeMs: 100, color: Colors.blue),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final state = tester.state(find.byType(DanmakuView)) as dynamic;
+      final rebuildsBefore = state.rebuildScreenCountForTest as int;
+
+      // 点击 hideColor（开关类点击事件）
+      controller.updateSettings(
+        controller.settings.copyWith(hideColor: true),
+      );
+      // 绕过节流立即同步执行重建
+      expect((state.rebuildScreenCountForTest as int) - rebuildsBefore, equals(1));
+      final entries = state.activeEntriesForTest as List<dynamic>;
+      expect(entries.first.layout.color, equals(Colors.white));
+
+      controller.dispose();
+    });
+
+    testWidgets('应用进入后台（AppLifecycleState.paused / inactive）时立即刷盘未落盘的设置', (tester) async {
+      final controller = DanmakuController();
+      controller.updateSettings(
+        controller.settings.copyWith(opacity: 0.42),
+      );
+
+      // 此时处于 400ms 防抖中，尚未落盘
+      expect(controller.hasPendingSaveForTest, isTrue);
+
+      // 模拟应用退到后台
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+
+      // 验证立即刷盘，无需等待 400ms 超时
+      expect(controller.hasPendingSaveForTest, isFalse);
+
+      final sp = await SharedPreferences.getInstance();
+      final raw = sp.getString('zakoway_player_danmaku_settings');
+      expect(raw, isNotNull);
+      final decoded = jsonDecode(raw!) as Map<String, dynamic>;
+      expect(decoded['opacity'], equals(0.42));
+
+      controller.dispose();
+    });
+
+    testWidgets('控制器 dispose 时如果有未落盘的设置立即写入', (tester) async {
+      final controller = DanmakuController();
+      controller.updateSettings(
+        controller.settings.copyWith(speed: 1.45),
+      );
+
+      expect(controller.hasPendingSaveForTest, isTrue);
+
+      // 销毁控制器
+      controller.dispose();
+      await tester.pump();
+
+      // 验证立即取消防抖并完成落盘
+      expect(controller.hasPendingSaveForTest, isFalse);
+
+      final sp = await SharedPreferences.getInstance();
+      final raw = sp.getString('zakoway_player_danmaku_settings');
+      expect(raw, isNotNull);
+      final decoded = jsonDecode(raw!) as Map<String, dynamic>;
+      expect(decoded['speed'], equals(1.45));
     });
   });
 }

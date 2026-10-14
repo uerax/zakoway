@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -33,7 +34,7 @@ abstract interface class DanmakuListener {
 }
 
 /// 弹幕业务调度控制器
-class DanmakuController extends ChangeNotifier {
+class DanmakuController extends ChangeNotifier with WidgetsBindingObserver {
   DanmakuController({
     DanmakuSettings? initialSettings,
   }) : _settings = initialSettings ??
@@ -41,6 +42,9 @@ class DanmakuController extends ChangeNotifier {
                 ? PlayerPreferencesService.instance.danmakuSettings
                 : const DanmakuSettings()) {
     _recompileFilters();
+    try {
+      WidgetsBinding.instance.addObserver(this);
+    } catch (_) {}
   }
 
   final List<DanmakuItem> _items = <DanmakuItem>[];
@@ -49,6 +53,9 @@ class DanmakuController extends ChangeNotifier {
   DanmakuSettings _settings;
   DanmakuListener? _listener;
 
+  Timer? _saveDebounceTimer;
+  DanmakuSettings? _pendingSaveSettings;
+
   bool _playing = false;
   double _playbackRate = 1.0;
   List<DanmakuCompiledRule> _compiledFilters = const [];
@@ -56,6 +63,9 @@ class DanmakuController extends ChangeNotifier {
 
   Duration? _lastPosition;
   final Stopwatch _syncStopwatch = Stopwatch();
+
+  /// @visibleForTesting
+  bool get hasPendingSaveForTest => _pendingSaveSettings != null;
 
   /// 控制器是否已销毁
   bool get isDisposed => _disposed;
@@ -118,6 +128,32 @@ class DanmakuController extends ChangeNotifier {
     _listener?.onDanmakuInject(item);
   }
 
+  /// 特殊处理说明：
+  /// 本地持久化落盘 400ms 防抖刷盘机制：
+  /// 当滑块连续拖动时，推迟 JSON 序列化与 SharedPreferences 写入，
+  /// 确保内存中的 _settings 与 PlayerPreferencesService 内存态立即生效，杜绝多余 I/O 挤占系统资源。
+  void _flushSaveSettings() {
+    _saveDebounceTimer?.cancel();
+    _saveDebounceTimer = null;
+    final toSave = _pendingSaveSettings;
+    if (toSave != null) {
+      _pendingSaveSettings = null;
+      PlayerPreferencesService.instance.writeDanmakuSettingsToDisk(toSave).ignore();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 特殊处理说明：
+    // 当应用进入后台、窗口失焦或关闭时，若仍有未落盘的弹幕设置，必须立刻刷盘，避免配置丢失。
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      _flushSaveSettings();
+    }
+  }
+
   /// 更新弹幕配置项
   void updateSettings(DanmakuSettings newSettings) {
     if (_disposed) return;
@@ -127,7 +163,16 @@ class DanmakuController extends ChangeNotifier {
     _recompileFilters();
     _listener?.onDanmakuSettingsChanged(_settings, previous);
     notifyListeners();
-    PlayerPreferencesService.instance.saveDanmakuSettings(newSettings).ignore();
+
+    // 内存状态与通知保持立即生效
+    PlayerPreferencesService.instance.updateDanmakuSettingsMemory(newSettings);
+
+    // 磁盘持久化写入做 400ms 防抖
+    _pendingSaveSettings = newSettings;
+    _saveDebounceTimer?.cancel();
+    _saveDebounceTimer = Timer(const Duration(milliseconds: 400), () {
+      _flushSaveSettings();
+    });
   }
 
   /// 同步视频时间轴
@@ -214,6 +259,10 @@ class DanmakuController extends ChangeNotifier {
   @override
   void dispose() {
     if (_disposed) return;
+    _flushSaveSettings();
+    try {
+      WidgetsBinding.instance.removeObserver(this);
+    } catch (_) {}
     _disposed = true;
     _syncStopwatch.stop();
     _listener = null;

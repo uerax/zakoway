@@ -129,15 +129,26 @@ class PlayerPreferencesService extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> saveDanmakuSettings(DanmakuSettings settings) async {
+  /// 仅更新内存中的弹幕设置并通知监听者（不阻塞等待 I/O，用于高频防抖配合）
+  void updateDanmakuSettingsMemory(DanmakuSettings settings) {
+    if (_danmakuSettings == settings) return;
     _danmakuSettings = settings;
     notifyListeners();
+  }
 
+  /// 将弹幕设置实际写入本地持久化存储
+  Future<void> writeDanmakuSettingsToDisk(DanmakuSettings settings) async {
     try {
       final sp = await SharedPreferences.getInstance();
       final jsonStr = jsonEncode(settings.toJson());
       await sp.setString(_kDanmakuSettingsKey, jsonStr);
     } catch (_) {}
+  }
+
+  /// 全量保存弹幕设置：立即更新内存与通知，并持久化写入本地存储
+  Future<void> saveDanmakuSettings(DanmakuSettings settings) async {
+    updateDanmakuSettingsMemory(settings);
+    await writeDanmakuSettingsToDisk(settings);
   }
 
   Future<void> saveSuperResolutionMode(SuperResolutionMode mode) async {

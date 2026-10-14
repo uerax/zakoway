@@ -145,6 +145,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(danmakuController.settings.simplify, isTrue);
+      // 等待 400ms 防抖落盘完成，清空 pending timer
+      await tester.pump(const Duration(milliseconds: 100));
     });
   });
 }
