@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zakoway/features/player/danmaku/danmaku.dart';
@@ -100,6 +101,26 @@ void main() {
       expect(controller.items[0].text, equals('第一秒'));
       expect(controller.items[1].text, equals('第二秒'));
       expect(controller.items[2].text, equals('第三秒'));
+    });
+
+    test('items 返回只读视图且在 loadItems 后指向最新内容', () {
+      final controller = DanmakuController();
+      final itemsRef1 = controller.items;
+      expect(itemsRef1, isA<UnmodifiableListView<DanmakuItem>>());
+      expect(itemsRef1.isEmpty, isTrue);
+
+      controller.loadItems([
+        DanmakuItem(text: '弹幕A', timeMs: 1000),
+      ]);
+
+      expect(controller.items.length, equals(1));
+      expect(controller.items[0].text, equals('弹幕A'));
+      expect(itemsRef1.length, equals(1));
+
+      expect(
+        () => controller.items.add(DanmakuItem(text: '非法', timeMs: 2000)),
+        throwsUnsupportedError,
+      );
     });
 
     test('正则与关键词屏蔽规则过滤', () {

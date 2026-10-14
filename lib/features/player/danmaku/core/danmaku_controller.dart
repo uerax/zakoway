@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:zakoway/features/player/danmaku/models/danmaku_item.dart';
@@ -43,6 +44,8 @@ class DanmakuController extends ChangeNotifier {
   }
 
   final List<DanmakuItem> _items = <DanmakuItem>[];
+  late UnmodifiableListView<DanmakuItem> _itemsView =
+      UnmodifiableListView<DanmakuItem>(_items);
   DanmakuSettings _settings;
   DanmakuListener? _listener;
 
@@ -73,8 +76,8 @@ class DanmakuController extends ChangeNotifier {
     return _lastPosition! + Duration(microseconds: progressUs);
   }
 
-  /// 当前所有已就绪并排序的弹幕列表
-  List<DanmakuItem> get items => List.unmodifiable(_items);
+  /// 当前所有已就绪并排序的弹幕列表（只读视图，不复制底层列表）
+  UnmodifiableListView<DanmakuItem> get items => _itemsView;
 
   /// 当前弹幕配置
   DanmakuSettings get settings => _settings;
@@ -104,6 +107,7 @@ class DanmakuController extends ChangeNotifier {
     _items.clear();
     _items.addAll(newItems);
     _items.sort((a, b) => a.timeMs.compareTo(b.timeMs));
+    _itemsView = UnmodifiableListView<DanmakuItem>(_items);
     _listener?.onDanmakuItemsChanged();
     notifyListeners();
   }
@@ -190,6 +194,7 @@ class DanmakuController extends ChangeNotifier {
   void clearAll() {
     if (_disposed) return;
     _items.clear();
+    _itemsView = UnmodifiableListView<DanmakuItem>(_items);
     reset();
     notifyListeners();
   }
