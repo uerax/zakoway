@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'app_icon_tile.dart';
 import 'm3_settings_card.dart';
 import 'theme_color_tile.dart';
 import 'wallpaper_settings_tile.dart';
@@ -18,7 +17,6 @@ class AppearanceSettingsCard extends StatelessWidget {
           footerText: '支持对首页、分类与设置页单独覆盖立绘壁纸与裁剪视野。',
           children: [
             ThemeColorTile(),
-            AppIconTile(),
             WallpaperSettingsTile(),
           ],
         ),
