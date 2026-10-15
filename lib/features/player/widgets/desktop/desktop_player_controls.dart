@@ -910,28 +910,29 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      // 顶部渐变暗角
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: 72,
-                        child: IgnorePointer(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.black.withValues(alpha: 0.65),
-                                  Colors.black.withValues(alpha: 0.35),
-                                  Colors.transparent,
-                                ],
+                      // 顶部渐变暗角（仅在全屏展示，桌面窗口模式保持画面通透）
+                      if (widget.isFullscreen)
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: 72,
+                          child: IgnorePointer(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.65),
+                                    Colors.black.withValues(alpha: 0.35),
+                                    Colors.transparent,
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
 
                       // 底部渐变暗角
                       Positioned(
@@ -956,7 +957,7 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                         ),
                       ),
 
-                      // 顶部悬浮导航条
+                      // 顶部悬浮导航条（桌面非全屏下去除返回按钮与标题，全屏时完整保留）
                       Positioned(
                         top: 0,
                         left: 0,
@@ -971,6 +972,8 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                           onOpenSidePanel: widget.onOpenSidePanel,
                           onScreenshot: _handleScreenshot,
                           danmakuController: widget.danmakuController,
+                          showBack: widget.isFullscreen,
+                          showTitle: widget.isFullscreen,
                         ),
                       ),
 

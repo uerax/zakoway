@@ -31,8 +31,8 @@ void main() {
       final playerBox = tester.getRect(find.byKey(keyPlayer));
       expect(playerBox.width, closeTo(1531.0, 1.0));
       expect(playerBox.height, closeTo(1531.0 / (16 / 9), 1.0));
-      // 验证播放器紧贴顶部 padding (AppBar 高度 56 + padding 16 = 72)，绝非垂直居中
-      expect(playerBox.top, equals(72.0));
+      // 验证播放器紧贴顶部 padding 16px（沉浸式无 AppBar），绝非垂直居中
+      expect(playerBox.top, equals(16.0));
     });
 
     testWidgets('1000x800 中等窗口下右侧栏削减 15% 后触发 306px 保底下限', (tester) async {
@@ -142,6 +142,39 @@ void main() {
       await tester.tap(find.widgetWithText(Tab, '视频源'));
       await tester.pumpAndSettle();
       expect(find.byKey(keySource), findsOneWidget);
+    });
+
+    testWidgets('桌面端常驻左下角半透明悬浮返回按钮，点击响应 onBackPressed', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1920, 1080));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      var backPressedCount = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: VideoPlayerDesktopLayout(
+            title: '测试返回按钮',
+            onBackPressed: () => backPressedCount++,
+            playerWidget: const SizedBox(),
+            tabSection: const SizedBox(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 验证存在桌面端左下角悬浮返回按钮
+      final backButtonFinder = find.byType(DesktopFloatingBackButton);
+      expect(backButtonFinder, findsOneWidget);
+
+      // 验证按钮位置在左下角 (left: 24, bottom: 24)
+      final rect = tester.getRect(backButtonFinder);
+      expect(rect.left, equals(24.0));
+      expect(rect.bottom, equals(1080.0 - 24.0));
+
+      // 验证点击触发返回回调
+      await tester.tap(backButtonFinder);
+      await tester.pumpAndSettle();
+      expect(backPressedCount, equals(1));
     });
   });
 }

@@ -1477,6 +1477,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         selectedSourceName: _selectedSourceName,
         hasEpisodes: _currentEpisodes.isNotEmpty,
         onBackPressed: _handleBackPressed,
+        showBackAndTitle: !effectiveIsDesktop || isFullscreen,
         onPlayPressed: () {
           if (_currentEpisodes.isNotEmpty) {
             _selectEpisode(_activeEpisode ?? 1);

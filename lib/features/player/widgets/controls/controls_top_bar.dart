@@ -87,6 +87,8 @@ class PlayerControlsTopBar extends StatelessWidget {
     this.onOpenSidePanel,
     this.onScreenshot,
     this.danmakuController,
+    this.showBack = true,
+    this.showTitle = true,
   });
 
   final String title;
@@ -97,6 +99,8 @@ class PlayerControlsTopBar extends StatelessWidget {
   final ValueChanged<PlayerSidePanelTab>? onOpenSidePanel;
   final VoidCallback? onScreenshot;
   final DanmakuController? danmakuController;
+  final bool showBack;
+  final bool showTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -109,9 +113,20 @@ class PlayerControlsTopBar extends StatelessWidget {
             final isCompact = constraints.maxWidth < 720;
             const btnSpacing = 4.0;
 
+            final hasBack = showBack && onBackPressed != null;
+            final hasTitle = showTitle && title.isNotEmpty;
+            final hasRightButtons = onOpenEpisodePicker != null ||
+                onOpenSidePanel != null ||
+                onScreenshot != null;
+
+            // 若既无返回键、无标题、亦无右侧操作，直接收缩不占位
+            if (!hasBack && !hasTitle && !hasRightButtons) {
+              return const SizedBox.shrink();
+            }
+
             return Row(
               children: [
-                if (onBackPressed != null) ...[
+                if (hasBack) ...[
                   ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: BackdropFilter(
@@ -141,28 +156,31 @@ class PlayerControlsTopBar extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                 ],
-                Expanded(
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14.0,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.2,
-                      fontFamily: 'MiSans',
-                      fontFamilyFallback: FontManager.fallbackFontFamilies,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black54,
-                          blurRadius: 6,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
+                if (hasTitle)
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14.0,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                        fontFamily: 'MiSans',
+                        fontFamilyFallback: FontManager.fallbackFontFamilies,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black54,
+                            blurRadius: 6,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
+                  )
+                else
+                  const Spacer(),
                 if (onOpenEpisodePicker != null || onOpenSidePanel != null) ...[
                   const SizedBox(width: 6),
                   PlayerPillButton(

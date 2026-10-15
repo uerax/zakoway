@@ -16,6 +16,7 @@ class VideoPlayerInitialPlaceholder extends StatelessWidget {
     required this.hasEpisodes,
     required this.onBackPressed,
     this.onPlayPressed,
+    this.showBackAndTitle = true,
   });
 
   final String coverUrl;
@@ -25,6 +26,7 @@ class VideoPlayerInitialPlaceholder extends StatelessWidget {
   final bool hasEpisodes;
   final VoidCallback onBackPressed;
   final VoidCallback? onPlayPressed;
+  final bool showBackAndTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -74,12 +76,13 @@ class VideoPlayerInitialPlaceholder extends StatelessWidget {
           ),
         ),
 
-        // 4. 顶部返回与标题（注入字体回退链，杜绝 Windows 宋体）
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: SafeArea(
+        // 4. 顶部返回与标题（仅在允许时展示，桌面非全屏下隐藏以保持极简）
+        if (showBackAndTitle)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
             bottom: false,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
