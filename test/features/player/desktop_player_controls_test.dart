@@ -22,7 +22,8 @@ void main() {
   });
 
   group('DesktopPlayerControls 桌面端专属控制与手势测试', () {
-    testWidgets('DesktopPlayerGestureLayer: 单击触发播放/暂停', (tester) async {
+    testWidgets('DesktopPlayerGestureLayer: 单击即刻触发播放/暂停（无双击延迟判定）',
+        (tester) async {
       bool activityReported = false;
 
       await tester.pumpWidget(
@@ -33,7 +34,6 @@ void main() {
               height: 450,
               child: DesktopPlayerGestureLayer(
                 controller: controller,
-                onToggleFullscreen: () {},
                 onUserActivity: () => activityReported = true,
                 onHideControls: () {},
                 isControlsVisible: true,
@@ -45,38 +45,10 @@ void main() {
 
       expect(controller.core.value.playing, isFalse);
       await tester.tap(find.byType(DesktopPlayerGestureLayer));
-      await tester.pump(const Duration(milliseconds: 350));
+      // 无双击等待计时器，微任务/单帧即刻触发播放
+      await tester.pump();
       expect(controller.core.value.playing, isTrue);
       expect(activityReported, isTrue);
-    });
-
-    testWidgets('DesktopPlayerGestureLayer: 双击触发全屏', (tester) async {
-      bool fullscreenToggled = false;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              width: 800,
-              height: 450,
-              child: DesktopPlayerGestureLayer(
-                controller: controller,
-                onToggleFullscreen: () => fullscreenToggled = true,
-                onUserActivity: () {},
-                onHideControls: () {},
-                isControlsVisible: true,
-              ),
-            ),
-          ),
-        ),
-      );
-
-      final finder = find.byType(DesktopPlayerGestureLayer);
-      await tester.tap(finder);
-      await tester.pump(const Duration(milliseconds: 50));
-      await tester.tap(finder);
-      await tester.pumpAndSettle();
-      expect(fullscreenToggled, isTrue);
     });
 
     testWidgets('DesktopPlayerControls: 鼠标移入音量键悬停展开，移入面板后保持展开不消失，且滚轮调节音量',

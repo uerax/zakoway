@@ -31,7 +31,7 @@ enum _DesktopActivePanel {
 }
 
 /// 桌面端专属播放器控制层：
-/// 1. 深度适配键鼠：单击播放暂停、双击全屏、鼠标静止 2.5s 自动隐藏光标与控件；
+/// 1. 深度适配键鼠：单击即刻播放暂停（无双击判定延迟）、鼠标静止 2.5s 自动隐藏光标与控件；
 /// 2. 悬停展开音量滑槽，且仅在悬停区内允许滚轮微调音量；
 /// 3. Popover 浮动面板：窗口与全屏模式下均在播放器内部右下角展开，彻底杜绝移动端 BottomSheet；
 /// 4. 完备的键盘快捷键（Space/K, F/Enter, Esc, J/L, 方向键, [, ], <, >, 0-9, D, C, S, ?）。
@@ -819,17 +819,10 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
           return Stack(
             fit: StackFit.expand,
             children: [
-              // 1. 底层桌面端鼠标感知层 (单击暂停、双击全屏、2.5s 静止隐藏光标)
+              // 1. 底层桌面端鼠标感知层 (单击即刻暂停/播放、2.5s 静止隐藏光标)
               Positioned.fill(
                 child: DesktopPlayerGestureLayer(
                   controller: widget.controller,
-                  onToggleFullscreen: () {
-                    if (widget.onToggleTrueFullscreen != null) {
-                      widget.onToggleTrueFullscreen?.call();
-                    } else {
-                      widget.onToggleFullscreen?.call();
-                    }
-                  },
                   onUserActivity: _handleUserActivity,
                   onHideControls: _hideControls,
                   isControlsVisible: _visible,

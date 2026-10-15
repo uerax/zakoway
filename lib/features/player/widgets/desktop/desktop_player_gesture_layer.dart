@@ -3,14 +3,13 @@ import 'package:flutter/material.dart';
 import '../../controller/playback_controller.dart';
 
 /// 桌面端指针感知与交互层：
-/// 1. 严格契合桌面键鼠直觉：单击画面即刻播放/暂停，双击画面即刻进入/退出全屏；
+/// 1. 严格契合桌面键鼠直觉：单击画面即刻播放/暂停（无双击判定延迟）；
 /// 2. 鼠标光标与控制栏智能隐藏：全屏或窗口播放中，鼠标静止超过 2.5 秒后自动隐藏光标与控件；
 /// 3. 彻底禁用移动端拖拽手势（避免鼠标误触屏幕亮度或横向拖动 Seek）。
 class DesktopPlayerGestureLayer extends StatefulWidget {
   const DesktopPlayerGestureLayer({
     super.key,
     required this.controller,
-    required this.onToggleFullscreen,
     required this.onUserActivity,
     required this.onHideControls,
     required this.isControlsVisible,
@@ -19,7 +18,6 @@ class DesktopPlayerGestureLayer extends StatefulWidget {
   });
 
   final ZakowayPlaybackController controller;
-  final VoidCallback onToggleFullscreen;
   final VoidCallback onUserActivity;
   final VoidCallback onHideControls;
   final bool isControlsVisible;
@@ -92,11 +90,6 @@ class _DesktopPlayerGestureLayerState extends State<DesktopPlayerGestureLayer> {
           widget.onRequestFocus?.call();
           _onPointerHover();
           widget.controller.togglePlay();
-        },
-        onDoubleTap: () {
-          widget.onRequestFocus?.call();
-          _onPointerHover();
-          widget.onToggleFullscreen();
         },
       ),
     );
