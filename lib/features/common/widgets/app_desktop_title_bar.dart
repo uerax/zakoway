@@ -78,35 +78,17 @@ class _AppDesktopWindowFrameState extends State<AppDesktopWindowFrame>
       return widget.child;
     }
 
-    final mediaQuery = MediaQuery.of(context);
-    final topPadding = _isFullScreen ? 0.0 : 44.0;
+    final theme = Theme.of(context);
 
-    return MediaQuery(
-      data: mediaQuery.copyWith(
-        padding: mediaQuery.padding.copyWith(top: topPadding),
-        viewPadding: mediaQuery.viewPadding.copyWith(top: topPadding),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            // 0. 页面内容、壁纸与主题背景 100% 通顶铺满整个窗口视口，消灭割裂黑条
-            Positioned.fill(
-              child: widget.child,
-            ),
-
-            // 1. 悬浮平台自适应沉浸顶栏（全屏播放时自动隐藏）
-            if (!_isFullScreen)
-              const Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 44.0,
-                child: AppDesktopTitleBar(),
-              ),
-          ],
-        ),
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: Column(
+        children: [
+          // 0. 桌面端自适应沉浸顶栏（与当前全局主题 100% 融合底色，全屏时自动收缩隐藏）
+          if (!_isFullScreen) const AppDesktopTitleBar(),
+          // 1. 页面内容呈现区：滚动视图严格在此边界内裁剪，绝对不向上穿透重叠
+          Expanded(child: widget.child),
+        ],
       ),
     );
   }
@@ -195,8 +177,9 @@ class _AppDesktopTitleBarState extends State<AppDesktopTitleBar> with WindowList
       },
     );
 
-    return SizedBox(
+    return Container(
       height: widget.height,
+      color: theme.scaffoldBackgroundColor,
       child: Material(
         color: Colors.transparent,
         child: Row(
