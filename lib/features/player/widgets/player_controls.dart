@@ -46,6 +46,9 @@ class PlayerControls extends StatefulWidget {
     this.opedSegment,
     this.autoSkipOped = true,
     this.autoPlayNextNotifier,
+    this.bangumiId,
+    this.canonicalEpisode,
+    this.officialDurationSeconds,
   });
 
   final ZakowayPlaybackController controller;
@@ -66,6 +69,9 @@ class PlayerControls extends StatefulWidget {
   final EpisodeOpedSegment? opedSegment;
   final bool autoSkipOped;
   final ValueNotifier<bool>? autoPlayNextNotifier;
+  final int? bangumiId;
+  final int? canonicalEpisode;
+  final int? officialDurationSeconds;
 
   @override
   State<PlayerControls> createState() => _PlayerControlsState();
@@ -131,7 +137,9 @@ class _PlayerControlsState extends State<PlayerControls> {
   @override
   void initState() {
     super.initState();
-    _autoSkipOpedNotifier = ValueNotifier<bool>(widget.autoSkipOped);
+    _autoSkipOpedNotifier =
+        ValueNotifier<bool>(PlayerPreferencesService.instance.autoSkipOped);
+    _autoSkipOpedNotifier.addListener(_onAutoSkipSettingChanged);
     if (widget.autoPlayNextNotifier != null) {
       _autoPlayNextNotifier = widget.autoPlayNextNotifier!;
       _internalAutoPlayNext = false;
@@ -150,6 +158,11 @@ class _PlayerControlsState extends State<PlayerControls> {
     });
   }
 
+  void _onAutoSkipSettingChanged() {
+    PlayerPreferencesService.instance
+        .saveAutoSkipOped(_autoSkipOpedNotifier.value);
+  }
+
   void _onCoreStateChanged() {
     final isPlaying = widget.controller.core.value.playing;
     if (isPlaying != _lastPlaying) {
@@ -164,7 +177,8 @@ class _PlayerControlsState extends State<PlayerControls> {
   @override
   void didUpdateWidget(covariant PlayerControls oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.opedSegment != widget.opedSegment) {
+    if (oldWidget.opedSegment != widget.opedSegment ||
+        oldWidget.canonicalEpisode != widget.canonicalEpisode) {
       _hasSkippedOp = false;
       _hasSkippedEd = false;
       _hasUndoneSkip = false;
@@ -192,6 +206,7 @@ class _PlayerControlsState extends State<PlayerControls> {
     _lockButtonHideTimer?.cancel();
     _keyboardFocusNode.dispose();
     _brightnessNotifier.dispose();
+    _autoSkipOpedNotifier.removeListener(_onAutoSkipSettingChanged);
     _autoSkipOpedNotifier.dispose();
     if (_internalAutoPlayNext) {
       _autoPlayNextNotifier.dispose();
@@ -220,6 +235,17 @@ class _PlayerControlsState extends State<PlayerControls> {
     final seg = widget.opedSegment;
     if (seg == null || !_autoSkipOpedNotifier.value || _hasUndoneSkip) return;
     if (!widget.controller.core.value.playing) return;
+
+    final totalDuration = widget.controller.timeline.value.duration.inSeconds;
+    if (totalDuration <= 0) return; // 视频尚未出画出时长
+
+    // 容灾检查：Bangumi 官方片长比对，差距超过 10 秒直接熔断拦截
+    final officialDur = widget.officialDurationSeconds ?? 0;
+    if (officialDur > 0) {
+      if ((totalDuration - officialDur).abs() > 10) {
+        return; // 时长差距超过 10 秒，容灾熔断，禁用自动跳过
+      }
+    }
 
     final posSec = widget.controller.timeline.value.position.inSeconds;
 
@@ -958,6 +984,7 @@ class _PlayerControlsState extends State<PlayerControls> {
                           primaryColor: primaryColor,
                           danmakuController: widget.danmakuController,
                           opedSegment: widget.opedSegment,
+                          officialDurationSeconds: widget.officialDurationSeconds,
                           isFullscreen: widget.isFullscreen,
                           isAppFullscreen: widget.isAppFullscreen,
                           isTrueFullscreen: widget.isTrueFullscreen,

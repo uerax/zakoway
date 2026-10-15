@@ -51,6 +51,9 @@ class MobilePlayerControls extends StatefulWidget {
     this.opedSegment,
     this.autoSkipOped = true,
     this.autoPlayNextNotifier,
+    this.bangumiId,
+    this.canonicalEpisode,
+    this.officialDurationSeconds,
   });
 
   final ZakowayPlaybackController controller;
@@ -71,6 +74,9 @@ class MobilePlayerControls extends StatefulWidget {
   final EpisodeOpedSegment? opedSegment;
   final bool autoSkipOped;
   final ValueNotifier<bool>? autoPlayNextNotifier;
+  final int? bangumiId;
+  final int? canonicalEpisode;
+  final int? officialDurationSeconds;
 
   @override
   State<MobilePlayerControls> createState() => _MobilePlayerControlsState();
@@ -128,7 +134,8 @@ class _MobilePlayerControlsState extends State<MobilePlayerControls> {
   void initState() {
     super.initState();
     _autoSkipOpedNotifier =
-        ValueNotifier<bool>(widget.autoSkipOped);
+        ValueNotifier<bool>(PlayerPreferencesService.instance.autoSkipOped);
+    _autoSkipOpedNotifier.addListener(_onAutoSkipSettingChanged);
     if (widget.autoPlayNextNotifier != null) {
       _autoPlayNextNotifier = widget.autoPlayNextNotifier!;
     } else {
@@ -140,10 +147,16 @@ class _MobilePlayerControlsState extends State<MobilePlayerControls> {
     _startHideTimer();
   }
 
+  void _onAutoSkipSettingChanged() {
+    PlayerPreferencesService.instance
+        .saveAutoSkipOped(_autoSkipOpedNotifier.value);
+  }
+
   @override
   void didUpdateWidget(MobilePlayerControls oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.opedSegment != widget.opedSegment) {
+    if (oldWidget.opedSegment != widget.opedSegment ||
+        oldWidget.canonicalEpisode != widget.canonicalEpisode) {
       _hasSkippedOp = false;
       _hasSkippedEd = false;
       _hasUndoneSkip = false;
@@ -158,6 +171,7 @@ class _MobilePlayerControlsState extends State<MobilePlayerControls> {
     _skipToastTimer?.cancel();
     _screenshotFeedbackTimer?.cancel();
     _brightnessNotifier.dispose();
+    _autoSkipOpedNotifier.removeListener(_onAutoSkipSettingChanged);
     _autoSkipOpedNotifier.dispose();
     if (_internalAutoPlayNext) {
       _autoPlayNextNotifier.dispose();
@@ -170,28 +184,41 @@ class _MobilePlayerControlsState extends State<MobilePlayerControls> {
     final seg = widget.opedSegment;
     if (seg == null) return;
 
-    final pos = widget.controller.timeline.value.position.inSeconds;
-    final autoSkip = _autoSkipOpedNotifier.value;
+    final totalDuration = widget.controller.timeline.value.duration.inSeconds;
+    if (totalDuration <= 0) return; // 视频尚未出画出时长
 
-    if (autoSkip && !_hasUndoneSkip) {
-      if (seg.hasOp &&
-          !_hasSkippedOp &&
-          pos >= seg.opStart! &&
-          pos < seg.opEnd!) {
-        _hasSkippedOp = true;
-        _lastSkippedType = 'op';
-        widget.controller.seek(Duration(seconds: seg.opEnd!));
-        _triggerSkipToast('已自动跳过片头');
+    // 容灾检查：Bangumi 官方片长比对，差距超过 10 秒直接熔断拦截
+    final officialDur = widget.officialDurationSeconds ?? 0;
+    if (officialDur > 0) {
+      if ((totalDuration - officialDur).abs() > 10) {
+        return; // 时长差距超过 10 秒，容灾熔断，禁用自动跳过
       }
-      if (seg.hasEd &&
-          !_hasSkippedEd &&
-          pos >= seg.edStart! &&
-          pos < seg.edEnd!) {
-        _hasSkippedEd = true;
-        _lastSkippedType = 'ed';
-        widget.controller.seek(Duration(seconds: seg.edEnd!));
-        _triggerSkipToast('已自动跳过片尾');
-      }
+    }
+
+    final autoSkip = _autoSkipOpedNotifier.value;
+    if (!autoSkip || _hasUndoneSkip) return;
+
+    final pos = widget.controller.timeline.value.position.inSeconds;
+
+    if (seg.hasOp &&
+        !_hasSkippedOp &&
+        pos >= seg.opStart! &&
+        pos < seg.opEnd!) {
+      _hasSkippedOp = true;
+      _lastSkippedType = 'op';
+      widget.controller.seek(Duration(seconds: seg.opEnd!));
+      _triggerSkipToast('已自动跳过片头');
+      return;
+    }
+    if (seg.hasEd &&
+        !_hasSkippedEd &&
+        pos >= seg.edStart! &&
+        pos < seg.edEnd!) {
+      _hasSkippedEd = true;
+      _lastSkippedType = 'ed';
+      widget.controller.seek(Duration(seconds: seg.edEnd!));
+      _triggerSkipToast('已自动跳过片尾');
+      return;
     }
   }
 
@@ -715,6 +742,7 @@ class _MobilePlayerControlsState extends State<MobilePlayerControls> {
                         primaryColor: primaryColor,
                         danmakuController: widget.danmakuController,
                         opedSegment: widget.opedSegment,
+                        officialDurationSeconds: widget.officialDurationSeconds,
                         isFullscreen: widget.isFullscreen,
                         isAppFullscreen: widget.isAppFullscreen,
                         isTrueFullscreen: widget.isTrueFullscreen,

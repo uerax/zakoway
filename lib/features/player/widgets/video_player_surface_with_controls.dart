@@ -36,6 +36,9 @@ class VideoPlayerSurfaceWithControls extends StatelessWidget {
     required this.onRetryResolve,
     required this.onSwitchSource,
     this.autoPlayNextNotifier,
+    this.bangumiId,
+    this.canonicalEpisode,
+    this.officialDurationSeconds,
   });
 
   final ZakowayPlaybackController controller;
@@ -61,6 +64,9 @@ class VideoPlayerSurfaceWithControls extends StatelessWidget {
   final VoidCallback onRetryResolve;
   final VoidCallback onSwitchSource;
   final ValueNotifier<bool>? autoPlayNextNotifier;
+  final int? bangumiId;
+  final int? canonicalEpisode;
+  final int? officialDurationSeconds;
 
   @override
   Widget build(BuildContext context) {
@@ -85,6 +91,9 @@ class VideoPlayerSurfaceWithControls extends StatelessWidget {
             onPrevEpisode: onPrevEpisode,
             opedSegment: opedSegment,
             autoPlayNextNotifier: autoPlayNextNotifier,
+            bangumiId: bangumiId,
+            canonicalEpisode: canonicalEpisode,
+            officialDurationSeconds: officialDurationSeconds,
           )
         : MobilePlayerControls(
             controller: controller,
@@ -104,6 +113,9 @@ class VideoPlayerSurfaceWithControls extends StatelessWidget {
             onPrevEpisode: onPrevEpisode,
             opedSegment: opedSegment,
             autoPlayNextNotifier: autoPlayNextNotifier,
+            bangumiId: bangumiId,
+            canonicalEpisode: canonicalEpisode,
+            officialDurationSeconds: officialDurationSeconds,
           );
 
     return Stack(

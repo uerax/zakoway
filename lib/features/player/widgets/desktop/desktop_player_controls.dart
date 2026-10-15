@@ -56,6 +56,9 @@ class DesktopPlayerControls extends StatefulWidget {
     this.opedSegment,
     this.autoSkipOped = true,
     this.autoPlayNextNotifier,
+    this.bangumiId,
+    this.canonicalEpisode,
+    this.officialDurationSeconds,
   });
 
   final ZakowayPlaybackController controller;
@@ -76,6 +79,9 @@ class DesktopPlayerControls extends StatefulWidget {
   final EpisodeOpedSegment? opedSegment;
   final bool autoSkipOped;
   final ValueNotifier<bool>? autoPlayNextNotifier;
+  final int? bangumiId;
+  final int? canonicalEpisode;
+  final int? officialDurationSeconds;
 
   @override
   State<DesktopPlayerControls> createState() => _DesktopPlayerControlsState();
@@ -119,7 +125,8 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
     super.initState();
     _keyboardFocusNode = FocusNode();
     _autoSkipOpedNotifier =
-        ValueNotifier<bool>(widget.autoSkipOped);
+        ValueNotifier<bool>(PlayerPreferencesService.instance.autoSkipOped);
+    _autoSkipOpedNotifier.addListener(_onAutoSkipSettingChanged);
     if (widget.autoPlayNextNotifier != null) {
       _autoPlayNextNotifier = widget.autoPlayNextNotifier!;
     } else {
@@ -131,10 +138,16 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
     _startHideTimer();
   }
 
+  void _onAutoSkipSettingChanged() {
+    PlayerPreferencesService.instance
+        .saveAutoSkipOped(_autoSkipOpedNotifier.value);
+  }
+
   @override
   void didUpdateWidget(DesktopPlayerControls oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.opedSegment != widget.opedSegment) {
+    if (oldWidget.opedSegment != widget.opedSegment ||
+        oldWidget.canonicalEpisode != widget.canonicalEpisode) {
       _hasSkippedOp = false;
       _hasSkippedEd = false;
       _hasUndoneSkip = false;
@@ -149,6 +162,7 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
     _skipToastTimer?.cancel();
     _screenshotFeedbackTimer?.cancel();
     _keyboardFocusNode.dispose();
+    _autoSkipOpedNotifier.removeListener(_onAutoSkipSettingChanged);
     _autoSkipOpedNotifier.dispose();
     if (_internalAutoPlayNext) {
       _autoPlayNextNotifier.dispose();
@@ -202,28 +216,41 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
     final seg = widget.opedSegment;
     if (seg == null) return;
 
-    final pos = widget.controller.timeline.value.position.inSeconds;
-    final autoSkip = _autoSkipOpedNotifier.value;
+    final totalDuration = widget.controller.timeline.value.duration.inSeconds;
+    if (totalDuration <= 0) return; // 视频尚未出画出时长
 
-    if (autoSkip && !_hasUndoneSkip) {
-      if (seg.hasOp &&
-          !_hasSkippedOp &&
-          pos >= seg.opStart! &&
-          pos < seg.opEnd!) {
-        _hasSkippedOp = true;
-        _lastSkippedType = 'op';
-        widget.controller.seek(Duration(seconds: seg.opEnd!));
-        _triggerSkipToast('已自动跳过片头');
+    // 容灾检查：Bangumi 官方片长比对，差距超过 10 秒直接熔断拦截
+    final officialDur = widget.officialDurationSeconds ?? 0;
+    if (officialDur > 0) {
+      if ((totalDuration - officialDur).abs() > 10) {
+        return; // 时长差距超过 10 秒，容灾熔断，禁用自动跳过
       }
-      if (seg.hasEd &&
-          !_hasSkippedEd &&
-          pos >= seg.edStart! &&
-          pos < seg.edEnd!) {
-        _hasSkippedEd = true;
-        _lastSkippedType = 'ed';
-        widget.controller.seek(Duration(seconds: seg.edEnd!));
-        _triggerSkipToast('已自动跳过片尾');
-      }
+    }
+
+    final autoSkip = _autoSkipOpedNotifier.value;
+    if (!autoSkip || _hasUndoneSkip) return;
+
+    final pos = widget.controller.timeline.value.position.inSeconds;
+
+    if (seg.hasOp &&
+        !_hasSkippedOp &&
+        pos >= seg.opStart! &&
+        pos < seg.opEnd!) {
+      _hasSkippedOp = true;
+      _lastSkippedType = 'op';
+      widget.controller.seek(Duration(seconds: seg.opEnd!));
+      _triggerSkipToast('已自动跳过片头');
+      return;
+    }
+    if (seg.hasEd &&
+        !_hasSkippedEd &&
+        pos >= seg.edStart! &&
+        pos < seg.edEnd!) {
+      _hasSkippedEd = true;
+      _lastSkippedType = 'ed';
+      widget.controller.seek(Duration(seconds: seg.edEnd!));
+      _triggerSkipToast('已自动跳过片尾');
+      return;
     }
   }
 
@@ -926,6 +953,8 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                     duration: timelineState.duration,
                                     buffer: timelineState.buffer,
                                     opedSegment: widget.opedSegment,
+                                    officialDurationSeconds:
+                                        widget.officialDurationSeconds,
                                     danmakuItems:
                                         widget.danmakuController?.items,
                                     primaryColor: primaryColor,

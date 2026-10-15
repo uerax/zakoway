@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../../core/utils/font_manager.dart';
 
 /// 自动跳过片头/片尾时的可撤销 HUD 提示浮标
 class PlayerSkipToast extends StatelessWidget {
@@ -20,6 +21,8 @@ class PlayerSkipToast extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
+    final effectiveFontFamily = FontManager.instance.activeFontFamily ?? 'MiSans';
+    const effectiveFallback = FontManager.fallbackFontFamilies;
 
     return AnimatedOpacity(
       opacity: visible ? 1.0 : 0.0,
@@ -63,7 +66,9 @@ class PlayerSkipToast extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       message,
-                      style: const TextStyle(
+                      style: TextStyle(
+                        fontFamily: effectiveFontFamily,
+                        fontFamilyFallback: effectiveFallback,
                         color: Colors.white,
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
@@ -82,9 +87,11 @@ class PlayerSkipToast extends StatelessWidget {
                           color: primaryColor,
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Text(
+                        child: Text(
                           '撤销',
                           style: TextStyle(
+                            fontFamily: effectiveFontFamily,
+                            fontFamilyFallback: effectiveFallback,
                             color: Colors.white,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,

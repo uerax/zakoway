@@ -141,6 +141,17 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   int get _effectiveBangumiId => _effectiveBangumiItem?.id ?? widget.bangumiItem?.id ?? 0;
   EpisodeOpedSegment? get _currentOpedSegment => _opedData[_activeEpisode ?? 1];
 
+  BangumiEpisode? get _currentOfficialEpisode {
+    final eps = _officialEpisodes;
+    if (eps == null || eps.isEmpty) return null;
+    final epNum = _currentCanonicalEp;
+    return eps.where((e) => e.type == 0 && ((e.ep ?? e.sort).round() == epNum || e.sort.round() == epNum)).firstOrNull ??
+        eps.where((e) => (e.ep ?? e.sort).round() == epNum).firstOrNull;
+  }
+
+  int get _currentOfficialDurationSeconds =>
+      _currentOfficialEpisode?.durationSeconds ?? 0;
+
   List<SourceEpisode> get _currentEpisodes {
     if (_chapterRoads.isEmpty) return [];
     final idx = _selectedRoadIndex.clamp(0, _chapterRoads.length - 1);
@@ -1356,6 +1367,9 @@ class _VideoPlayPageState extends State<VideoPlayPage>
           : null,
       opedSegment: _currentOpedSegment,
       autoPlayNextNotifier: _autoPlayNextNotifier,
+      bangumiId: _effectiveBangumiId,
+      canonicalEpisode: _currentCanonicalEp,
+      officialDurationSeconds: _currentOfficialDurationSeconds,
       hudToast: _hudToast,
       resolveError: _resolveError,
       primaryColor: primaryColor,

@@ -120,6 +120,7 @@ class PlayerControlsBottomBar extends StatelessWidget {
     required this.primaryColor,
     this.danmakuController,
     this.opedSegment,
+    this.officialDurationSeconds,
     this.isFullscreen = false,
     this.isAppFullscreen = false,
     this.isTrueFullscreen = false,
@@ -144,6 +145,7 @@ class PlayerControlsBottomBar extends StatelessWidget {
   final Color primaryColor;
   final DanmakuController? danmakuController;
   final EpisodeOpedSegment? opedSegment;
+  final int? officialDurationSeconds;
   final bool isFullscreen;
   final bool isAppFullscreen;
   final bool isTrueFullscreen;
@@ -237,6 +239,7 @@ class PlayerControlsBottomBar extends StatelessWidget {
                           duration: timelineState.duration,
                           buffer: timelineState.buffer,
                           opedSegment: opedSegment,
+                          officialDurationSeconds: officialDurationSeconds,
                           danmakuItems: danmakuController?.items,
                           primaryColor: primaryColor,
                           onChangeStart: (dur) {

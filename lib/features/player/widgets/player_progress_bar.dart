@@ -16,6 +16,7 @@ class PlayerProgressBar extends StatefulWidget {
     required this.duration,
     required this.buffer,
     this.opedSegment,
+    this.officialDurationSeconds,
     this.danmakuItems,
     this.primaryColor,
     required this.onChangeStart,
@@ -27,6 +28,7 @@ class PlayerProgressBar extends StatefulWidget {
   final Duration duration;
   final Duration buffer;
   final EpisodeOpedSegment? opedSegment;
+  final int? officialDurationSeconds;
   final List<DanmakuItem>? danmakuItems;
   final Color? primaryColor;
 
@@ -286,10 +288,18 @@ class _PlayerProgressBarState extends State<PlayerProgressBar> {
   List<Widget> _buildOpedMarkers(double totalWidth, double totalMs, double trackHeight) {
     final seg = widget.opedSegment!;
     final totalSec = totalMs / 1000.0;
+    if (totalSec <= 0) return const [];
+
+    // 容灾检查：当前视频总时长与 Bangumi 官方片长差距超过 10 秒，熔断不绘制
+    final officialSec = widget.officialDurationSeconds ?? 0;
+    if (officialSec > 0 && (totalSec.round() - officialSec).abs() > 10) {
+      return const [];
+    }
+
     final widgets = <Widget>[];
 
     // OP 片头高亮 (薄荷青色 #65D1C5)
-    if (seg.hasOp) {
+    if (seg.hasOp && seg.opEnd! <= totalSec) {
       final startRatio = (seg.opStart! / totalSec).clamp(0.0, 1.0);
       final endRatio = (seg.opEnd! / totalSec).clamp(0.0, 1.0);
       final left = totalWidth * startRatio;
@@ -314,7 +324,7 @@ class _PlayerProgressBarState extends State<PlayerProgressBar> {
     }
 
     // ED 片尾高亮 (暖淡橙色 #F2BA72)
-    if (seg.hasEd) {
+    if (seg.hasEd && seg.edStart! < totalSec) {
       final startRatio = (seg.edStart! / totalSec).clamp(0.0, 1.0);
       final endRatio = (seg.edEnd! / totalSec).clamp(0.0, 1.0);
       final left = totalWidth * startRatio;

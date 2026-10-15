@@ -40,11 +40,13 @@ class PlayerPreferencesService extends ChangeNotifier {
   static const String _kControlBarScaleKey = 'zakoway_player_control_bar_scale';
   static const String _kSuperResolutionModeKey = 'zakoway_player_super_resolution_mode';
   static const String _kDisableSuperResolutionWarningKey = 'zakoway_player_disable_super_res_warning';
+  static const String _kAutoSkipOpedKey = 'zakoway_player_auto_skip_oped';
 
   double _playbackRate = 1.0;
   double _volume = 0.5;
   DanmakuSettings _danmakuSettings = const DanmakuSettings();
   bool _autoPlayNext = true;
+  bool _autoSkipOped = true; // 默认开启
   PlayerControlBarScale _controlBarScale = PlayerControlBarScale.auto;
   SuperResolutionMode _superResolutionMode = SuperResolutionMode.off;
   bool _disableSuperResolutionWarning = false;
@@ -54,6 +56,7 @@ class PlayerPreferencesService extends ChangeNotifier {
   double get volume => _volume;
   DanmakuSettings get danmakuSettings => _danmakuSettings;
   bool get autoPlayNext => _autoPlayNext;
+  bool get autoSkipOped => _autoSkipOped;
   PlayerControlBarScale get controlBarScale => _controlBarScale;
   SuperResolutionMode get superResolutionMode => _superResolutionMode;
   bool get disableSuperResolutionWarning => _disableSuperResolutionWarning;
@@ -66,6 +69,7 @@ class PlayerPreferencesService extends ChangeNotifier {
       _playbackRate = sp.getDouble(_kPlaybackRateKey) ?? 1.0;
       _volume = sp.getDouble(_kVolumeKey) ?? 0.5;
       _autoPlayNext = sp.getBool(_kAutoPlayNextKey) ?? true;
+      _autoSkipOped = sp.getBool(_kAutoSkipOpedKey) ?? true;
       final scaleRaw = sp.getString(_kControlBarScaleKey);
       _controlBarScale = PlayerControlBarScale.fromString(scaleRaw);
 
@@ -173,6 +177,18 @@ class PlayerPreferencesService extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// 保存全局自动跳过片头片尾偏好设置并持久化落盘
+  Future<void> saveAutoSkipOped(bool val) async {
+    if (_autoSkipOped == val) return;
+    _autoSkipOped = val;
+    notifyListeners();
+
+    try {
+      final sp = await SharedPreferences.getInstance();
+      await sp.setBool(_kAutoSkipOpedKey, val);
+    } catch (_) {}
+  }
+
   /// 重置状态（用于测试隔离）
   @visibleForTesting
   void resetForTest() {
@@ -180,6 +196,7 @@ class PlayerPreferencesService extends ChangeNotifier {
     _volume = 0.5;
     _danmakuSettings = const DanmakuSettings();
     _autoPlayNext = true;
+    _autoSkipOped = true;
     _controlBarScale = PlayerControlBarScale.auto;
     _superResolutionMode = SuperResolutionMode.off;
     _disableSuperResolutionWarning = false;

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zakoway/core/services/bangumi_oped_service.dart';
 import 'package:zakoway/features/player/controller/playback_controller.dart';
 import 'package:zakoway/features/player/danmaku/danmaku.dart';
+import 'package:zakoway/features/player/services/player_preferences_service.dart';
 import 'package:zakoway/features/player/widgets/player_controls.dart';
 import 'package:zakoway/features/player/widgets/player_progress_bar.dart';
 import 'package:zakoway/features/player/widgets/player_skip_toast.dart';
@@ -117,20 +119,119 @@ malformed line
       expect(ended, isNotNull);
       expect(ended!.inSeconds, inInclusiveRange(65, 75));
     });
+
+    testWidgets('2. 官方片长差距超过 10 秒时，进度条自动容灾熔断（不绘制 OP/ED 颜色条）', (tester) async {
+      const oped = EpisodeOpedSegment(
+        episode: 1,
+        opStart: 10,
+        opEnd: 30,
+        edStart: 100,
+        edEnd: 120,
+      );
+
+      // 当前时长 140s，官方片长 1440s，差距超过 10 秒
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 600,
+                child: PlayerProgressBar(
+                  position: const Duration(seconds: 40),
+                  duration: const Duration(seconds: 140),
+                  buffer: const Duration(seconds: 80),
+                  opedSegment: oped,
+                  officialDurationSeconds: 1440,
+                  onChangeStart: (_) {},
+                  onChanged: (_) {},
+                  onChangeEnd: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 验证未绘制薄荷青色 OP 区间 (0xFF65D1C5)
+      final opMarkerFinder = find.byWidgetPredicate(
+        (w) => w is AnimatedContainer && w.decoration is BoxDecoration &&
+            (w.decoration as BoxDecoration).color?.toARGB32() == const Color(0xFF65D1C5).withValues(alpha: 0.9).toARGB32(),
+      );
+      expect(opMarkerFinder, findsNothing);
+    });
+
+    testWidgets('3. 官方片长差距 <= 10 秒时，进度条正常自适应绘制 OP/ED 颜色条', (tester) async {
+      const oped = EpisodeOpedSegment(
+        episode: 1,
+        opStart: 10,
+        opEnd: 30,
+        edStart: 100,
+        edEnd: 120,
+      );
+
+      // 当前时长 140s，官方片长 142s，差距 2 秒 <= 10 秒
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 600,
+                child: PlayerProgressBar(
+                  position: const Duration(seconds: 40),
+                  duration: const Duration(seconds: 140),
+                  buffer: const Duration(seconds: 80),
+                  opedSegment: oped,
+                  officialDurationSeconds: 142,
+                  onChangeStart: (_) {},
+                  onChanged: (_) {},
+                  onChangeEnd: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 验证正常绘制薄荷青色 OP 区间 (0xFF65D1C5)
+      final opMarkerFinder = find.byWidgetPredicate(
+        (w) => w is AnimatedContainer && w.decoration is BoxDecoration &&
+            (w.decoration as BoxDecoration).color?.toARGB32() == const Color(0xFF65D1C5).withValues(alpha: 0.9).toARGB32(),
+      );
+      expect(opMarkerFinder, findsOneWidget);
+    });
   });
 
-  group('PlayerControls 自动跳过片头与撤销联动测试', () {
+  group('PlayerControls 自动跳过片头片尾与片长容灾测试', () {
     late ZakowayPlaybackController controller;
 
     setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      PlayerPreferencesService.instance.resetForTest();
       controller = ZakowayPlaybackController();
     });
 
     tearDown(() async {
       await controller.dispose();
+      PlayerPreferencesService.instance.resetForTest();
     });
 
-    testWidgets('1. 播放行进至 OP 区间时自动触发跳过并弹出撤销 Toast，点击撤销可回跳',
+    test('1. 自动跳过片头片尾默认开启，且切换后自动持久化记住设置', () async {
+      expect(PlayerPreferencesService.instance.autoSkipOped, isTrue);
+
+      await PlayerPreferencesService.instance.saveAutoSkipOped(false);
+      expect(PlayerPreferencesService.instance.autoSkipOped, isFalse);
+
+      final sp = await SharedPreferences.getInstance();
+      expect(sp.getBool('zakoway_player_auto_skip_oped'), isFalse);
+
+      await PlayerPreferencesService.instance.saveAutoSkipOped(true);
+      expect(PlayerPreferencesService.instance.autoSkipOped, isTrue);
+      expect(sp.getBool('zakoway_player_auto_skip_oped'), isTrue);
+    });
+
+    testWidgets('2. 开启自动跳过时，步入 OP 区间自动触发跳过并弹出撤销 Toast，点击撤销可回跳',
         (tester) async {
       const oped = EpisodeOpedSegment(
         episode: 1,
@@ -158,7 +259,7 @@ malformed line
       );
       await tester.pumpAndSettle();
 
-      // 模拟视频起播中，并且播放时间步进到 11 秒（OP 起始点之内）
+      // 步入 OP 区间（11 秒）
       controller.core.value = controller.core.value.copyWith(playing: true);
       controller.timeline.value = controller.timeline.value.copyWith(
         position: const Duration(seconds: 11),
@@ -174,13 +275,146 @@ malformed line
       expect(find.byType(PlayerSkipToast), findsOneWidget);
       expect(find.text('撤销'), findsOneWidget);
 
-      // 点击撤销
+      // 点击撤销回跳
       await tester.tap(find.text('撤销'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      // 验证回跳到 OP 起始点 10 秒
       expect(controller.timeline.value.position.inSeconds, equals(10));
+    });
+
+    testWidgets('3. 关闭自动跳过时，步入 OP/ED 区间不自动跳过且不弹窗',
+        (tester) async {
+      const oped = EpisodeOpedSegment(
+        episode: 1,
+        opStart: 10,
+        opEnd: 30,
+        edStart: 100,
+        edEnd: 120,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: PlayerControls(
+                controller: controller,
+                title: '关闭跳过测试',
+                opedSegment: oped,
+                autoSkipOped: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 步入 OP 区间
+      controller.core.value = controller.core.value.copyWith(playing: true);
+      controller.timeline.value = controller.timeline.value.copyWith(
+        position: const Duration(seconds: 15),
+        duration: const Duration(seconds: 140),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // 验证不跳转，不显示 Toast
+      expect(controller.timeline.value.position.inSeconds, equals(15));
+      expect(tester.widget<PlayerSkipToast>(find.byType(PlayerSkipToast)).visible, isFalse);
+    });
+
+    testWidgets('4. 容灾拦截：Bangumi 官方片长差距超过 10 秒时，熔断禁用（不触发跳过亦不弹窗）',
+        (tester) async {
+      const oped = EpisodeOpedSegment(
+        episode: 1,
+        opStart: 10,
+        opEnd: 30,
+        edStart: 100,
+        edEnd: 120,
+      );
+
+      // 官方片长为 1440 秒（24分钟），当前视频为 PV 仅有 100 秒（差距 1340 秒 > 10 秒）
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: PlayerControls(
+                controller: controller,
+                title: '容灾拦截测试',
+                bangumiId: 1004,
+                canonicalEpisode: 1,
+                officialDurationSeconds: 1440,
+                opedSegment: oped,
+                autoSkipOped: true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 步入 OP 区间（11 秒）
+      controller.core.value = controller.core.value.copyWith(playing: true);
+      controller.timeline.value = controller.timeline.value.copyWith(
+        position: const Duration(seconds: 11),
+        duration: const Duration(seconds: 100),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // 验证被容灾拦截熔断：绝不跳转，绝不弹出任何浮标
+      expect(controller.timeline.value.position.inSeconds, equals(11));
+      expect(tester.widget<PlayerSkipToast>(find.byType(PlayerSkipToast)).visible, isFalse);
+    });
+
+    testWidgets('5. 容灾放行：Bangumi 官方片长差距在 10 秒以内时，正常放行启用',
+        (tester) async {
+      const oped = EpisodeOpedSegment(
+        episode: 2,
+        opStart: 10,
+        opEnd: 30,
+        edStart: 100,
+        edEnd: 120,
+      );
+
+      // 官方片长为 1440 秒，当前视频为 1445 秒（差距 5 秒 <= 10 秒）
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
+              child: PlayerControls(
+                controller: controller,
+                title: '容灾放行测试',
+                bangumiId: 1005,
+                canonicalEpisode: 2,
+                officialDurationSeconds: 1440,
+                opedSegment: oped,
+                autoSkipOped: true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 步入 OP 区间（11 秒）
+      controller.core.value = controller.core.value.copyWith(playing: true);
+      controller.timeline.value = controller.timeline.value.copyWith(
+        position: const Duration(seconds: 11),
+        duration: const Duration(seconds: 1445),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // 验证正常放行并跳转至 30 秒
+      expect(controller.timeline.value.position.inSeconds, equals(30));
+      expect(find.text('撤销'), findsOneWidget);
     });
   });
 }

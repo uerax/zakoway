@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:zakoway/core/network/bangumi_data_disk_cache_manager.dart';
@@ -637,8 +636,8 @@ class XifanNextSource extends VideoSource {
     );
 
     // 特殊处理说明：
-    // 若指定 source_id 时返回 not_found（常见于老番或非新番剧集，源站未配置该特定线路），
-    // 自动移除 source_id 回退请求全局默认候选源，避免剧集直接报错中断播放
+    // 若指定 source_id 时返回 not_found（源站未配置该特定线路），
+    // 自动移除 source_id 回退请求全局默认候选源，获取当前可用的备选线路
     if ((res is! Map || res['ok'] != true) && sourceId != null) {
       _log('指定 source_id=$sourceId 签发失败，尝试不带 source_id 请求默认可用线路...');
       final retryBody = Map<String, dynamic>.from(reqBody)..remove('source_id');
@@ -650,20 +649,6 @@ class XifanNextSource extends VideoSource {
       );
       if (retryRes is Map && retryRes['ok'] == true) {
         res = retryRes;
-      }
-    }
-
-    // 若 fallback 依然未成功，对齐 animaku 机制尝试 action: 'hls'
-    if (res is! Map || res['ok'] != true) {
-      _log('fallback 模式未成功，尝试 action: "hls" 签发直链...');
-      final hlsRes = await _fetchSupabase(
-        '/functions/v1/issue-web-playback',
-        method: 'POST',
-        body: {'action': 'hls', 'episode_id': episodeId},
-        timeout: const Duration(seconds: 8),
-      );
-      if (hlsRes is Map && hlsRes['ok'] == true) {
-        res = hlsRes;
       }
     }
 
@@ -682,7 +667,7 @@ class XifanNextSource extends VideoSource {
 
     String playUrl = '';
 
-    // 1. 若指定了 sourceId，严格在 candidates 中匹配该 sourceId 的源，绝不搞跨线路篡改
+    // 1. 若指定了 sourceId，优先严格在 candidates 中匹配该 sourceId 的源，绝不搞跨线路篡改
     if (sourceId != null && candidates.isNotEmpty) {
       final matched = candidates.firstWhere(
         (c) {
@@ -697,7 +682,7 @@ class XifanNextSource extends VideoSource {
       }
     }
 
-    // 2. 若通过 sourceCode 匹配
+    // 2. 若未匹配到，但指定了 sourceCode，尝试通过 sourceCode 匹配
     if (playUrl.isEmpty && sourceCode.isNotEmpty && candidates.isNotEmpty) {
       final target = sourceCode.toLowerCase().trim();
       final matched = candidates.firstWhere(
@@ -710,62 +695,15 @@ class XifanNextSource extends VideoSource {
       }
     }
 
-    // 3. 若指定线路未单独匹配到，但接口给出了候选列表（通常为未传 source_id 的通用链接），严格按源返回提取直链
-    if (playUrl.isEmpty && candidates.isNotEmpty) {
-      // 特殊处理说明：
-      // 默认未指定线路或指定线路降级时，挑选候选源的优先级规则：
-      // 1. 新番主线 xfxf1（国内沃云直链，当季新番最高清极速，必须保持第一优先级）；
-      // 2. 旧番主线 xfy2（海外直链，完结/老番主线；避免老番因无 xfxf1 而错误跌入可能宕机的切片源）；
-      // 3. 接口推荐根地址 res['url']（源站返回的默认推荐播放流，通常为主线可用 CDN）；
-      // 4. 首个非 CS 候选源（保障可用性，优先避开不稳定备用源）；
-      // 5. 最后兜底国内备用 HLS cs（dl.playxf.top 常发生宕机/SSL握手切断异常，绝不可在老番中盲目优先选用）。
-      final xfxf1 = candidates.firstWhere(
-        (c) => (c['source_code']?.toString().toLowerCase() == 'xfxf1'),
-        orElse: () => const {},
-      );
-      if (xfxf1.isNotEmpty && xfxf1['url'] != null) {
-        playUrl = xfxf1['url'].toString();
-        _log('未指定线路，默认采用国内新番主线: $playUrl');
-      } else {
-        final xfy2 = candidates.firstWhere(
-          (c) => (c['source_code']?.toString().toLowerCase() == 'xfy2'),
-          orElse: () => const {},
-        );
-        if (xfy2.isNotEmpty && xfy2['url'] != null) {
-          playUrl = xfy2['url'].toString();
-          _log('未指定线路，默认采用旧番主线: $playUrl');
-        } else if (res['url'] != null && res['url'].toString().trim().isNotEmpty) {
-          playUrl = res['url'].toString().trim();
-          _log('未指定线路，默认采用接口根推荐直链: $playUrl');
-        } else {
-          final nonCs = candidates.firstWhere(
-            (c) => (c['source_code']?.toString().toLowerCase() != 'cs'),
-            orElse: () => const {},
-          );
-          if (nonCs.isNotEmpty && nonCs['url'] != null) {
-            playUrl = nonCs['url'].toString();
-            _log('未指定线路，采用非备用候选源: $playUrl');
-          } else {
-            final backup = candidates.firstWhere(
-              (c) => (c['source_code']?.toString().toLowerCase() == 'cs'),
-              orElse: () => const {},
-            );
-            if (backup.isNotEmpty && backup['url'] != null) {
-              playUrl = backup['url'].toString();
-              _log('未指定线路，采用国内备用 HLS: $playUrl');
-            } else {
-              playUrl = candidates.first['url']?.toString() ?? '';
-              _log('未指定线路，采用首个候选源: $playUrl');
-            }
-          }
-        }
-      }
-    }
-
-    // 4. 兜底直接取 root url
+    // 3. 若指定线路在 candidates 中未能匹配（例如用户访问无参链接或所选线路未下发专属候选），回退采用接口返回的默认推荐直链或首个候选
     if (playUrl.isEmpty) {
-      playUrl = res['url']?.toString() ?? '';
-      _log('从响应根对象提取播放地址: $playUrl');
+      if (res['url'] != null && res['url'].toString().trim().isNotEmpty) {
+        playUrl = res['url'].toString().trim();
+        _log('采用接口根推荐播放直链: $playUrl');
+      } else if (candidates.isNotEmpty && candidates.first['url'] != null) {
+        playUrl = candidates.first['url'].toString();
+        _log('采用候选列表首个可用直链: $playUrl');
+      }
     }
 
     if (playUrl.isEmpty) {
@@ -773,119 +711,27 @@ class XifanNextSource extends VideoSource {
       throw Exception('稀饭Next未能生成有效播放地址');
     }
 
+    // 特殊处理说明：
+    // Chrome DevTools 全真抓包与源站 302 响应证实：
+    // 沃云直链 (pan.wo.cn / moedot.net / apn.moedot.net) 在 302 响应中声明了 referrer-policy: no-referrer，
+    // 浏览器发起拉流时 referer 严格为空，强传 https://next.xifanacg.com/ 会导致沃云节点因防盗链或非预期外站头握手异常断开；
+    // 非沃云普通直链则规范携带官方来源 https://next.xifanacg.com/。
     final isWoPan = playUrl.contains('pan.wo.cn') ||
         playUrl.contains('moedot.net') ||
         playUrl.contains('apn.moedot.net');
-    final referer = isWoPan ? 'https://pan.wo.cn/' : 'https://next.xifanacg.com/';
+    final headers = <String, String>{
+      'User-Agent': _kDefaultUserAgent,
+      if (!isWoPan) 'Referer': 'https://next.xifanacg.com/',
+    };
     final format = playUrl.contains('.m3u8') ? 'hls' : 'mp4';
 
-    // 特殊处理说明：
-    // 国内沃家云盘 CDN (如 bjdownload.pan.wo.cn:30443) 存在严重的 IPv6 TLS 握手黑洞，
-    // 在 Windows 及具有双栈 IPv6 的网络下，底层 FFmpeg 会优先尝试 IPv6 并死等超时 2~5 秒或直接连接失败。
-    // 此处在应用层进行轻量预检，解析出纯净 IPv4 直连节点并携带 Host 请求头，彻底解决起播卡死与 Seek 慢问题。
-    final optimized = await _optimizeMediaUrl(playUrl, referer);
+    _log('解析完成: url=$playUrl, 格式: $format, Referer: ${headers['Referer'] ?? "none (no-referrer)"}');
 
-    _log('最终返回直链: ${optimized.url}, 格式: $format, Referer: $referer');
-
-    final result = SourceResolveResult(
-      url: optimized.url,
-      headers: optimized.headers,
+    return SourceResolveResult(
+      url: playUrl,
+      headers: headers,
       format: format,
     );
-
-    // 特殊处理说明：源内部不维护 _resolveCache，直接返回新鲜直链
-    return result;
-  }
-
-  /// 沃家云盘/双栈 CDN 预检与纯净 IPv4 锁定
-  /// 解决 Windows 与双栈网络下 bjdownload.pan.wo.cn:30443 的 IPv6 SSL 握手超时问题
-  Future<({String url, Map<String, String> headers})> _optimizeMediaUrl(
-    String rawUrl,
-    String referer,
-  ) async {
-    final isWoPan = rawUrl.contains('pan.wo.cn') ||
-        rawUrl.contains('moedot.net') ||
-        rawUrl.contains('apn.moedot.net');
-    if (!isWoPan || rawUrl.contains('.m3u8')) {
-      return (
-        url: rawUrl,
-        headers: {
-          'User-Agent': _kDefaultUserAgent,
-          'Referer': referer,
-        },
-      );
-    }
-
-    try {
-      // 1. 通过轻量 HEAD 预检提前跟随 302 探测最终真实直链，耗时仅几十毫秒
-      final headRes = await _dio.get<void>(
-        rawUrl,
-        options: Options(
-          method: 'HEAD',
-          followRedirects: false,
-          validateStatus: (s) => s != null && (s == 301 || s == 302 || s < 400),
-          headers: {
-            'User-Agent': _kDefaultUserAgent,
-            'Referer': referer,
-          },
-          sendTimeout: const Duration(seconds: 2),
-          receiveTimeout: const Duration(seconds: 2),
-        ),
-      );
-
-      var finalUrl = rawUrl;
-      final location = headRes.headers.value('location');
-      if (location != null && location.isNotEmpty) {
-        finalUrl = location.startsWith('http')
-            ? location
-            : Uri.parse(rawUrl).resolve(location).toString();
-        _log('HEAD 预检解析出 302 真实下载直链: $finalUrl');
-      }
-
-      final uri = Uri.parse(finalUrl);
-      final host = uri.host;
-
-      // 2. 针对存在 IPv6 握手黑洞的 pan.wo.cn 节点，主动解析并绑定纯净 IPv4 地址
-      if (host.contains('pan.wo.cn')) {
-        final ipv4s = await InternetAddress.lookup(
-          host,
-          type: InternetAddressType.IPv4,
-        ).timeout(const Duration(milliseconds: 1500), onTimeout: () => []);
-
-        if (ipv4s.isNotEmpty) {
-          final targetIp = ipv4s.first.address;
-          final hostHeader = uri.hasPort ? '$host:${uri.port}' : host;
-          final optimizedUri = uri.replace(host: targetIp);
-          _log('成功将沃云双栈域名 $host 锁定为 IPv4 节点 $targetIp: $optimizedUri');
-
-          return (
-            url: optimizedUri.toString(),
-            headers: {
-              'User-Agent': _kDefaultUserAgent,
-              'Referer': referer,
-              'Host': hostHeader,
-            },
-          );
-        }
-      }
-
-      return (
-        url: finalUrl,
-        headers: {
-          'User-Agent': _kDefaultUserAgent,
-          'Referer': referer,
-        },
-      );
-    } catch (e) {
-      _log('直链 IPv4 预检优化异常，平滑降级使用原地址: $e');
-      return (
-        url: rawUrl,
-        headers: {
-          'User-Agent': _kDefaultUserAgent,
-          'Referer': referer,
-        },
-      );
-    }
   }
 
   @override
