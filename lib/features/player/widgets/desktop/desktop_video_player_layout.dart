@@ -248,7 +248,12 @@ class DesktopVideoPlayerLayout extends StatelessWidget {
 
           return Stack(
             children: [
-              mainContent,
+              // 桌面主内容区（自动根据全局沉浸顶栏高度向下安全避让，绝不遮挡视频与选集）
+              SafeArea(
+                top: true,
+                bottom: false,
+                child: mainContent,
+              ),
               // 左下角半透明悬浮返回圆圈按钮（平时虚化，鼠标 hover/focus 时实体化）
               Positioned(
                 left: 24,

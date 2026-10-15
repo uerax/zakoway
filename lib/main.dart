@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:window_manager/window_manager.dart';
 import 'core/network/bangumi_client.dart';
 import 'core/providers/bangumi_providers.dart';
 import 'core/services/app_preferences.dart';
@@ -14,6 +15,7 @@ import 'core/theme/m3_expressive_theme.dart';
 import 'core/utils/appearance_manager.dart';
 import 'core/utils/font_manager.dart';
 import 'core/utils/scroll_behavior.dart';
+import 'features/common/widgets/app_desktop_title_bar.dart';
 import 'features/main_navigation_shell.dart';
 import 'features/player/services/shader_asset_service.dart';
 import 'features/player/source/source_bundle_manager.dart';
@@ -46,6 +48,24 @@ void main() async {
   PaintingBinding.instance.imageCache.maximumSizeBytes = isDesktop
       ? 200 * 1024 * 1024
       : 100 * 1024 * 1024;
+
+  // 3. 桌面端初始化自定义无边框沉浸式窗口骨架
+  if (isDesktop) {
+    try {
+      await windowManager.ensureInitialized();
+      windowManager.waitUntilReadyToShow(
+        const WindowOptions(
+          titleBarStyle: TitleBarStyle.hidden,
+        ),
+        () async {
+          await windowManager.show();
+          await windowManager.focus();
+        },
+      );
+    } catch (e) {
+      debugPrint('桌面端 window_manager 初始化跳过: $e');
+    }
+  }
 
   runApp(const ZakowayApp());
 }
@@ -89,6 +109,11 @@ class ZakowayApp extends StatelessWidget {
             fontFallback: fontFallback,
           ),
           themeMode: ThemeMode.system,
+          builder: (context, child) {
+            return AppDesktopWindowFrame(
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
           home: MainNavigationShell(client: client),
         );
       },
