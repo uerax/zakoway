@@ -277,5 +277,55 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('自动播放下一集'), findsNothing);
     });
+
+    testWidgets('DesktopPlayerControls: 左右快捷键静默快进后退触发 seek，弹窗关闭后依然灵敏响应',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      controller.timeline.value = controller.timeline.value.copyWith(
+        position: const Duration(seconds: 30),
+        duration: const Duration(minutes: 24),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DesktopPlayerControls(
+              controller: controller,
+              title: '快捷键保活测试',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 1. 左键快退 5 秒（静默生效，不展示 Toast 气泡）
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump();
+      expect(controller.timeline.value.position, const Duration(seconds: 25));
+      expect(find.text('快退 5 秒'), findsNothing);
+
+      // 2. 右键快进 5 秒（静默生效，不展示 Toast 气泡）
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(controller.timeline.value.position, const Duration(seconds: 30));
+      expect(find.text('快进 5 秒'), findsNothing);
+
+      // 3. 打开播放设置弹窗
+      final settingsBtn = find.byTooltip('播放设置');
+      await tester.tap(settingsBtn);
+      await tester.pumpAndSettle();
+      expect(find.text('播放设置'), findsOneWidget);
+
+      // 4. 关闭弹窗后，测试焦点自动恢复，继续响应左右键
+      await tester.tap(find.byIcon(Icons.close_rounded).last);
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(controller.timeline.value.position, const Duration(seconds: 35));
+      expect(find.text('快进 5 秒'), findsNothing);
+    });
   });
 }

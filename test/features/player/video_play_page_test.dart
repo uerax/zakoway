@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zakoway/features/player/pages/video_play_page.dart';
@@ -348,6 +349,42 @@ void main() {
       expect(find.text('1-50'), findsNothing);
       expect(find.text('共 1100 话'), findsNothing);
       expect(find.text('第 1 话'), findsNothing);
+    });
+
+    testWidgets('12. 页面级 Esc 兜底测试：未起播与起播状态下按 Esc 触发分级返回上一页', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const VideoPlayPage(
+                        title: '快捷键兜底测试',
+                        episodeCount: 12,
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Go'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Go'));
+      await tester.pumpAndSettle();
+      expect(find.byType(VideoPlayPage), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(VideoPlayPage), findsNothing);
     });
   });
 }

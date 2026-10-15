@@ -136,6 +136,21 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
     }
     widget.controller.timeline.addListener(_onTimelineTickForOped);
     _startHideTimer();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _ensureKeyboardFocus();
+      }
+    });
+  }
+
+  /// 焦点安全防护：非打字输入状态下确保播放器键盘焦点就位
+  void _ensureKeyboardFocus() {
+    if (!mounted) return;
+    final primary = FocusManager.instance.primaryFocus?.context?.widget;
+    if (primary is EditableText) return;
+    if (!_keyboardFocusNode.hasFocus) {
+      _keyboardFocusNode.requestFocus();
+    }
   }
 
   void _onAutoSkipSettingChanged() {
@@ -151,6 +166,15 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
       _hasSkippedOp = false;
       _hasSkippedEd = false;
       _hasUndoneSkip = false;
+    }
+    if (oldWidget.isFullscreen != widget.isFullscreen ||
+        oldWidget.isTrueFullscreen != widget.isTrueFullscreen ||
+        oldWidget.isAppFullscreen != widget.isAppFullscreen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _ensureKeyboardFocus();
+        }
+      });
     }
   }
 
@@ -239,7 +263,7 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
       _hasSkippedOp = true;
       _lastSkippedType = 'op';
       widget.controller.seek(Duration(seconds: seg.opEnd!));
-      _triggerSkipToast('已自动跳过片头');
+      _triggerSkipToast('已自动跳过片头', duration: const Duration(seconds: 5));
       return;
     }
     if (seg.hasEd &&
@@ -249,7 +273,7 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
       _hasSkippedEd = true;
       _lastSkippedType = 'ed';
       widget.controller.seek(Duration(seconds: seg.edEnd!));
-      _triggerSkipToast('已自动跳过片尾');
+      _triggerSkipToast('已自动跳过片尾', duration: const Duration(seconds: 5));
       return;
     }
   }
@@ -280,13 +304,13 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
     }
   }
 
-  void _triggerSkipToast(String msg) {
+  void _triggerSkipToast(String msg, {Duration duration = const Duration(milliseconds: 2200)}) {
     setState(() {
       _skipToastVisible = true;
       _skipToastMessage = msg;
     });
     _skipToastTimer?.cancel();
-    _skipToastTimer = Timer(const Duration(seconds: 5), () {
+    _skipToastTimer = Timer(duration, () {
       if (mounted) setState(() => _skipToastVisible = false);
     });
   }
@@ -373,11 +397,11 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
     }
   }
 
-  void _openDesktopDialog(_DesktopActivePanel panel) {
+  Future<void> _openDesktopDialog(_DesktopActivePanel panel) async {
     final primaryColor = Theme.of(context).colorScheme.primary;
     final isSettings = panel == _DesktopActivePanel.settings;
 
-    showDialog<void>(
+    await showDialog<void>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.55),
       builder: (dialogContext) {
@@ -484,6 +508,9 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
         );
       },
     );
+    if (mounted) {
+      _ensureKeyboardFocus();
+    }
   }
   Future<void> _handleScreenshot() async {
     try {
@@ -589,18 +616,24 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
     // 4. 音量调节 (方向键上下)
     if (key == LogicalKeyboardKey.arrowUp) {
       final curVol = widget.controller.core.value.volume;
-      widget.controller.setVolume((curVol + 0.05).clamp(0.0, 1.0));
+      final nextVol = (curVol + 0.05).clamp(0.0, 1.0);
+      widget.controller.setVolume(nextVol);
+      _triggerSkipToast('音量：${(nextVol * 100).round()}%');
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.arrowDown) {
       final curVol = widget.controller.core.value.volume;
-      widget.controller.setVolume((curVol - 0.05).clamp(0.0, 1.0));
+      final nextVol = (curVol - 0.05).clamp(0.0, 1.0);
+      widget.controller.setVolume(nextVol);
+      _triggerSkipToast('音量：${(nextVol * 100).round()}%');
       return KeyEventResult.handled;
     }
 
     // 5. 静音切换
     if (key == LogicalKeyboardKey.keyM) {
       widget.controller.toggleMute();
+      final isMuted = widget.controller.core.value.muted;
+      _triggerSkipToast(isMuted ? '已静音' : '取消静音');
       return KeyEventResult.handled;
     }
 
@@ -686,7 +719,9 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
     // 12. 快捷键帮助指南 (?)
     if (key == LogicalKeyboardKey.slash &&
         HardwareKeyboard.instance.isShiftPressed) {
-      DesktopShortcutHelpDialog.show(context);
+      DesktopShortcutHelpDialog.show(context).then((_) {
+        if (mounted) _ensureKeyboardFocus();
+      });
       return KeyEventResult.handled;
     }
 
@@ -733,7 +768,12 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
       child: InkResponse(
         radius: size * 0.58,
         highlightShape: BoxShape.circle,
-        onTap: onTap,
+        onTap: onTap == null
+            ? null
+            : () {
+                _ensureKeyboardFocus();
+                onTap();
+              },
         child: SizedBox(
           width: size,
           height: size,
@@ -796,6 +836,7 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                   isPanelOpen: _activePanel != _DesktopActivePanel.none ||
                       _showSpeedPopup ||
                       _isVolumeHovered,
+                  onRequestFocus: _ensureKeyboardFocus,
                 ),
               ),
 
@@ -816,6 +857,7 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onTap: () {
+                            _ensureKeyboardFocus();
                             widget.controller.play();
                             _startHideTimer();
                           },
@@ -959,6 +1001,7 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                         widget.danmakuController?.items,
                                     primaryColor: primaryColor,
                                     onChangeStart: (dur) {
+                                      _ensureKeyboardFocus();
                                       setState(() => _isSeekingSlider = true);
                                       _handleUserActivity();
                                     },
@@ -1166,7 +1209,10 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                           child: InkWell(
                                             borderRadius:
                                                 BorderRadius.circular(16),
-                                            onTap: _toggleSpeedPopup,
+                                            onTap: () {
+                                              _ensureKeyboardFocus();
+                                              _toggleSpeedPopup();
+                                            },
                                             child: Container(
                                               height: isUltraNarrow ? 26 : 28,
                                               padding: EdgeInsets.symmetric(
@@ -1428,6 +1474,7 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                         volume: vol,
                                         activeColor: primaryColor,
                                         onChanged: (newVol) {
+                                          _ensureKeyboardFocus();
                                           _handleUserActivity();
                                           widget.controller.setVolume(newVol);
                                         },

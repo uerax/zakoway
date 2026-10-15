@@ -15,6 +15,7 @@ class DesktopPlayerGestureLayer extends StatefulWidget {
     required this.onHideControls,
     required this.isControlsVisible,
     this.isPanelOpen = false,
+    this.onRequestFocus,
   });
 
   final ZakowayPlaybackController controller;
@@ -23,6 +24,7 @@ class DesktopPlayerGestureLayer extends StatefulWidget {
   final VoidCallback onHideControls;
   final bool isControlsVisible;
   final bool isPanelOpen;
+  final VoidCallback? onRequestFocus;
 
   @override
   State<DesktopPlayerGestureLayer> createState() =>
@@ -47,6 +49,7 @@ class _DesktopPlayerGestureLayerState extends State<DesktopPlayerGestureLayer> {
         _cursor = SystemMouseCursors.basic;
       });
     }
+    widget.onRequestFocus?.call();
     widget.onUserActivity();
     _resetCursorHideTimer();
   }
@@ -86,10 +89,12 @@ class _DesktopPlayerGestureLayerState extends State<DesktopPlayerGestureLayer> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {
+          widget.onRequestFocus?.call();
           _onPointerHover();
           widget.controller.togglePlay();
         },
         onDoubleTap: () {
+          widget.onRequestFocus?.call();
           _onPointerHover();
           widget.onToggleFullscreen();
         },

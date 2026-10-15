@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -118,6 +119,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   String? _resolveError;
   String? _sourceNotice;
   String? _hudToast;
+  Timer? _hudToastTimer;
   bool _defaultSearchEmpty = false;
 
   List<SourceChapterRoad> _chapterRoads = [];
@@ -363,13 +365,22 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     );
   }
 
-  void _showHudToast(String message) {
+  void _showHudToast(String message, {Duration duration = const Duration(milliseconds: 2200)}) {
+    _hudToastTimer?.cancel();
     setState(() => _hudToast = message);
-    Future.delayed(const Duration(milliseconds: 3500), () {
-      if (mounted && _hudToast == message) {
+    _hudToastTimer = Timer(duration, () {
+      if (mounted) {
         setState(() => _hudToast = null);
       }
     });
+  }
+
+  void _seekToPercent(double percent) {
+    final total = _playbackController.timeline.value.duration;
+    if (total <= Duration.zero) return;
+    final targetMs = (total.inMilliseconds * percent).round();
+    _playbackController.seek(Duration(milliseconds: targetMs));
+    _showHudToast('跳转至 ${(percent * 100).toInt()}%');
   }
 
   void _resetPlaybackStats() {
@@ -1111,6 +1122,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
 
   @override
   void dispose() {
+    _hudToastTimer?.cancel();
     _danmakuBridge.dispose();
     _saveProgressOnExit();
     if (_isTrueFullscreen) {
@@ -1273,13 +1285,158 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         autofocus: true,
         canRequestFocus: true,
         onKeyEvent: (node, event) {
-          // 特殊处理说明：桌面端页面级 Esc 全局兜底
-          // 当焦点离开播放器（例如用户在滚动浏览下方简介/评论区、点击右侧选集或处于未起播占位海报态），
-          // 确保按 Esc 键依然能稳定触发分级退出（全屏退出全屏，常规窗口直接 Pop 返回上一页）。
-          if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+          // 特殊处理说明：桌面端页面级播放快捷键全局兜底守护
+          // 原因：Flutter 的 KeyEvent 是从当前拥有焦点的节点沿父节点链单向向上冒泡，绝不向下分发。
+          // 当用户点击右侧选集网格、线路 Tab 或页面空白处时，主焦点会离开播放器内部组件。
+          // 若此处不兜底，所有媒体快捷键将彻底失灵。
+          // 规则：只要当前用户未聚焦在输入框（EditableText 打字态），所有核心媒体快捷键一律安全路由至控制器。
+          if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+            return KeyEventResult.ignored;
+          }
+
+          final primaryWidget =
+              FocusManager.instance.primaryFocus?.context?.widget;
+          if (primaryWidget is EditableText) {
+            return KeyEventResult.ignored;
+          }
+
+          final key = event.logicalKey;
+
+          // 1. Esc 优先分级退出（全屏退出全屏，常规窗口返回上一页）
+          if (key == LogicalKeyboardKey.escape) {
             _handleBackPressed();
             return KeyEventResult.handled;
           }
+
+          // 未起播占位态下，不劫持播放控制键
+          if (!_hasStartedPlayback) {
+            return KeyEventResult.ignored;
+          }
+
+          // 2. 播放 / 暂停 (Space / K)
+          if (key == LogicalKeyboardKey.space || key == LogicalKeyboardKey.keyK) {
+            _playbackController.togglePlay();
+            return KeyEventResult.handled;
+          }
+
+          // 3. 快退 / 快进 (左右方向键 5秒，J / L 10秒)
+          if (key == LogicalKeyboardKey.arrowLeft) {
+            _playbackController.seekBy(const Duration(seconds: -5));
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.arrowRight) {
+            _playbackController.seekBy(const Duration(seconds: 5));
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.keyJ) {
+            _playbackController.seekBy(const Duration(seconds: -10));
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.keyL) {
+            _playbackController.seekBy(const Duration(seconds: 10));
+            return KeyEventResult.handled;
+          }
+
+          // 4. 音量调节 (上下方向键)
+          if (key == LogicalKeyboardKey.arrowUp) {
+            final curVol = _playbackController.core.value.volume;
+            final nextVol = (curVol + 0.05).clamp(0.0, 1.0);
+            _playbackController.setVolume(nextVol);
+            _showHudToast('音量：${(nextVol * 100).round()}%');
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.arrowDown) {
+            final curVol = _playbackController.core.value.volume;
+            final nextVol = (curVol - 0.05).clamp(0.0, 1.0);
+            _playbackController.setVolume(nextVol);
+            _showHudToast('音量：${(nextVol * 100).round()}%');
+            return KeyEventResult.handled;
+          }
+
+          // 5. 静音切换 (M)
+          if (key == LogicalKeyboardKey.keyM) {
+            _playbackController.toggleMute();
+            final isMuted = _playbackController.core.value.muted;
+            _showHudToast(isMuted ? '已静音' : '取消静音');
+            return KeyEventResult.handled;
+          }
+
+          // 6. 全屏切换 (F / Enter)
+          if (key == LogicalKeyboardKey.keyF || key == LogicalKeyboardKey.enter) {
+            _toggleFullscreen();
+            return KeyEventResult.handled;
+          }
+
+          // 7. 切集 ([ / ])
+          if (key == LogicalKeyboardKey.bracketLeft) {
+            if (_activeEpisode != null && _activeEpisode! > 1) {
+              _selectEpisode(_activeEpisode! - 1);
+              _showHudToast('正在切换至上一集');
+            }
+            return KeyEventResult.handled;
+          }
+          if (key == LogicalKeyboardKey.bracketRight) {
+            final maxCount = _currentSlots.isNotEmpty
+                ? _currentSlots.length
+                : _currentEpisodes.length;
+            if (_activeEpisode != null && _activeEpisode! < maxCount) {
+              _selectEpisode(_activeEpisode! + 1);
+              _showHudToast('正在切换至下一集');
+            }
+            return KeyEventResult.handled;
+          }
+
+          // 8. 弹幕状态切换 (D)
+          if (key == LogicalKeyboardKey.keyD) {
+            final cfg = _danmakuController.settings;
+            if (!cfg.enabled) {
+              _danmakuController.updateSettings(
+                  cfg.copyWith(enabled: true, simplify: false));
+              _showHudToast('弹幕：全量开启');
+            } else if (!cfg.simplify) {
+              _danmakuController.updateSettings(
+                  cfg.copyWith(enabled: true, simplify: true));
+              _showHudToast('弹幕：智能精简');
+            } else {
+              _danmakuController.updateSettings(cfg.copyWith(enabled: false));
+              _showHudToast('弹幕：已关闭');
+            }
+            return KeyEventResult.handled;
+          }
+
+          // 9. 百分比跳转 (0 ~ 9)
+          if (key == LogicalKeyboardKey.digit0) {
+            _seekToPercent(0.0);
+            return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.digit1) {
+            _seekToPercent(0.1);
+            return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.digit2) {
+            _seekToPercent(0.2);
+            return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.digit3) {
+            _seekToPercent(0.3);
+            return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.digit4) {
+            _seekToPercent(0.4);
+            return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.digit5) {
+            _seekToPercent(0.5);
+            return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.digit6) {
+            _seekToPercent(0.6);
+            return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.digit7) {
+            _seekToPercent(0.7);
+            return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.digit8) {
+            _seekToPercent(0.8);
+            return KeyEventResult.handled;
+          } else if (key == LogicalKeyboardKey.digit9) {
+            _seekToPercent(0.9);
+            return KeyEventResult.handled;
+          }
+
           return KeyEventResult.ignored;
         },
         child: Scaffold(
