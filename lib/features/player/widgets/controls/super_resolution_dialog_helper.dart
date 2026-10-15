@@ -116,19 +116,12 @@ class SuperResolutionDialogHelper {
     return confirmed;
   }
 
-  /// 统一调度超分辨率档位切换（拦截 quality 档位并检测是否需要警告）
+  /// 统一调度超分辨率档位切换（直接切换，不弹告警提示干扰观影）
   static Future<void> handleModeSelection({
     required BuildContext context,
     required ZakowayPlaybackController controller,
     required SuperResolutionMode mode,
   }) async {
-    if (mode == SuperResolutionMode.quality) {
-      final warningDisabled = PlayerPreferencesService.instance.disableSuperResolutionWarning;
-      if (!warningDisabled) {
-        final confirmed = await showQualityConfirmationDialog(context);
-        if (!confirmed) return;
-      }
-    }
     await controller.setSuperResolution(mode);
   }
 }

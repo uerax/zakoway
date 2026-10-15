@@ -9,7 +9,6 @@ import '../widgets/cache_settings_card.dart';
 import '../widgets/danmaku_settings_card.dart';
 import '../widgets/font_settings_card.dart';
 import '../widgets/network_settings_card.dart';
-import '../widgets/super_resolution_settings_card.dart';
 import '../widgets/user_action_control_bar.dart';
 import '../widgets/user_profile_header_card.dart';
 
@@ -101,9 +100,6 @@ class _SettingsPageState extends State<SettingsPage> with AutomaticKeepAliveClie
 
                   // 5. 弹幕服务
                   const DanmakuSettingsCard(),
-
-                  // 5.5 画质与超分辨率 (Anime4K)
-                  const SuperResolutionSettingsCard(),
 
                   // 6. 字体设置
                   const FontSettingsCard(),

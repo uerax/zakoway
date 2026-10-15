@@ -106,8 +106,8 @@ void main() {
     });
   });
 
-  group('SuperResolutionDialogHelper 确认弹窗交互测试', () {
-    testWidgets('非质量档切换无需弹窗确认', (tester) async {
+  group('SuperResolutionDialogHelper 超分模式直接切换测试', () {
+    testWidgets('非质量档切换直接生效且无需弹窗', (tester) async {
       final controller = ZakowayPlaybackController();
 
       await tester.pumpWidget(
@@ -136,7 +136,7 @@ void main() {
       await controller.dispose();
     });
 
-    testWidgets('质量档在未禁用提示时弹出性能提示并可确认开启', (tester) async {
+    testWidgets('质量档切换直接生效，不弹出告警提示', (tester) async {
       final controller = ZakowayPlaybackController();
 
       await tester.pumpWidget(
@@ -159,52 +159,9 @@ void main() {
       await tester.tap(find.text('切换质量档'));
       await tester.pumpAndSettle();
 
-      // 验证弹窗出现
-      expect(find.text('性能提示'), findsOneWidget);
-      expect(find.text('确认开启'), findsOneWidget);
-
-      // 点击确认开启
-      await tester.tap(find.text('确认开启'));
-      await tester.pumpAndSettle();
-
+      // 验证绝不弹出性能提示弹窗，直接完成切换
+      expect(find.text('性能提示'), findsNothing);
       expect(controller.core.value.superResolution, equals(SuperResolutionMode.quality));
-
-      await controller.dispose();
-    });
-
-    testWidgets('质量档提示中勾选下次不再询问后持久化关闭提示', (tester) async {
-      final controller = ZakowayPlaybackController();
-      expect(PlayerPreferencesService.instance.disableSuperResolutionWarning, isFalse);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
-            builder: (context) => ElevatedButton(
-              onPressed: () {
-                SuperResolutionDialogHelper.handleModeSelection(
-                  context: context,
-                  controller: controller,
-                  mode: SuperResolutionMode.quality,
-                );
-              },
-              child: const Text('切换质量档'),
-            ),
-          ),
-        ),
-      );
-
-      await tester.tap(find.text('切换质量档'));
-      await tester.pumpAndSettle();
-
-      // 勾选下次不再询问
-      await tester.tap(find.text('下次不再询问'));
-      await tester.pumpAndSettle();
-
-      // 点击确认开启
-      await tester.tap(find.text('确认开启'));
-      await tester.pumpAndSettle();
-
-      expect(PlayerPreferencesService.instance.disableSuperResolutionWarning, isTrue);
 
       await controller.dispose();
     });
