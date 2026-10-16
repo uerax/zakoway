@@ -79,15 +79,36 @@ class _AppDesktopWindowFrameState extends State<AppDesktopWindowFrame>
     }
 
     final theme = Theme.of(context);
+    final mediaQuery = MediaQuery.of(context);
+    const titleBarHeight = 44.0;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: Column(
+      body: Stack(
+        fit: StackFit.expand,
         children: [
-          // 0. 桌面端自适应沉浸顶栏（与当前全局主题 100% 融合底色，全屏时自动收缩隐藏）
-          if (!_isFullScreen) const AppDesktopTitleBar(),
-          // 1. 页面内容呈现区：滚动视图严格在此边界内裁剪，绝对不向上穿透重叠
-          Expanded(child: widget.child),
+          // 1. 页面内容呈现区：通顶铺满整个窗口画布（y=0 到底部），并注入含 44px top padding 的 MediaQuery 保持内容避让
+          Positioned.fill(
+            child: MediaQuery(
+              data: mediaQuery.copyWith(
+                padding: mediaQuery.padding.copyWith(
+                  top: _isFullScreen ? 0 : titleBarHeight,
+                ),
+                viewPadding: mediaQuery.viewPadding.copyWith(
+                  top: _isFullScreen ? 0 : titleBarHeight,
+                ),
+              ),
+              child: widget.child,
+            ),
+          ),
+          // 0. 桌面端自适应沉浸顶栏：浮在最上方，透明底衬让壁纸与环境渐变光晕 100% 穿透到窗口最顶端
+          if (!_isFullScreen)
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: AppDesktopTitleBar(height: titleBarHeight),
+            ),
         ],
       ),
     );
@@ -179,7 +200,7 @@ class _AppDesktopTitleBarState extends State<AppDesktopTitleBar> with WindowList
 
     return Container(
       height: widget.height,
-      color: theme.scaffoldBackgroundColor,
+      color: Colors.transparent,
       child: Material(
         color: Colors.transparent,
         child: Row(
