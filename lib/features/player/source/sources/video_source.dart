@@ -45,6 +45,9 @@ abstract class VideoSource {
   String get version;
   String get description;
 
+  /// 是否支持国内网络直连（true: 国内可直连；false: 需代理/海外节点）
+  bool get isDirect => true;
+
   Future<List<SourceSearchResult>> search(String keyword);
   Future<List<SourceChapterRoad>> chapters(String animeUrl);
   Future<SourceResolveResult> resolve(String episodeUrl);
@@ -56,5 +59,6 @@ abstract class VideoSource {
         id: id,
         name: name,
         version: version,
+        isDirect: isDirect,
       );
 }

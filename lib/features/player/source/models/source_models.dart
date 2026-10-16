@@ -116,11 +116,13 @@ class SourceMeta {
   final String id;
   final String name;
   final String version;
+  final bool isDirect;
 
   const SourceMeta({
     required this.id,
     required this.name,
     required this.version,
+    this.isDirect = true,
   });
 
   factory SourceMeta.fromJson(Map<String, dynamic> json) {
@@ -128,8 +130,16 @@ class SourceMeta {
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       version: json['version']?.toString() ?? '1.0.0',
+      isDirect: json['isDirect'] as bool? ?? true,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'version': version,
+        'isDirect': isDirect,
+      };
 }
 
 class SourceBundleMeta {

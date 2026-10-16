@@ -27,6 +27,9 @@ class MifunSource extends VideoSource {
   @override
   String get description => '1080P · 字节/百度 CDN 高速切片 (零代理原画)';
 
+  @override
+  bool get isDirect => true;
+
   Map<String, String> _headers([String? referer]) {
     final h = <String, String>{
       'User-Agent': _kDefaultUserAgent,

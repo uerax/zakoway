@@ -33,6 +33,9 @@ class AnimoeSource extends VideoSource {
   @override
   String get description => 'HLS · 网易云音乐 CDN 节点 (多线路字幕组)';
 
+  @override
+  bool get isDirect => true;
+
   Map<String, String> _headers([String? referer]) {
     final h = <String, String>{
       'User-Agent': _kDefaultUserAgent,

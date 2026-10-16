@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:zakoway/core/utils/font_manager.dart';
 import 'package:zakoway/features/player/source/models/source_models.dart';
 import 'package:zakoway/features/player/source/source_aggregator.dart';
 import 'package:zakoway/features/player/source/source_bundle_manager.dart';
@@ -13,6 +14,7 @@ class VideoSourceItem {
   final String statusText;
   final bool isReady;
   final bool isDefault;
+  final bool isDirect;
 
   const VideoSourceItem({
     required this.id,
@@ -21,11 +23,29 @@ class VideoSourceItem {
     this.statusText = '已就绪',
     this.isReady = true,
     this.isDefault = false,
+    this.isDirect = true,
   });
 }
 
 /// 默认从 SourceBundleManager 生成的标准视频源列表
 List<VideoSourceItem> getDefaultSourceItems() {
+  const directMap = {
+    'mifun': true,
+    'sorani': true,
+    'gugu': true,
+    'lzizy': true,
+    'animoe': true,
+    'tvtfun': true,
+    'xifan-next': false,
+    'cycani': false,
+    'girigiri': false,
+    'moonci': false,
+    'mxdm': false,
+    'anime1': false,
+    'omofun': false,
+    'libvio': false,
+  };
+
   const descriptions = {
     'xifan-next': '1080P · 官方推荐综合主线',
     'cycani': '1080P · 纯净 REST API 多线路',
@@ -68,6 +88,7 @@ List<VideoSourceItem> getDefaultSourceItems() {
         name: sourceNames[e.key] ?? e.key,
         description: e.value,
         isDefault: e.key == 'xifan-next',
+        isDirect: directMap[e.key] ?? true,
       );
     }).toList();
   }
@@ -78,6 +99,7 @@ List<VideoSourceItem> getDefaultSourceItems() {
       name: s.name,
       description: descriptions[s.id] ?? 'v${s.version} · 动态解析',
       isDefault: s.id == 'xifan-next',
+      isDirect: s.isDirect,
     );
   }).toList();
 }
@@ -117,8 +139,16 @@ class VideoSourceView extends StatefulWidget {
   State<VideoSourceView> createState() => _VideoSourceViewState();
 }
 
+/// 视频源分类过滤选项
+enum SourceFilterCategory {
+  all,
+  direct,
+  proxy,
+}
+
 class _VideoSourceViewState extends State<VideoSourceView> {
   String? _expandedSourceId;
+  SourceFilterCategory _selectedCategory = SourceFilterCategory.all;
   final Set<String> _showAdvancedSearch = {};
   final Map<String, TextEditingController> _controllers = {};
 
@@ -136,6 +166,79 @@ class _VideoSourceViewState extends State<VideoSourceView> {
     return _controllers.putIfAbsent(sourceId, () => TextEditingController());
   }
 
+  Widget _buildFilterTab({
+    required BuildContext context,
+    required SourceFilterCategory category,
+    required String label,
+    IconData? icon,
+  }) {
+    final isSelected = _selectedCategory == category;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
+
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          if (_selectedCategory != category) {
+            setState(() {
+              _selectedCategory = category;
+            });
+          }
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.fastOutSlowIn,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected
+                ? (isDark ? primaryColor.withValues(alpha: 0.28) : primaryColor)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+            boxShadow: isSelected && !isDark
+                ? [
+                    BoxShadow(
+                      color: primaryColor.withValues(alpha: 0.25),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (icon != null) ...[
+                Icon(
+                  icon,
+                  size: 13,
+                  color: isSelected
+                      ? Colors.white
+                      : (theme.textTheme.bodySmall?.color ?? Colors.grey),
+                ),
+                const SizedBox(width: 3),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: theme.textTheme.labelMedium?.fontFamily ?? 'MiSans',
+                  fontFamilyFallback: FontManager.fallbackFontFamilies,
+                  fontSize: 11.5,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected
+                      ? Colors.white
+                      : (theme.textTheme.bodySmall?.color ?? Colors.grey),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -143,10 +246,24 @@ class _VideoSourceViewState extends State<VideoSourceView> {
     final primaryColor = theme.colorScheme.primary;
 
     final effectiveSources = widget.sources.isEmpty ? getDefaultSourceItems() : widget.sources;
+    final directCount = effectiveSources.where((s) => s.isDirect).length;
+    final proxyCount = effectiveSources.where((s) => !s.isDirect).length;
+
+    final filteredSources = effectiveSources.where((s) {
+      switch (_selectedCategory) {
+        case SourceFilterCategory.all:
+          return true;
+        case SourceFilterCategory.direct:
+          return s.isDirect;
+        case SourceFilterCategory.proxy:
+          return !s.isDirect;
+      }
+    }).toList();
 
     final probeStates = widget.aggregator?.states ?? const <String, AggregatedSourceState>{};
     final totalCount = effectiveSources.length;
-    final readyCount = probeStates.values.where((s) => s.status == SourceProbeStatus.ready).length;
+    final filteredTotal = filteredSources.length;
+    final readyCount = filteredSources.where((s) => probeStates[s.id]?.status == SourceProbeStatus.ready).length;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -204,7 +321,7 @@ class _VideoSourceViewState extends State<VideoSourceView> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  '($readyCount/$totalCount 就绪)',
+                  '($readyCount/$filteredTotal 就绪)',
                   style: TextStyle(
                     fontFamily: theme.textTheme.bodySmall?.fontFamily,
                     fontFamilyFallback: theme.textTheme.bodySmall?.fontFamilyFallback,
@@ -236,10 +353,58 @@ class _VideoSourceViewState extends State<VideoSourceView> {
             ),
           ],
         ),
-        const SizedBox(height: 10),
+
+        // 2.5 分类过滤胶囊 (全部 / ⚡ 可直连 / 🌐 需代理)
+        Container(
+          height: 34,
+          margin: const EdgeInsets.only(top: 10, bottom: 12),
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withAlpha(12) : Colors.black.withAlpha(8),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              _buildFilterTab(
+                context: context,
+                category: SourceFilterCategory.all,
+                label: '全部 $totalCount',
+                icon: null,
+              ),
+              _buildFilterTab(
+                context: context,
+                category: SourceFilterCategory.direct,
+                label: '直连 $directCount',
+                icon: Icons.bolt_rounded,
+              ),
+              _buildFilterTab(
+                context: context,
+                category: SourceFilterCategory.proxy,
+                label: '代理 $proxyCount',
+                icon: Icons.public_rounded,
+              ),
+            ],
+          ),
+        ),
+
+        if (filteredSources.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 36),
+            child: Center(
+              child: Text(
+                '当前分类下暂无视频源',
+                style: TextStyle(
+                  fontFamily: theme.textTheme.bodyMedium?.fontFamily,
+                  fontFamilyFallback: FontManager.fallbackFontFamilies,
+                  fontSize: 13,
+                  color: theme.textTheme.bodySmall?.color,
+                ),
+              ),
+            ),
+          ),
 
         // 3. 视频源卡片列表 (含硬件加速丝滑展开抽屉 Drawer)
-        ...effectiveSources.map((src) {
+        ...filteredSources.map((src) {
           final isSelected = src.id == widget.selectedSourceId;
           final state = probeStates[src.id] ??
               AggregatedSourceState(
@@ -490,26 +655,34 @@ class _VideoSourceViewState extends State<VideoSourceView> {
                                       ),
                                     ),
                                   ),
-                                  if (src.isDefault) ...[
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                      decoration: BoxDecoration(
-                                        color: primaryColor.withValues(alpha: 0.14),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        '默认',
-                                        style: TextStyle(
-                                          fontFamily: theme.textTheme.labelSmall?.fontFamily,
-                                          fontFamilyFallback: theme.textTheme.labelSmall?.fontFamilyFallback,
-                                          fontSize: 9.5,
-                                          fontWeight: FontWeight.w700,
-                                          color: primaryColor,
-                                        ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                    decoration: BoxDecoration(
+                                      color: src.isDirect
+                                          ? Colors.green.withValues(alpha: isDark ? 0.2 : 0.12)
+                                          : const Color(0xFF8B5CF6).withValues(alpha: isDark ? 0.22 : 0.12),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: src.isDirect
+                                            ? Colors.green.withValues(alpha: 0.35)
+                                            : const Color(0xFF8B5CF6).withValues(alpha: 0.35),
+                                        width: 0.5,
                                       ),
                                     ),
-                                  ],
+                                    child: Text(
+                                      src.isDirect ? '直连' : '代理',
+                                      style: TextStyle(
+                                        fontFamily: theme.textTheme.labelSmall?.fontFamily,
+                                        fontFamilyFallback: FontManager.fallbackFontFamilies,
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: src.isDirect
+                                            ? (isDark ? const Color(0xFF4ADE80) : Colors.green)
+                                            : (isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED)),
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 2),

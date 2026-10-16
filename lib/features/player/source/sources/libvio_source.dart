@@ -46,6 +46,9 @@ class LibvioSource extends VideoSource {
   @override
   String get description => '1080P · 动态发布页实时探活镜像 (全品类影视/动漫)';
 
+  @override
+  bool get isDirect => false;
+
   Map<String, String> _headers([String? referer]) {
     final h = <String, String>{
       'User-Agent': _kDefaultUserAgent,

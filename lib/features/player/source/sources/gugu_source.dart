@@ -26,6 +26,9 @@ class GuguSource extends VideoSource {
   @override
   String get description => '1080P · 字节 TOS 国内极速直链 (咕咕新线/A线)';
 
+  @override
+  bool get isDirect => true;
+
   Map<String, String> _headers([String? referer]) {
     final h = <String, String>{
       'User-Agent': _kDefaultUserAgent,

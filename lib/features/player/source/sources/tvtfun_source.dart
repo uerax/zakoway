@@ -26,6 +26,9 @@ class TvTFunSource extends VideoSource {
   @override
   String get description => '1080P · 官方 BytePlus/Akamai 全球 CDN 极速主线';
 
+  @override
+  bool get isDirect => true;
+
   int _getSourcePriority(String name) {
     final n = name.trim();
     // 特殊处理说明：
