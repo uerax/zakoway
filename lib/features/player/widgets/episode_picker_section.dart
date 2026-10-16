@@ -86,6 +86,9 @@ class EpisodePickerSection extends StatefulWidget {
     this.shrinkWrap = false,
     this.isLoading = false,
     this.loadingMessage,
+    this.errorMessage,
+    this.sourceName,
+    this.onSwitchSource,
   });
 
   final int episodeCount;
@@ -104,6 +107,12 @@ class EpisodePickerSection extends StatefulWidget {
   final bool isLoading;
   /// 加载中文案提示
   final String? loadingMessage;
+  /// 分集获取失败时的异常错误信息
+  final String? errorMessage;
+  /// 当前视频源名称（用于错误引导提示）
+  final String? sourceName;
+  /// 切换至视频源面板的回调
+  final VoidCallback? onSwitchSource;
   /// 自定义单页集数区间容量（若未指定，移动端默认 28，桌面端默认 50）
   final int? rangeSize;
   final bool shrinkWrap;
@@ -206,9 +215,11 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
 
     final currentEpLabel = isPendingLoading
         ? '加载中...'
-        : (widget.currentEpisode != null
-            ? '${widget.currentEpisode}/$total 话'
-            : '共 $total 话');
+        : (total == 0
+            ? '源未解析到分集'
+            : (widget.currentEpisode != null
+                ? '${widget.currentEpisode}/$total 话'
+                : '共 $total 话'));
 
     return Column(
       children: [
@@ -466,14 +477,91 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
     List<PlayableSlot>? slots,
   ) {
     if (epList.isEmpty) {
+      final name = widget.sourceName ?? '';
+      final sourcePrefix = name.isNotEmpty ? '「$name」' : '当前视频源';
       return Center(
-        child: Text(
-          '暂无可用分集',
-          style: TextStyle(
-            fontSize: 13,
-            color: theme.textTheme.bodySmall?.color,
-            fontFamily: 'MiSans',
-            fontFamilyFallback: FontManager.fallbackFontFamilies,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: isDark ? 0.2 : 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.wifi_off_rounded,
+                  color: Colors.amber,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '$sourcePrefix暂无可播放分集',
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface,
+                  fontFamily: 'MiSans',
+                  fontFamilyFallback: FontManager.fallbackFontFamilies,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                widget.errorMessage ?? '可能因源站更新未适配或网络受限，可开启「Animaku 服务端模式」或切换其他播放源',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                  fontFamily: 'MiSans',
+                  fontFamilyFallback: FontManager.fallbackFontFamilies,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.onSwitchSource != null)
+                    FilledButton.tonalIcon(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      ),
+                      onPressed: widget.onSwitchSource,
+                      icon: const Icon(Icons.swap_horiz_rounded, size: 16),
+                      label: const Text(
+                        '切换视频源',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontFamily: 'MiSans',
+                          fontFamilyFallback: FontManager.fallbackFontFamilies,
+                        ),
+                      ),
+                    ),
+                  if (widget.onSwitchSource != null && widget.onRefresh != null)
+                    const SizedBox(width: 10),
+                  if (widget.onRefresh != null)
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      ),
+                      onPressed: widget.onRefresh,
+                      icon: const Icon(Icons.refresh_rounded, size: 16),
+                      label: const Text(
+                        '重试',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontFamily: 'MiSans',
+                          fontFamilyFallback: FontManager.fallbackFontFamilies,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ),
         ),
       );

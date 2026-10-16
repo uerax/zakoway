@@ -3,8 +3,10 @@ import 'dart:developer' as developer;
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:zakoway/core/network/player_media_disk_cache_manager.dart';
+import 'package:zakoway/core/services/app_preferences.dart';
 import 'package:zakoway/core/utils/timed_cache.dart';
 import 'package:zakoway/features/player/source/models/source_models.dart';
+import 'package:zakoway/features/player/source/server/animaku_server_client.dart';
 import 'package:zakoway/features/player/source/sources/anime1_source.dart';
 import 'package:zakoway/features/player/source/sources/animoe_source.dart';
 import 'package:zakoway/features/player/source/sources/cycani_source.dart';
@@ -35,6 +37,11 @@ class NativeSourceRuntime {
               ),
             ) {
     _registerDefaultSources();
+    AppPreferences.serverModeNotifier.addListener(_onServerModeChanged);
+  }
+
+  void _onServerModeChanged() {
+    clearMemoryCache();
   }
 
   final Dio _dio;
@@ -105,7 +112,7 @@ class NativeSourceRuntime {
     // 原生运行时瞬时就绪
   }
 
-  /// 搜索番剧 (带 L1 内存 + L2 硬盘双层缓存与请求去重)
+  /// 搜索番剧 (带 L1 内存 + L2 硬盘双层缓存与请求去重，支持服务端代理双模路由)
   Future<List<SourceSearchResult>> search(
     String sourceId,
     String keyword, {
@@ -119,9 +126,15 @@ class NativeSourceRuntime {
     final kw = keyword.trim();
     if (kw.isEmpty) return const [];
 
-    final cacheKey = '$sourceId:${kw.toLowerCase()}';
+    final isServerMode = AppPreferences.isServerModeEnabled();
+    final serverClient = AnimakuServerClient.instance;
+    final useServer = isServerMode && serverClient.isSourceSupported(sourceId);
+
+    // 服务端模式专属前缀隔离，避免与本地模式历史结果脏互串
+    final cachePrefix = useServer ? 'srv_' : '';
+    final cacheKey = '$cachePrefix$sourceId:${kw.toLowerCase()}';
     final safeKw = base64Url.encode(utf8.encode(kw.toLowerCase()));
-    final diskCacheKey = 'src_search_${sourceId}_$safeKw';
+    final diskCacheKey = '${cachePrefix}src_search_${sourceId}_$safeKw';
 
     if (!bypassCache) {
       // 1. L1 内存缓存
@@ -154,7 +167,20 @@ class NativeSourceRuntime {
 
     final future = () async {
       try {
-        final results = await s.search(kw);
+        List<SourceSearchResult> results;
+        if (useServer) {
+          developer.log('[SourceRouting] 🚀 [服务端代理] 源: $sourceId | 动作: search | 关键词: $kw');
+          try {
+            results = await serverClient.search(sourceId, kw);
+          } catch (serverErr) {
+            developer.log('[SourceRouting] ⚠️ [服务端异常] 源: $sourceId 代理失败 ($serverErr)，自动降级尝试本地直连...');
+            results = await s.search(kw);
+          }
+        } else {
+          developer.log('[SourceRouting] 🏠 [本地直连] 源: $sourceId | 动作: search | 关键词: $kw');
+          results = await s.search(kw);
+        }
+
         // 回填 L1 内存缓存 (2 小时)
         final estBytes = results.length * 128 + 64;
         _searchMemoryCache.set(cacheKey, results, estBytes);
@@ -171,7 +197,7 @@ class NativeSourceRuntime {
 
         return results;
       } catch (e) {
-        developer.log('[NativeRuntime] search error ($sourceId, $kw): $e');
+        developer.log('[NativeRuntime] search error ($sourceId, $kw, useServer=$useServer): $e');
         rethrow;
       }
     }();
@@ -184,7 +210,7 @@ class NativeSourceRuntime {
     }
   }
 
-  /// 获取选集线路 (带 L1 内存 + L2 硬盘双层缓存与请求去重)
+  /// 获取选集线路 (带 L1 内存 + L2 硬盘双层缓存与请求去重，支持服务端代理双模路由)
   Future<List<SourceChapterRoad>> chapters(
     String sourceId,
     String animeUrl, {
@@ -195,9 +221,15 @@ class NativeSourceRuntime {
       throw Exception('未找到视频源: $sourceId');
     }
 
-    final cacheKey = '$sourceId:$animeUrl';
+    final isServerMode = AppPreferences.isServerModeEnabled();
+    final serverClient = AnimakuServerClient.instance;
+    final useServer = isServerMode && serverClient.isSourceSupported(sourceId);
+
+    // 服务端模式专属前缀隔离
+    final cachePrefix = useServer ? 'srv_' : '';
+    final cacheKey = '$cachePrefix$sourceId:$animeUrl';
     final urlHash = md5.convert(utf8.encode(animeUrl)).toString();
-    final diskCacheKey = 'src_ch_${sourceId}_$urlHash';
+    final diskCacheKey = '${cachePrefix}src_ch_${sourceId}_$urlHash';
 
     if (!bypassCache) {
       // 1. L1 内存缓存
@@ -230,7 +262,24 @@ class NativeSourceRuntime {
 
     final future = () async {
       try {
-        final roads = await s.chapters(animeUrl);
+        List<SourceChapterRoad> roads;
+        if (useServer) {
+          developer.log('[SourceRouting] 🚀 [服务端代理] 源: $sourceId | 动作: chapters | url: $animeUrl');
+          try {
+            roads = await serverClient.chapters(sourceId, animeUrl);
+            if (roads.isEmpty || roads.every((r) => r.episodes.isEmpty)) {
+              developer.log('[SourceRouting] ⚠️ [服务端无有效分集] 源: $sourceId，自动降级尝试本地直连...');
+              roads = await s.chapters(animeUrl);
+            }
+          } catch (serverErr) {
+            developer.log('[SourceRouting] ⚠️ [服务端异常] 源: $sourceId 分集失败 ($serverErr)，自动降级尝试本地直连...');
+            roads = await s.chapters(animeUrl);
+          }
+        } else {
+          developer.log('[SourceRouting] 🏠 [本地直连] 源: $sourceId | 动作: chapters | url: $animeUrl');
+          roads = await s.chapters(animeUrl);
+        }
+
         if (roads.isNotEmpty && roads.any((r) => r.episodes.isNotEmpty)) {
           // 回填 L1 内存 (30 分钟)
           final estBytes = roads.length * 512 + 128;
@@ -246,7 +295,7 @@ class NativeSourceRuntime {
         }
         return roads;
       } catch (e) {
-        developer.log('[NativeRuntime] chapters error ($sourceId, $animeUrl): $e');
+        developer.log('[NativeRuntime] chapters error ($sourceId, $animeUrl, useServer=$useServer): $e');
         rethrow;
       }
     }();
@@ -259,7 +308,7 @@ class NativeSourceRuntime {
     }
   }
 
-  /// 解析播放直链 (带 L1 内存 1 分钟短时防抖缓存与 Single-Flight 请求去重)
+  /// 解析播放直链 (带 L1 内存 1 分钟短时防抖缓存与 Single-Flight 请求去重，支持服务端代理双模路由)
   ///
   /// 特殊处理说明：视频直链通常包含临时鉴权令牌、短期 CDN 签名或会话 Cookie，
   /// 跨进程持久化到磁盘或较长缓存极易导致读取过期废链引发 403 播放失败。
@@ -274,7 +323,12 @@ class NativeSourceRuntime {
       throw Exception('未找到视频源: $sourceId');
     }
 
-    final cacheKey = '$sourceId:$episodeUrl';
+    final isServerMode = AppPreferences.isServerModeEnabled();
+    final serverClient = AnimakuServerClient.instance;
+    final useServer = isServerMode && serverClient.isSourceSupported(sourceId);
+
+    final cachePrefix = useServer ? 'srv_' : '';
+    final cacheKey = '$cachePrefix$sourceId:$episodeUrl';
 
     if (!bypassCache) {
       // 1. L1 内存缓存
@@ -289,14 +343,28 @@ class NativeSourceRuntime {
 
     final future = () async {
       try {
-        final result = await s.resolve(episodeUrl);
+        SourceResolveResult result;
+        if (useServer) {
+          developer.log('[SourceRouting] 🚀 [服务端代理] 源: $sourceId | 动作: resolve | ep: $episodeUrl');
+          try {
+            result = await serverClient.resolve(sourceId, episodeUrl);
+            developer.log('[SourceRouting] 🎬 [服务端直链] -> ${result.url}');
+          } catch (serverErr) {
+            developer.log('[SourceRouting] ⚠️ [服务端异常] 源: $sourceId 直链解析失败 ($serverErr)，自动降级尝试本地直连...');
+            result = await s.resolve(episodeUrl);
+          }
+        } else {
+          developer.log('[SourceRouting] 🏠 [本地直连] 源: $sourceId | 动作: resolve | ep: $episodeUrl');
+          result = await s.resolve(episodeUrl);
+        }
+
         if (result.url.isNotEmpty) {
           // 回填 L1 内存 (1 分钟短时防抖)
           _resolveMemoryCache.set(cacheKey, result, 256);
         }
         return result;
       } catch (e) {
-        developer.log('[NativeRuntime] resolve error ($sourceId, $episodeUrl): $e');
+        developer.log('[NativeRuntime] resolve error ($sourceId, $episodeUrl, useServer=$useServer): $e');
         rethrow;
       }
     }();
@@ -320,12 +388,14 @@ class NativeSourceRuntime {
     _searchMemoryCache.clear();
     _chaptersMemoryCache.clear();
     _resolveMemoryCache.clear();
+    AnimakuServerClient.instance.clearCache();
     for (final s in _sources.values) {
       s.clearCache();
     }
   }
 
   void dispose() {
+    AppPreferences.serverModeNotifier.removeListener(_onServerModeChanged);
     clearMemoryCache();
   }
 }

@@ -35,6 +35,14 @@ class AppPreferences {
   static const _kAuthUserJson = 'pref_auth_user_json';
   static const _kAuthSessionJson = 'pref_auth_session_json';
   static const _kAnimeCollections = 'pref_anime_collections';
+  static const _kServerModeEnabled = 'pref_server_mode_enabled';
+  static const _kServerModeApiUrl = 'pref_server_mode_api_url';
+
+  /// 默认公开免费 Animaku 服务端地址
+  static const String defaultServerModeApiUrl = 'https://bakasine.eu.org';
+
+  /// 全局服务端模式状态响应式监听器
+  static final ValueNotifier<bool> serverModeNotifier = ValueNotifier<bool>(false);
 
   static SharedPreferences? _prefs;
 
@@ -108,6 +116,9 @@ class AppPreferences {
       opacity: opacity,
       blur: blur,
     );
+
+    // 4. 恢复服务端模式偏好
+    serverModeNotifier.value = prefs.getBool(_kServerModeEnabled) ?? false;
   }
 
   // --- 网络线路持久化 ---
@@ -333,5 +344,36 @@ class AppPreferences {
 
   static Future<void> clearAnimeCollections() async {
     await _prefs?.remove(_kAnimeCollections);
+  }
+
+  // --- Animaku 服务端模式配置 ---
+
+  static bool isServerModeEnabled() {
+    return _prefs?.getBool(_kServerModeEnabled) ?? false;
+  }
+
+  static Future<void> setServerModeEnabled(bool enabled) async {
+    serverModeNotifier.value = enabled;
+    await _prefs?.setBool(_kServerModeEnabled, enabled);
+  }
+
+  static String getServerModeApiUrl() {
+    final url = _prefs?.getString(_kServerModeApiUrl);
+    if (url != null && url.trim().isNotEmpty) {
+      return url.trim();
+    }
+    return defaultServerModeApiUrl;
+  }
+
+  static Future<void> setServerModeApiUrl(String url) async {
+    var cleanUrl = url.trim();
+    while (cleanUrl.endsWith('/')) {
+      cleanUrl = cleanUrl.substring(0, cleanUrl.length - 1);
+    }
+    if (cleanUrl.isEmpty || cleanUrl == defaultServerModeApiUrl) {
+      await _prefs?.remove(_kServerModeApiUrl);
+    } else {
+      await _prefs?.setString(_kServerModeApiUrl, cleanUrl);
+    }
   }
 }

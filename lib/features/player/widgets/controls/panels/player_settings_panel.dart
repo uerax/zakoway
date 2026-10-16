@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zakoway/core/services/app_preferences.dart';
 import 'package:zakoway/core/services/bangumi_oped_service.dart';
 import 'package:zakoway/core/utils/font_manager.dart';
 import 'package:zakoway/features/player/controller/playback_controller.dart';
@@ -125,6 +126,26 @@ class PlayerSettingsPanelBody extends StatelessWidget {
               },
             ),
           ],
+
+          const SizedBox(height: 10),
+
+          // 网络与解析代理模式快速切换
+          const PanelSectionHeader(title: '网络与解析'),
+          ValueListenableBuilder<bool>(
+            valueListenable: AppPreferences.serverModeNotifier,
+            builder: (context, serverMode, _) {
+              return PanelSwitchRow(
+                title: 'Animaku 服务端模式',
+                subtitle: serverMode ? '已开启服务端中继代理，加速受限源' : '当前为本地直连，受限源可开启代理',
+                value: serverMode,
+                primaryColor: primaryColor,
+                onChanged: (val) {
+                  AppPreferences.setServerModeEnabled(val);
+                  onTriggerSkipToast?.call(val ? '已开启 Animaku 服务端模式' : '已切换为本地直连模式');
+                },
+              );
+            },
+          ),
 
           const SizedBox(height: 10),
 

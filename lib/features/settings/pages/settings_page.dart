@@ -4,6 +4,7 @@ import '../../../core/utils/appearance_manager.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
 import '../widgets/about_settings_card.dart';
+import '../widgets/animaku_server_settings_card.dart';
 import '../widgets/appearance_settings_card.dart';
 import '../widgets/cache_settings_card.dart';
 import '../widgets/danmaku_settings_card.dart';
@@ -94,6 +95,9 @@ class _SettingsPageState extends State<SettingsPage> with AutomaticKeepAliveClie
                     onPresetChanged: _onPresetChanged,
                     onRouteChanged: () => widget.onSettingsChanged?.call(),
                   ),
+
+                  // 3.1 Animaku 服务端代理与解析服务
+                  const AnimakuServerSettingsCard(),
 
                   // 4. 缓存管理
                   CacheSettingsCard(client: widget.client),

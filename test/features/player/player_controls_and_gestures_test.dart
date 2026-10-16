@@ -290,6 +290,8 @@ void main() {
       expect(find.text('连播与跳过'), findsOneWidget);
       expect(find.text('自动播放下一集'), findsOneWidget);
       expect(find.text('自动跳过片头片尾'), findsOneWidget);
+      expect(find.text('网络与解析'), findsOneWidget);
+      expect(find.text('Animaku 服务端模式'), findsOneWidget);
       expect(find.text('播放速度'), findsOneWidget);
       expect(find.text('动漫超分辨率 (Anime4K)'), findsOneWidget);
       expect(find.text('画面填充比例'), findsOneWidget);
@@ -302,6 +304,7 @@ void main() {
       expect(controller.core.value.superResolution, equals(SuperResolutionMode.efficiency));
 
       // 点击切换画幅比例至全屏拉伸
+      await tester.scrollUntilVisible(find.text('全屏拉伸'), 100);
       await tester.tap(find.text('全屏拉伸'));
       await tester.pumpAndSettle();
       expect(controller.core.value.videoFit, equals(BoxFit.fill));

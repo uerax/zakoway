@@ -162,7 +162,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   }
 
   int get _displayEpisodeCount =>
-      _currentSlots.isNotEmpty ? _currentSlots.length : (_currentEpisodes.isNotEmpty ? _currentEpisodes.length : widget.episodeCount);
+      _currentSlots.isNotEmpty ? _currentSlots.length : _currentEpisodes.length;
 
   /// 使用 PlayableSlotEngine 构建双层对齐的标准槽位列表
   List<PlayableSlot> get _currentSlots {
@@ -1015,6 +1015,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
 
     final episodes = _currentEpisodes;
     if (episodes.isEmpty || ep < 1 || ep > episodes.length) {
+      _showHudToast('当前视频源暂无可播放分集，请切换线路或视频源');
       return;
     }
 
@@ -1688,6 +1689,12 @@ class _VideoPlayPageState extends State<VideoPlayPage>
                                 activeRoadIndex: _selectedRoadIndex,
                                 playingRoadIndex: _hasStartedPlayback && _selectedSourceId == _playingSourceId ? _playingRoadIndex : null,
                                 episodeTitles: _mappedEpisodeTitles,
+                                isLoading: _isLoadingChapters,
+                                sourceName: _selectedSourceName,
+                                errorMessage: _resolveError,
+                                onSwitchSource: () {
+                                  DefaultTabController.of(bottomSheetContext).animateTo(1);
+                                },
                                 onRoadSelected: (idx) {
                                   if (_selectedRoadIndex == idx) return;
                                   setState(() => _selectedRoadIndex = idx);
@@ -1872,6 +1879,13 @@ class _VideoPlayPageState extends State<VideoPlayPage>
             watchedEpisodes: watched,
             isLoading: _isLoadingChapters,
             loadingMessage: '正在从「$_selectedSourceName」解析分集...',
+            sourceName: _selectedSourceName,
+            errorMessage: _resolveError,
+            onSwitchSource: () {
+              if (_desktopRightTabController.index != 1) {
+                _desktopRightTabController.animateTo(1);
+              }
+            },
             onRoadSelected: (idx) {
               if (_selectedRoadIndex == idx) return;
               setState(() => _selectedRoadIndex = idx);
