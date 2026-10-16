@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
@@ -28,6 +29,7 @@ class AppDesktopWindowFrame extends StatefulWidget {
 class _AppDesktopWindowFrameState extends State<AppDesktopWindowFrame>
     with WindowListener {
   bool _isFullScreen = false;
+  bool _isScrolled = false;
 
   @override
   void initState() {
@@ -89,25 +91,39 @@ class _AppDesktopWindowFrameState extends State<AppDesktopWindowFrame>
         children: [
           // 1. 页面内容呈现区：通顶铺满整个窗口画布（y=0 到底部），并注入含 44px top padding 的 MediaQuery 保持内容避让
           Positioned.fill(
-            child: MediaQuery(
-              data: mediaQuery.copyWith(
-                padding: mediaQuery.padding.copyWith(
-                  top: _isFullScreen ? 0 : titleBarHeight,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification.metrics.axis == Axis.vertical) {
+                  final scrolled = notification.metrics.pixels > 4.0;
+                  if (scrolled != _isScrolled) {
+                    setState(() => _isScrolled = scrolled);
+                  }
+                }
+                return false;
+              },
+              child: MediaQuery(
+                data: mediaQuery.copyWith(
+                  padding: mediaQuery.padding.copyWith(
+                    top: _isFullScreen ? 0 : titleBarHeight,
+                  ),
+                  viewPadding: mediaQuery.viewPadding.copyWith(
+                    top: _isFullScreen ? 0 : titleBarHeight,
+                  ),
                 ),
-                viewPadding: mediaQuery.viewPadding.copyWith(
-                  top: _isFullScreen ? 0 : titleBarHeight,
-                ),
+                child: widget.child,
               ),
-              child: widget.child,
             ),
           ),
-          // 0. 桌面端自适应沉浸顶栏：浮在最上方，透明底衬让壁纸与环境渐变光晕 100% 穿透到窗口最顶端
+          // 0. 桌面端自适应沉浸顶栏：浮在最上方，未滚动时完全透明透出壁纸，滚动时自动淡入亚克力毛玻璃防穿透
           if (!_isFullScreen)
-            const Positioned(
+            Positioned(
               top: 0,
               left: 0,
               right: 0,
-              child: AppDesktopTitleBar(height: titleBarHeight),
+              child: AppDesktopTitleBar(
+                height: titleBarHeight,
+                isScrolled: _isScrolled,
+              ),
             ),
         ],
       ),
@@ -120,9 +136,11 @@ class AppDesktopTitleBar extends StatefulWidget {
   const AppDesktopTitleBar({
     super.key,
     this.height = 44.0,
+    this.isScrolled = false,
   });
 
   final double height;
+  final bool isScrolled;
 
   @override
   State<AppDesktopTitleBar> createState() => _AppDesktopTitleBarState();
@@ -198,49 +216,82 @@ class _AppDesktopTitleBarState extends State<AppDesktopTitleBar> with WindowList
       },
     );
 
-    return Container(
+    return SizedBox(
       height: widget.height,
-      color: Colors.transparent,
-      child: Material(
-        color: Colors.transparent,
-        child: Row(
-          children: [
-            if (isMac) ...[
-              // macOS 左侧：78px 原生红绿灯安全避让区
-              const SizedBox(width: 78),
-            ] else ...[
-              // Windows 左侧：高清官方品牌 Logo
-              Padding(
-                padding: const EdgeInsets.only(left: 14.0),
-                child: logoWidget,
-              ),
-            ],
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 动态磨砂遮罩背景（未滚动时 0 像素占位完全透明透出通顶壁纸，滚动时平滑淡入亚克力毛玻璃柔和吸收内容）
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            child: widget.isScrolled
+                ? ClipRect(
+                    key: const ValueKey('title_bar_scrolled_bg'),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: (isDark
+                                  ? theme.colorScheme.surface
+                                  : theme.scaffoldBackgroundColor)
+                              .withValues(alpha: isDark ? 0.88 : 0.92),
+                          border: Border(
+                            bottom: BorderSide(
+                              color: theme.colorScheme.outlineVariant
+                                  .withValues(alpha: isDark ? 0.20 : 0.15),
+                              width: 0.6,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(key: ValueKey('title_bar_transparent_bg')),
+          ),
 
-            // 中间：大片纯净留白窗口拖拽区（支持双击最大化/还原，按住移动窗口）
-            Expanded(
-              child: DragToMoveArea(
-                child: Container(
-                  height: widget.height,
-                  color: Colors.transparent,
+          // 标题栏交互前景（Logo + 拖拽区 + 窗口控制按键）
+          Material(
+            color: Colors.transparent,
+            child: Row(
+              children: [
+                if (isMac) ...[
+                  // macOS 左侧：78px 原生红绿灯安全避让区
+                  const SizedBox(width: 78),
+                ] else ...[
+                  // Windows 左侧：高清官方品牌 Logo
+                  Padding(
+                    padding: const EdgeInsets.only(left: 14.0),
+                    child: logoWidget,
+                  ),
+                ],
+
+                // 中间：大片纯净留白窗口拖拽区（支持双击最大化/还原，按住移动窗口）
+                Expanded(
+                  child: DragToMoveArea(
+                    child: Container(
+                      height: widget.height,
+                      color: Colors.transparent,
+                    ),
+                  ),
                 ),
-              ),
-            ),
 
-            if (isMac) ...[
-              // macOS 右侧：高清官方品牌 Logo（与左侧红绿灯形成绝妙平衡）
-              Padding(
-                padding: const EdgeInsets.only(right: 14.0),
-                child: logoWidget,
-              ),
-            ] else ...[
-              // Windows 右侧：现代 Fluent 极简三按键组
-              _WindowsTitleBarButtons(
-                isMaximized: _isMaximized,
-                height: widget.height,
-              ),
-            ],
-          ],
-        ),
+                if (isMac) ...[
+                  // macOS 右侧：高清官方品牌 Logo（与左侧红绿灯形成绝妙平衡）
+                  Padding(
+                    padding: const EdgeInsets.only(right: 14.0),
+                    child: logoWidget,
+                  ),
+                ] else ...[
+                  // Windows 右侧：现代 Fluent 极简三按键组
+                  _WindowsTitleBarButtons(
+                    isMaximized: _isMaximized,
+                    height: widget.height,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

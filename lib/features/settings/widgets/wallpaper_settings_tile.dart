@@ -51,6 +51,7 @@ class _WallpaperSettingsTileState extends State<WallpaperSettingsTile> {
         'all' => '全局',
         'home' => '首页',
         'category' => '分类',
+        'profile' => '个人',
         _ => '',
       };
       ScaffoldMessenger.of(context).showSnackBar(
@@ -102,6 +103,7 @@ class _WallpaperSettingsTileState extends State<WallpaperSettingsTile> {
       'all' => '全局壁纸',
       'home' => '首页专属壁纸',
       'category' => '分类页专属壁纸',
+      'profile' => '个人模块专属壁纸',
       _ => '背景壁纸',
     };
 
@@ -136,9 +138,10 @@ class _WallpaperSettingsTileState extends State<WallpaperSettingsTile> {
   Widget _buildWallpaperScopeSelector(ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
     const scopes = [
-      ('all', '全部应用'),
+      ('all', '全部'),
       ('home', '首页'),
       ('category', '分类'),
+      ('profile', '个人'),
     ];
 
     return LayoutBuilder(
@@ -191,7 +194,7 @@ class _WallpaperSettingsTileState extends State<WallpaperSettingsTile> {
                 return Expanded(child: button);
               } else {
                 return SizedBox(
-                  width: 80,
+                  width: 72,
                   child: button,
                 );
               }

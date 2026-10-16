@@ -282,7 +282,7 @@ class _MyCollectionPageState extends ConsumerState<MyCollectionPage>
                 height: 40,
                 decoration: BoxDecoration(
                   color: M3Surface.container(context,
-                      level: M3ContainerLevel.low, pageKey: 'settings'),
+                      level: M3ContainerLevel.low, pageKey: 'profile'),
                   borderRadius: BorderRadius.circular(16),
                   border: M3Surface.cardBorder(context),
                   boxShadow: M3Surface.cardShadow(context, elevation: 0.6),
@@ -388,8 +388,8 @@ class _MyCollectionPageState extends ConsumerState<MyCollectionPage>
           body: Stack(
             fit: StackFit.expand,
             children: [
-              // 0. 壁纸透射层（深浅色自适应）
-              AppearanceManager.instance.buildWallpaperLayer(pageKey: 'settings'),
+              // 0. 壁纸透射层（深浅色自适应，归属个人模块）
+              AppearanceManager.instance.buildWallpaperLayer(pageKey: 'profile'),
 
               // 1. 5 分类内容视图
               TabBarView(
