@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:zakoway/core/services/app_preferences.dart';
 import 'package:zakoway/core/utils/font_manager.dart';
 import 'package:zakoway/features/player/source/models/source_models.dart';
+import 'package:zakoway/features/player/source/server/animaku_server_client.dart';
 import 'package:zakoway/features/player/source/source_aggregator.dart';
 import 'package:zakoway/features/player/source/source_bundle_manager.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
@@ -651,38 +653,39 @@ class _VideoSourceViewState extends State<VideoSourceView> {
                                         fontSize: 14,
                                         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                                         letterSpacing: -0.2,
-                                        color: isSelected ? primaryColor : theme.colorScheme.onSurface,
+                                        color: isSelected
+                                            ? primaryColor
+                                            : (src.isDirect
+                                                ? (isDark ? const Color(0xFF4ADE80) : const Color(0xFF15803D))
+                                                : (isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED))),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                    decoration: BoxDecoration(
-                                      color: src.isDirect
-                                          ? Colors.green.withValues(alpha: isDark ? 0.2 : 0.12)
-                                          : const Color(0xFF8B5CF6).withValues(alpha: isDark ? 0.22 : 0.12),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                        color: src.isDirect
-                                            ? Colors.green.withValues(alpha: 0.35)
-                                            : const Color(0xFF8B5CF6).withValues(alpha: 0.35),
-                                        width: 0.5,
+                                  if (AppPreferences.isServerModeEnabled() &&
+                                      AnimakuServerClient.instance.isSourceSupported(src.id)) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                      decoration: BoxDecoration(
+                                        color: primaryColor.withValues(alpha: isDark ? 0.22 : 0.12),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(
+                                          color: primaryColor.withValues(alpha: 0.35),
+                                          width: 0.5,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        '服务端',
+                                        style: TextStyle(
+                                          fontFamily: theme.textTheme.labelSmall?.fontFamily,
+                                          fontFamilyFallback: FontManager.fallbackFontFamilies,
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: primaryColor,
+                                        ),
                                       ),
                                     ),
-                                    child: Text(
-                                      src.isDirect ? '直连' : '代理',
-                                      style: TextStyle(
-                                        fontFamily: theme.textTheme.labelSmall?.fontFamily,
-                                        fontFamilyFallback: FontManager.fallbackFontFamilies,
-                                        fontSize: 9.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: src.isDirect
-                                            ? (isDark ? const Color(0xFF4ADE80) : Colors.green)
-                                            : (isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED)),
-                                      ),
-                                    ),
-                                  ),
+                                  ],
                                 ],
                               ),
                               const SizedBox(height: 2),
