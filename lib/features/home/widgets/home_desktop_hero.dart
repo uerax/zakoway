@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../core/models/bangumi/bangumi_calendar.dart';
 import '../../../core/models/bangumi/bangumi_item.dart';
 import '../../../core/models/home/recommend_item.dart';
+import '../../../core/theme/m3_surface.dart';
 import '../../common/widgets/anime_card.dart';
 import '../../common/widgets/shimmer_loading.dart';
 import 'home_banner_carousel.dart';
@@ -160,29 +161,10 @@ class _HomeDesktopHeroState extends State<HomeDesktopHero> {
               height: _heroHeight,
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
               decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0xFF1E1E22).withValues(alpha: 0.88)
-                    : Colors.white.withValues(alpha: 0.74),
+                color: M3Surface.container(context, level: M3ContainerLevel.low),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.14)
-                      : Colors.white.withValues(alpha: 0.90),
-                  width: 1.0,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.05),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                  BoxShadow(
-                    color: theme.colorScheme.primary.withValues(alpha: isDark ? 0.12 : 0.07),
-                    blurRadius: 20,
-                    spreadRadius: -2,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
+                border: M3Surface.cardBorder(context),
+                boxShadow: M3Surface.cardShadow(context),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

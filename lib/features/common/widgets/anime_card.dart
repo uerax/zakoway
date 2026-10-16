@@ -49,7 +49,8 @@ class AnimeCard extends StatelessWidget {
     final bottomStat = _resolveBottomStat();
     final cardRadius = BorderRadius.circular(compact ? 12 : 16);
     final cardBg = M3Surface.container(context, level: M3ContainerLevel.low);
-    final cardBorder = M3Surface.border(context);
+    final cardBorder = M3Surface.cardBorder(context);
+    final cardShadow = M3Surface.cardShadow(context, elevation: compact ? 0.85 : 1.0);
 
     return BouncingScaleCard(
       immediateTap: true,
@@ -59,11 +60,13 @@ class AnimeCard extends StatelessWidget {
           borderRadius: cardRadius,
           color: cardBg,
           border: cardBorder,
+          boxShadow: cardShadow,
         ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: ClipRRect(
+          borderRadius: cardRadius,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Expanded(
               child: Stack(
                 fit: StackFit.expand,
@@ -201,6 +204,7 @@ class AnimeCard extends StatelessWidget {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

@@ -116,24 +116,15 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
       level: M3ContainerLevel.low,
       pageKey: 'settings',
     );
-    final border = M3Surface.border(
-      context,
-      pageKey: 'settings',
-      forceBorder: true,
-    );
+    final border = M3Surface.cardBorder(context);
+    final shadow = M3Surface.cardShadow(context);
 
     return Container(
       decoration: BoxDecoration(
         color: containerColor,
         borderRadius: BorderRadius.circular(24),
         border: border,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: shadow,
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -451,11 +442,8 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
       level: M3ContainerLevel.low,
       pageKey: 'settings',
     );
-    final border = M3Surface.border(
-      context,
-      pageKey: 'settings',
-      forceBorder: true,
-    );
+    final border = M3Surface.cardBorder(context);
+    final shadow = M3Surface.cardShadow(context);
 
     final stats = _report.collectionCounts;
     final watching = stats[CollectType.watching] ?? 0;
@@ -469,13 +457,7 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
         color: containerColor,
         borderRadius: BorderRadius.circular(24),
         border: border,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: shadow,
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -609,17 +591,15 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
       level: M3ContainerLevel.low,
       pageKey: 'settings',
     );
-    final border = M3Surface.border(
-      context,
-      pageKey: 'settings',
-      forceBorder: true,
-    );
+    final border = M3Surface.cardBorder(context);
+    final shadow = M3Surface.cardShadow(context);
 
     return Container(
       decoration: BoxDecoration(
         color: containerColor,
         borderRadius: BorderRadius.circular(22),
         border: border,
+        boxShadow: shadow,
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -758,17 +738,15 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
       level: M3ContainerLevel.low,
       pageKey: 'settings',
     );
-    final border = M3Surface.border(
-      context,
-      pageKey: 'settings',
-      forceBorder: true,
-    );
+    final border = M3Surface.cardBorder(context);
+    final shadow = M3Surface.cardShadow(context);
 
     return Container(
       decoration: BoxDecoration(
         color: containerColor,
         borderRadius: BorderRadius.circular(22),
         border: border,
+        boxShadow: shadow,
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -829,17 +807,15 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
       level: M3ContainerLevel.low,
       pageKey: 'settings',
     );
-    final border = M3Surface.border(
-      context,
-      pageKey: 'settings',
-      forceBorder: true,
-    );
+    final border = M3Surface.cardBorder(context);
+    final shadow = M3Surface.cardShadow(context);
 
     return Container(
       decoration: BoxDecoration(
         color: containerColor,
         borderRadius: BorderRadius.circular(22),
         border: border,
+        boxShadow: shadow,
       ),
       padding: const EdgeInsets.all(20),
       child: Column(

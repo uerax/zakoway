@@ -56,10 +56,9 @@ class M3SettingsCard extends StatelessWidget {
       level: M3ContainerLevel.low,
       pageKey: 'settings',
     );
-    final border = M3Surface.border(
-      context,
-      pageKey: 'settings',
-    );
+    final border = M3Surface.cardBorder(context);
+    final shadow = M3Surface.cardShadow(context);
+    final radius = BorderRadius.circular(16);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,13 +67,16 @@ class M3SettingsCard extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             color: containerColor,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: radius,
             border: border,
+            boxShadow: shadow,
           ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: children,
+          child: ClipRRect(
+            borderRadius: radius,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: children,
+            ),
           ),
         ),
         if (footerText != null || footer != null)

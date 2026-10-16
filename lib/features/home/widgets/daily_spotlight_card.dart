@@ -164,7 +164,8 @@ class _DailySpotlightCardState extends State<DailySpotlightCard> {
                     decoration: BoxDecoration(
                       color: M3Surface.container(context, level: M3ContainerLevel.low),
                       borderRadius: BorderRadius.circular(20),
-                      border: M3Surface.border(context),
+                      border: M3Surface.cardBorder(context),
+                      boxShadow: M3Surface.cardShadow(context),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
