@@ -86,10 +86,11 @@ class ContinueWatchingShelf extends StatelessWidget {
         final displayItems = records.take(maxColumns).toList();
         if (displayItems.isEmpty) return const SizedBox.shrink();
 
+        final isDesktop = context.isDesktop;
         const double gap = 8.0;
         const double maxCardWidth = 280.0;
         const double cardHeight = 68.0;
-        final double availableWidth = screenWidth - 32.0;
+        final double availableWidth = isDesktop ? screenWidth : screenWidth - 32.0;
 
         // 特殊处理说明：
         // 双向自适应宽度设计：
@@ -105,7 +106,7 @@ class ContinueWatchingShelf extends StatelessWidget {
             children: [
               // 标题行
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+                padding: EdgeInsets.fromLTRB(isDesktop ? 0 : 16, 2, isDesktop ? 0 : 16, 6),
                 child: Row(
                   children: [
                     Icon(
@@ -173,7 +174,7 @@ class ContinueWatchingShelf extends StatelessWidget {
 
               // 响应式静态平铺行（零横向滚动，彻底杜绝手势竞争与误触）
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: EdgeInsets.symmetric(horizontal: isDesktop ? 0 : 16),
                 child: Row(
                   children: [
                     for (var i = 0; i < displayItems.length; i++) ...[

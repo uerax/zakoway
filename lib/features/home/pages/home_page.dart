@@ -109,15 +109,20 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
     }
   }
 
-  /// 货架响应式对齐容器：
-  /// 特殊处理说明：
-  /// 1. 桌面/宽屏端（>= 840dp）：移除 1200dp 最大宽度限制，全宽延伸横滑轨与追番卡片，左右保留舒适大屏呼吸边距（32px 外边距 + 16px 内部边距 = 48px），彻底解决大屏贴边与两侧空洞失衡问题；
-  /// 2. 手机与平板竖屏（< 840dp）：直接返回原货架组件，保持 100% 贴边无阻碍全宽滑动流与边缘露头（Peek）手势引导，零视觉副作用。
+  /// 桌面端全局统一内容对齐容器：所有大屏模块（Hero、继续追番、热门货架）共用完全相同的居中约束与左右间距
+  static const double _desktopContentMargin = 48.0;
+
+  /// 货架与模块响应式对齐容器：
   Widget _buildResponsiveShelf(Widget shelf) {
     if (context.isDesktop) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: shelf,
+      return Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: AppBreakpoints.maxHeroWidth),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: _desktopContentMargin),
+            child: shelf,
+          ),
+        ),
       );
     }
     return shelf;
@@ -483,19 +488,13 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.only(top: 8, bottom: 12),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: AppBreakpoints.maxHeroWidth),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 48),
-                    child: HomeDesktopHero(
-                      bannerItems: data.tv,
-                      recommendations: data.recommendations,
-                      calendarDays: data.calendarDays,
-                      todayItems: data.today,
-                      weekdayName: data.weekdayName,
-                    ),
-                  ),
+              child: _buildResponsiveShelf(
+                HomeDesktopHero(
+                  bannerItems: data.tv,
+                  recommendations: data.recommendations,
+                  calendarDays: data.calendarDays,
+                  todayItems: data.today,
+                  weekdayName: data.weekdayName,
                 ),
               ),
             ),
@@ -690,14 +689,8 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                 if (isDesktop) {
                   return Padding(
                     padding: const EdgeInsets.only(top: 8, bottom: 12),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: AppBreakpoints.maxHeroWidth),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 48),
-                          child: ShimmerDesktopHero(),
-                        ),
-                      ),
+                    child: _buildResponsiveShelf(
+                      const ShimmerDesktopHero(),
                     ),
                   );
                 }
