@@ -5,7 +5,6 @@ import '../../../core/auth/providers/auth_providers.dart';
 import '../../../core/collection/providers/collection_providers.dart';
 import '../../../core/models/bangumi/bangumi_collection.dart';
 import '../../../core/models/bangumi/bangumi_item.dart';
-import '../../../core/theme/m3_surface.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../common/widgets/cached_anime_image.dart';
 
@@ -329,13 +328,23 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
           height: 40,
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: M3Surface.container(context, level: M3ContainerLevel.lowest),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.white.withValues(alpha: 0.50),
             borderRadius: BorderRadius.circular(16),
-            border: M3Surface.border(context) ??
-                Border.all(
-                  color: isDark ? Colors.white.withAlpha(18) : Colors.black.withAlpha(12),
-                  width: 0.5,
-                ),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.14)
+                  : Colors.white.withValues(alpha: 0.85),
+              width: 0.8,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.03),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
           ),
           child: Stack(
             children: [
@@ -353,11 +362,11 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
                     child: Container(
                       height: 32,
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.white.withAlpha(36) : Colors.white,
+                        color: isDark ? Colors.white.withValues(alpha: 0.20) : theme.colorScheme.surface,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
                             blurRadius: 6,
                             offset: const Offset(0, 1.5),
                           ),
@@ -411,12 +420,23 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: M3Surface.container(context, level: M3ContainerLevel.lowest),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.white.withValues(alpha: 0.65),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: isDark ? Colors.white.withAlpha(16) : Colors.black.withAlpha(10),
-                    width: 0.5,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.14)
+                        : Colors.white.withValues(alpha: 0.85),
+                    width: 0.6,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.02),
+                      blurRadius: 3,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
                 ),
                 child: Text(
                   t.name,
@@ -455,13 +475,29 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: M3Surface.container(context, level: M3ContainerLevel.lowest),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.white.withValues(alpha: 0.74),
             borderRadius: BorderRadius.circular(16),
-            border: M3Surface.border(context) ??
-                Border.all(
-                  color: isDark ? Colors.white.withAlpha(16) : Colors.black.withAlpha(10),
-                  width: 0.5,
-                ),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.14)
+                  : Colors.white.withValues(alpha: 0.88),
+              width: 0.8,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+              BoxShadow(
+                color: theme.colorScheme.primary.withValues(alpha: isDark ? 0.08 : 0.06),
+                blurRadius: 16,
+                spreadRadius: -2,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
