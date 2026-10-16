@@ -90,8 +90,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 child: ColoredBox(color: theme.scaffoldBackgroundColor),
               ),
 
-              // 1. 个性化壁纸透射层（支持 search 页面专属覆盖或全局壁纸）
-              AppearanceManager.instance.buildWallpaperLayer(pageKey: 'search'),
+              // 1. 个性化壁纸透射层（归属个人模块体系，支持单独覆盖或继承全局）
+              AppearanceManager.instance.buildWallpaperLayer(pageKey: 'profile'),
 
               // 2. 顶部微弱动态环境光晕，营造高通透质感
               Positioned(

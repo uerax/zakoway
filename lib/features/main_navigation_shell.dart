@@ -66,7 +66,7 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
     final pageKey = switch (_currentIndex) {
       0 => 'home',
       1 => 'category',
-      2 => 'settings',
+      2 => 'profile',
       _ => 'home',
     };
 

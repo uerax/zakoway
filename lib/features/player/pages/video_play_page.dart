@@ -13,6 +13,7 @@ import '../../../core/services/watch_history_service.dart';
 import '../../../core/services/watched_episodes_service.dart';
 import '../../../core/utils/adaptive_page_route.dart';
 import '../../../core/utils/anime_tag_filter.dart';
+import '../../../core/utils/appearance_manager.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
 import '../controller/playback_controller.dart';
@@ -1439,27 +1440,55 @@ class _VideoPlayPageState extends State<VideoPlayPage>
 
           return KeyEventResult.ignored;
         },
-        child: Scaffold(
-          backgroundColor: _isFullscreen
-              ? Colors.black
-              : (isDark ? Colors.black : Theme.of(context).scaffoldBackgroundColor),
-          body: LayoutBuilder(
-            builder: (context, constraints) {
-              // 判定双栏并排桌面布局：结合内置平台函数 AppPlatform.isDesktop 与响应式断点
-              final isDesktopPlatform = AppPlatform.isDesktop;
-              final isWideLayout = (isDesktopPlatform && constraints.maxWidth >= 680) ||
-                  (!isDesktopPlatform && constraints.maxWidth >= AppBreakpoints.medium);
-              final shouldUseDesktopLayout = isWideLayout && !_isFullscreen;
+        child: ListenableBuilder(
+          listenable: AppearanceManager.instance,
+          builder: (context, _) {
+            final layoutContent = LayoutBuilder(
+              builder: (context, constraints) {
+                // 判定双栏并排桌面布局：结合内置平台函数 AppPlatform.isDesktop 与响应式断点
+                final isDesktopPlatform = AppPlatform.isDesktop;
+                final isWideLayout = (isDesktopPlatform && constraints.maxWidth >= 680) ||
+                    (!isDesktopPlatform && constraints.maxWidth >= AppBreakpoints.medium);
+                final shouldUseDesktopLayout = isWideLayout && !_isFullscreen;
 
-              if (_isFullscreen) {
-                return _buildFullscreenLayout();
-              } else if (shouldUseDesktopLayout) {
-                return _buildDesktopLayout();
-              } else {
-                return _buildMobileLayout();
-              }
-            },
-          ),
+                if (_isFullscreen) {
+                  return _buildFullscreenLayout();
+                } else if (shouldUseDesktopLayout) {
+                  return _buildDesktopLayout();
+                } else {
+                  return _buildMobileLayout();
+                }
+              },
+            );
+
+            if (_isFullscreen) {
+              return Scaffold(
+                backgroundColor: Colors.black,
+                body: layoutContent,
+              );
+            }
+
+            return Scaffold(
+              backgroundColor: Colors.transparent,
+              body: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // 0. 基础底衬
+                  Positioned.fill(
+                    child: ColoredBox(
+                      color: isDark ? const Color(0xFF141416) : Theme.of(context).scaffoldBackgroundColor,
+                    ),
+                  ),
+                  // 1. 个人专属背景壁纸层
+                  AppearanceManager.instance.buildWallpaperLayer(pageKey: 'profile'),
+                  // 2. 播放页面主体流
+                  Positioned.fill(
+                    child: layoutContent,
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );

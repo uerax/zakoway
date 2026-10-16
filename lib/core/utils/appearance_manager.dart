@@ -57,8 +57,17 @@ class AppearanceManager extends ChangeNotifier {
 
   /// 获取指定页面实际生效的壁纸路径（优先级：页面独立指定 > 全局默认壁纸）
   String? getWallpaperForPage(String? pageKey) {
-    if (pageKey != null && _pageWallpapers.containsKey(pageKey)) {
-      return _pageWallpapers[pageKey];
+    if (pageKey != null) {
+      if (_pageWallpapers.containsKey(pageKey)) {
+        return _pageWallpapers[pageKey];
+      }
+      // 向前兼容：profile 与旧 settings 作用域互通
+      if (pageKey == 'profile' && _pageWallpapers.containsKey('settings')) {
+        return _pageWallpapers['settings'];
+      }
+      if (pageKey == 'settings' && _pageWallpapers.containsKey('profile')) {
+        return _pageWallpapers['profile'];
+      }
     }
     return _globalWallpaperPath;
   }
@@ -70,7 +79,10 @@ class AppearanceManager extends ChangeNotifier {
 
   /// 检查某页面是否单独设置了专属壁纸（覆盖全局）
   bool isPageOverridden(String pageKey) {
-    return _pageWallpapers.containsKey(pageKey);
+    if (_pageWallpapers.containsKey(pageKey)) return true;
+    if (pageKey == 'profile' && _pageWallpapers.containsKey('settings')) return true;
+    if (pageKey == 'settings' && _pageWallpapers.containsKey('profile')) return true;
+    return false;
   }
 
   // --- 持久化恢复方法（供 AppPreferences 初始化时调用） ---

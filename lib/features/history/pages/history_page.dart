@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../core/models/history/watch_history_item.dart';
 import '../../../core/services/watch_history_service.dart';
 import '../../../core/theme/m3_surface.dart';
+import '../../../core/utils/appearance_manager.dart';
 import '../../common/widgets/anime_card.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
 import '../../common/widgets/cached_anime_image.dart';
@@ -90,14 +91,91 @@ class _HistoryPageState extends State<HistoryPage> {
     final isDark = theme.brightness == Brightness.dark;
 
     return ListenableBuilder(
-      listenable: WatchHistoryService.instance,
+      listenable: Listenable.merge([
+        WatchHistoryService.instance,
+        AppearanceManager.instance,
+      ]),
       builder: (context, _) {
         final items = WatchHistoryService.instance.items;
         final groups = groupWatchHistory(items);
         final stats = computeHistoryStats(items);
 
+        final Widget content = _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : items.isEmpty
+                ? _buildEmptyState(context, theme)
+                : CustomScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    slivers: [
+                      // 1. 顶部数据指标胶囊统计栏
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                          child: _buildStatsBar(context, theme, isDark, stats),
+                        ),
+                      ),
+
+                      // 2. 四段式时间轴分组列表
+                      for (final group in groups) ...[
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 3.5,
+                                  height: 14,
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.primary,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  group.label,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: theme.textTheme.titleMedium?.color,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '(${group.items.length})',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                final item = group.items[index];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: _buildHistoryCard(context, theme, isDark, item),
+                                );
+                              },
+                              childCount: group.items.length,
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: 32),
+                      ),
+                    ],
+                  );
+
         return Scaffold(
-          backgroundColor: theme.scaffoldBackgroundColor,
+          backgroundColor: Colors.transparent,
           appBar: AppBar(
             title: const Text(
               '播放历史',
@@ -113,79 +191,21 @@ class _HistoryPageState extends State<HistoryPage> {
                 ),
             ],
           ),
-          body: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : items.isEmpty
-                  ? _buildEmptyState(context, theme)
-                  : CustomScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      slivers: [
-                    // 1. 顶部数据指标胶囊统计栏
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                        child: _buildStatsBar(context, theme, isDark, stats),
-                      ),
-                    ),
-
-                    // 2. 四段式时间轴分组列表
-                    for (final group in groups) ...[
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 3.5,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.primary,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                group.label,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  color: theme.textTheme.titleMedium?.color,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '(${group.items.length})',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final item = group.items[index];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: _buildHistoryCard(context, theme, isDark, item),
-                              );
-                            },
-                            childCount: group.items.length,
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    const SliverToBoxAdapter(
-                      child: SizedBox(height: 32),
-                    ),
-                  ],
-                ),
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              // 0. 底衬背景色
+              Positioned.fill(
+                child: ColoredBox(color: theme.scaffoldBackgroundColor),
+              ),
+              // 1. 个人专属背景壁纸层
+              AppearanceManager.instance.buildWallpaperLayer(pageKey: 'profile'),
+              // 2. 内容层
+              Positioned.fill(
+                child: content,
+              ),
+            ],
+          ),
         );
       },
     );
