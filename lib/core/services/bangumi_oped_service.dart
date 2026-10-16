@@ -44,6 +44,11 @@ class BangumiOpedService {
       connectTimeout: const Duration(seconds: 6),
       receiveTimeout: const Duration(seconds: 6),
       responseType: ResponseType.plain,
+      // 使用 Cache-Control: no-cache 强制向 CDN 发起条件请求 (304 协商)，
+      // 规避 Web/代理等环境下 jsDelivr 默认响应头 max-age=604800 导致的 7 天强缓存更新滞后
+      headers: const {
+        'Cache-Control': 'no-cache',
+      },
     ),
   );
 
