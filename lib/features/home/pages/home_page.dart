@@ -111,18 +111,13 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
 
   /// 货架响应式对齐容器：
   /// 特殊处理说明：
-  /// 1. 桌面/宽屏端（>= 840dp）：通过 Center + ConstrainedBox(maxWidth: 1200) 与顶栏和 Hero 区域基线严格垂直对齐，两边优雅留白；
+  /// 1. 桌面/宽屏端（>= 840dp）：移除 1200dp 最大宽度限制，全宽延伸横滑轨与追番卡片，左右保留舒适大屏呼吸边距（32px 外边距 + 16px 内部边距 = 48px），彻底解决大屏贴边与两侧空洞失衡问题；
   /// 2. 手机与平板竖屏（< 840dp）：直接返回原货架组件，保持 100% 贴边无阻碍全宽滑动流与边缘露头（Peek）手势引导，零视觉副作用。
   Widget _buildResponsiveShelf(Widget shelf) {
     if (context.isDesktop) {
-      return Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppBreakpoints.maxContentWidth),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: shelf,
-          ),
-        ),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: shelf,
       );
     }
     return shelf;
@@ -490,9 +485,9 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
               padding: const EdgeInsets.only(top: 8, bottom: 12),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: AppBreakpoints.maxContentWidth),
+                  constraints: const BoxConstraints(maxWidth: AppBreakpoints.maxHeroWidth),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 48),
                     child: HomeDesktopHero(
                       bannerItems: data.tv,
                       recommendations: data.recommendations,
@@ -697,9 +692,9 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                     padding: const EdgeInsets.only(top: 8, bottom: 12),
                     child: Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1200),
+                        constraints: const BoxConstraints(maxWidth: AppBreakpoints.maxHeroWidth),
                         child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          padding: EdgeInsets.symmetric(horizontal: 48),
                           child: ShimmerDesktopHero(),
                         ),
                       ),

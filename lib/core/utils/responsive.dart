@@ -37,6 +37,9 @@ class AppBreakpoints {
   /// 全局大屏主要内容流最大限制宽度
   static const double maxContentWidth = 1200.0;
 
+  /// 桌面端 Hero 大屏横幅展示的最佳视觉限制宽度（防止超宽带鱼屏下海报严重扁平变形）
+  static const double maxHeroWidth = 1440.0;
+
   /// 设置页等列表型页面在大屏上的收拢宽度
   static const double maxSettingsWidth = 800.0;
 

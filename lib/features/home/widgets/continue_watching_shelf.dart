@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../core/models/bangumi/bangumi_item.dart';
 import '../../../core/models/history/watch_history_item.dart';
-import '../../../core/theme/m3_surface.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
@@ -71,12 +70,18 @@ class ContinueWatchingShelf extends StatelessWidget {
         // 极窄小窗 (< 250px)：展示最新 1 部，避免强制双列过度挤压卡片破排
         // 手机端 (250 ~ 599px)：平铺展示最新 2 部
         // 平板端 (600 ~ 839px)：平铺展示最新 3 部
-        // 桌面大屏 (>= 840px)：平铺展示最新 4 部
-        final int maxColumns = screenWidth >= AppBreakpoints.medium
-            ? 4
-            : (screenWidth >= AppBreakpoints.compact
-                ? 3
-                : (screenWidth < 250 ? 1 : 2));
+        // 桌面标准大屏 (840 ~ 1279px)：平铺展示最新 4 部
+        // 桌面宽屏 (1280 ~ 1599px)：平铺展示最新 5 部
+        // 桌面超宽大屏 (>= 1600px)：平铺展示最新 6 部
+        final int maxColumns = screenWidth >= 1600
+            ? 6
+            : (screenWidth >= 1280
+                ? 5
+                : (screenWidth >= AppBreakpoints.medium
+                    ? 4
+                    : (screenWidth >= AppBreakpoints.compact
+                        ? 3
+                        : (screenWidth < 250 ? 1 : 2))));
 
         final displayItems = records.take(maxColumns).toList();
         if (displayItems.isEmpty) return const SizedBox.shrink();
@@ -214,9 +219,29 @@ class ContinueWatchingShelf extends StatelessWidget {
         height: cardHeight,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: M3Surface.container(context, level: M3ContainerLevel.low),
+          color: isDark
+              ? const Color(0xFF1E1E22).withValues(alpha: 0.85)
+              : Colors.white.withValues(alpha: 0.74),
           borderRadius: BorderRadius.circular(16),
-          border: M3Surface.border(context),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.12)
+                : Colors.white.withValues(alpha: 0.90),
+            width: 0.8,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.04),
+              blurRadius: 4,
+              offset: const Offset(0, 1.5),
+            ),
+            BoxShadow(
+              color: theme.colorScheme.primary.withValues(alpha: isDark ? 0.08 : 0.06),
+              blurRadius: 10,
+              spreadRadius: -1,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [

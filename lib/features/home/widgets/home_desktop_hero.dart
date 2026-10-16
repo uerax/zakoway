@@ -161,20 +161,26 @@ class _HomeDesktopHeroState extends State<HomeDesktopHero> {
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
               decoration: BoxDecoration(
                 color: isDark
-                    ? const Color(0xFF1E1E22).withAlpha(235)
-                    : Colors.white.withAlpha(240),
-                borderRadius: BorderRadius.circular(14),
+                    ? const Color(0xFF1E1E22).withValues(alpha: 0.88)
+                    : Colors.white.withValues(alpha: 0.74),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isDark
-                      ? Colors.white.withAlpha(28)
-                      : Colors.black.withAlpha(18),
+                      ? Colors.white.withValues(alpha: 0.14)
+                      : Colors.white.withValues(alpha: 0.90),
                   width: 1.0,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withAlpha(isDark ? 55 : 18),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+                    color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.05),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                  BoxShadow(
+                    color: theme.colorScheme.primary.withValues(alpha: isDark ? 0.12 : 0.07),
+                    blurRadius: 20,
+                    spreadRadius: -2,
+                    offset: const Offset(0, 6),
                   ),
                 ],
               ),

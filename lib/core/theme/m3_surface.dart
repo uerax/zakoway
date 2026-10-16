@@ -25,15 +25,16 @@ class M3Surface {
     final isDark = theme.brightness == Brightness.dark;
     final colorScheme = theme.colorScheme;
 
-    // 特殊处理说明：对齐 Apple HIG 与视听流媒体主流地台体系（Scheme 1: 地台沉降 + 纯白高光卡片）。
-    // 在深色模式下，背景为深暗 surface (Tone 6)，卡片采用 surfaceContainerLow (Tone 10) 向上提亮；
-    // 在浅色模式下，背景沉降为地台 surfaceContainer (Tone 94)，卡片则采用纯白 surfaceContainerLowest (Tone 100) 向上提亮。
-    // 这保证了深浅两端保持一致的感知层级：内容卡片永远比背景画布更加高光凸显，彻底杜绝浅色下融为一体。
+    // 特殊处理说明：M3 Expressive 色调表面融合系统。
+    // 杜绝浅色模式下生硬刺眼的纯白塑料板，采用与主题环境色自然交融的色阶体系；
+    // 浅色下 lowest / low 均融入当前主题的微弱色相 (Tinted Surface)，配合微透度带来通透轻盈的高级质感。
     final Color baseColor = switch (level) {
-      M3ContainerLevel.lowest => colorScheme.surfaceContainerLowest,
+      M3ContainerLevel.lowest => isDark
+          ? colorScheme.surfaceContainerLowest
+          : colorScheme.surfaceContainerLow.withValues(alpha: 0.75),
       M3ContainerLevel.low => isDark
           ? colorScheme.surfaceContainerLow
-          : colorScheme.surfaceContainerLowest,
+          : colorScheme.surfaceContainerLow,
       M3ContainerLevel.standard => colorScheme.surfaceContainer,
       M3ContainerLevel.high => colorScheme.surfaceContainerHigh,
       M3ContainerLevel.highest => colorScheme.surfaceContainerHighest,
@@ -49,25 +50,23 @@ class M3Surface {
     return baseColor.withValues(alpha: alphaFraction);
   }
 
-  /// 壁纸激活状态下的辅助边界轮廓（用于在色彩繁杂的二次元插画壁纸上维持容器可读性）
+  /// 容器辅助微光边界轮廓（无论是否激活壁纸均提供轻盈的细微透光描边，强化卡片轻盈浮空感）
   static Border? border(
     BuildContext context, {
     String? pageKey,
     bool forceBorder = false,
   }) {
-    final hasWallpaper = AppearanceManager.instance.hasWallpaperForPage(pageKey);
-    if (!hasWallpaper && !forceBorder) {
-      return null;
-    }
-
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    final hasWallpaper = AppearanceManager.instance.hasWallpaperForPage(pageKey);
+    final double alpha = hasWallpaper
+        ? (isDark ? 0.28 : 0.22)
+        : (isDark ? 0.18 : 0.15);
+
     return Border.all(
-      color: theme.colorScheme.outlineVariant.withValues(
-        alpha: isDark ? 0.28 : 0.22,
-      ),
-      width: 0.8,
+      color: theme.colorScheme.outlineVariant.withValues(alpha: alpha),
+      width: 0.6,
     );
   }
 }

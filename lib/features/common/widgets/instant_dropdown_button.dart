@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 /// 高性能极速原地下拉菜单组件：
@@ -78,12 +79,21 @@ class _InstantDropdownButtonState<T> extends State<InstantDropdownButton<T>>
 
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
-    final size = renderBox.size;
-    final offset = renderBox.localToGlobal(Offset.zero);
 
-    final mediaQuery = MediaQuery.of(context);
-    final screenWidth = mediaQuery.size.width;
-    final screenHeight = mediaQuery.size.height;
+    // 特殊处理说明：必须使用 OverlayState 自身的 RenderBox 作为祖先坐标锚点进行归一化。
+    // 在桌面端存在沉浸式标题栏（AppDesktopTitleBar: 44px）时，全局物理坐标会高出 44px，
+    // 若直接使用 localToGlobal(Offset.zero) 会导致菜单向下多偏移 44px 产生巨大真空空隙；
+    // 指定 ancestor: overlayRenderBox 可绝对精确地消除任何外层嵌套容器导致的垂直与水平位移偏差。
+    final overlayState = Overlay.of(context);
+    final overlayRenderBox = overlayState.context.findRenderObject() as RenderBox?;
+    if (overlayRenderBox == null) return;
+
+    final size = renderBox.size;
+    final offset = renderBox.localToGlobal(Offset.zero, ancestor: overlayRenderBox);
+
+    final overlaySize = overlayRenderBox.size;
+    final screenWidth = overlaySize.width;
+    final screenHeight = overlaySize.height;
 
     double left = widget.alignRight
         ? (offset.dx + size.width - widget.menuWidth)
@@ -95,10 +105,19 @@ class _InstantDropdownButtonState<T> extends State<InstantDropdownButton<T>>
       left = screenWidth - widget.menuWidth - 10;
     }
 
+    final actualMenuHeight = math.min(
+      widget.items.length * 38.0 + 8.0,
+      widget.maxMenuHeight,
+    );
+
     double top = offset.dy + size.height + 4;
-    // 如果底部空间不足，向上弹出
-    if (top + widget.maxMenuHeight > screenHeight - 60) {
-      top = offset.dy - widget.maxMenuHeight - 4;
+    bool isPoppingUp = false;
+
+    // 特殊处理说明：当底部剩余空间不足时触发向上弹出，必须基于 actualMenuHeight 精确测算，
+    // 严禁直接扣除固定的 maxMenuHeight，否则在选项较少（如只有3-5项）时会导致菜单底部悬浮在按钮上方数十像素处。
+    if (top + actualMenuHeight > screenHeight - 60) {
+      top = offset.dy - actualMenuHeight - 4;
+      isPoppingUp = true;
     }
 
     final selectedIndex = widget.items.indexOf(widget.selectedValue);
@@ -110,6 +129,9 @@ class _InstantDropdownButtonState<T> extends State<InstantDropdownButton<T>>
     );
 
     final theme = Theme.of(context);
+    final scaleAlignment = isPoppingUp
+        ? (widget.alignRight ? Alignment.bottomRight : Alignment.bottomLeft)
+        : (widget.alignRight ? Alignment.topRight : Alignment.topLeft);
 
     _overlayEntry = OverlayEntry(
       builder: (context) {
@@ -130,7 +152,7 @@ class _InstantDropdownButtonState<T> extends State<InstantDropdownButton<T>>
                 opacity: _fadeAnim,
                 child: ScaleTransition(
                   scale: _scaleAnim,
-                  alignment: widget.alignRight ? Alignment.topRight : Alignment.topLeft,
+                  alignment: scaleAlignment,
                   child: Material(
                     elevation: 6,
                     color: theme.colorScheme.surfaceContainerHigh,
@@ -173,7 +195,7 @@ class _InstantDropdownButtonState<T> extends State<InstantDropdownButton<T>>
       },
     );
 
-    Overlay.of(context).insert(_overlayEntry!);
+    overlayState.insert(_overlayEntry!);
     _animController.forward(from: 0.0);
   }
 
