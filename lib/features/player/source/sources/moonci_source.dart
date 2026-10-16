@@ -27,6 +27,9 @@ class MoonciSource extends VideoSource {
   @override
   String get description => '1080P · 备用多线路直连 (双轨极速解析)';
 
+  @override
+  bool get isDirect => false;
+
   Map<String, String> _headers([String? referer]) {
     final h = <String, String>{
       'User-Agent': _kDefaultUserAgent,

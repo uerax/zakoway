@@ -26,6 +26,9 @@ class SoraniSource extends VideoSource {
   @override
   String get description => '1080P · 官方原生 API 直出 (最高画质)';
 
+  @override
+  bool get isDirect => true;
+
   Map<String, String> _baseHeaders([String? referer]) {
     return {
       'User-Agent': _kDefaultUserAgent,

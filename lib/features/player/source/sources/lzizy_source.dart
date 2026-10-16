@@ -30,6 +30,9 @@ class LzizySource extends VideoSource {
   String get description => 'HLS · 全品类影视 0ms 纯直链切片';
 
   @override
+  bool get isDirect => true;
+
+  @override
   Future<List<SourceSearchResult>> search(String keyword) async {
     final q = keyword.trim();
     if (q.isEmpty) return [];

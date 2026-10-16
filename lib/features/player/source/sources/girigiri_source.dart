@@ -27,6 +27,9 @@ class GirigiriSource extends VideoSource {
   String get description => '1080P · Cloudflare CDN 原画直连 (老番优先)';
 
   @override
+  bool get isDirect => false;
+
+  @override
   Future<List<SourceSearchResult>> search(String keyword) async {
     final q = keyword.trim();
     if (q.isEmpty) return [];

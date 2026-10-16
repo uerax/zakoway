@@ -34,6 +34,9 @@ class XifanNextSource extends VideoSource {
   @override
   String get description => '1080P · 官方推荐综合主线 (智能双轨与极速直链)';
 
+  @override
+  bool get isDirect => false;
+
   // 1. 搜索单飞与短时内存缓存 (30分钟)
   final Map<String, ({int time, List<SourceSearchResult> results})> _searchCache = {};
   final Map<String, Future<List<SourceSearchResult>>> _inflightSearch = {};

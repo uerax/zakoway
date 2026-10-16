@@ -25,6 +25,9 @@ class MxdmSource extends VideoSource {
   @override
   String get description => 'HLS · 备用多线路模板解析';
 
+  @override
+  bool get isDirect => false;
+
   Map<String, String> _headers([String? referer]) {
     final h = <String, String>{
       'User-Agent': _kDefaultUserAgent,
