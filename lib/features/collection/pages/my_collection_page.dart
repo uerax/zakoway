@@ -284,10 +284,12 @@ class _MyCollectionPageState extends ConsumerState<MyCollectionPage>
                   color: M3Surface.container(context,
                       level: M3ContainerLevel.low, pageKey: 'settings'),
                   borderRadius: BorderRadius.circular(16),
-                  border: M3Surface.border(context, pageKey: 'settings'),
+                  border: M3Surface.cardBorder(context),
+                  boxShadow: M3Surface.cardShadow(context, elevation: 0.6),
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: TabBar(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: TabBar(
                   controller: _tabController,
                   splashFactory: NoSplash.splashFactory,
                   overlayColor: WidgetStateProperty.all(Colors.transparent),
@@ -378,6 +380,7 @@ class _MyCollectionPageState extends ConsumerState<MyCollectionPage>
                       ),
                     );
                   }).toList(),
+                ),
                 ),
               ),
             ),

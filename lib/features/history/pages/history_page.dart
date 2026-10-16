@@ -203,7 +203,8 @@ class _HistoryPageState extends State<HistoryPage> {
       decoration: BoxDecoration(
         color: M3Surface.container(context, level: M3ContainerLevel.low),
         borderRadius: BorderRadius.circular(20),
-        border: M3Surface.border(context),
+        border: M3Surface.cardBorder(context),
+        boxShadow: M3Surface.cardShadow(context),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -314,7 +315,8 @@ class _HistoryPageState extends State<HistoryPage> {
           decoration: BoxDecoration(
             color: M3Surface.container(context, level: M3ContainerLevel.low),
             borderRadius: BorderRadius.circular(16),
-            border: M3Surface.border(context),
+            border: M3Surface.cardBorder(context),
+            boxShadow: M3Surface.cardShadow(context, elevation: 0.9),
           ),
           child: Row(
             children: [

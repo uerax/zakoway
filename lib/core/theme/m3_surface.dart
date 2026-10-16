@@ -69,4 +69,44 @@ class M3Surface {
       width: 0.6,
     );
   }
+
+  /// 统一卡片高光与微光描边（深色模式提供细致微光透光边框，浅色模式提供高光边缘，防止与背景混淆）
+  static Border cardBorder(
+    BuildContext context, {
+    double width = 0.8,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Border.all(
+      color: isDark
+          ? Colors.white.withValues(alpha: 0.12)
+          : Colors.white.withValues(alpha: 0.90),
+      width: width,
+    );
+  }
+
+  /// 卡片立体双层柔光阴影（环境暗影 + 主题色微光晕，强化浮空质感并防止融于背景）
+  static List<BoxShadow> cardShadow(
+    BuildContext context, {
+    double elevation = 1.0,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
+
+    return [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.04),
+        blurRadius: 4 * elevation,
+        offset: Offset(0, 1.5 * elevation),
+      ),
+      BoxShadow(
+        color: primary.withValues(alpha: isDark ? 0.08 : 0.06),
+        blurRadius: 10 * elevation,
+        spreadRadius: -1,
+        offset: Offset(0, 4 * elevation),
+      ),
+    ];
+  }
 }

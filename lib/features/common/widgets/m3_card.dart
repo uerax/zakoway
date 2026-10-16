@@ -28,7 +28,8 @@ class M3Card extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final containerColor = M3Surface.container(context, level: level, pageKey: pageKey);
-    final border = M3Surface.border(context, pageKey: pageKey);
+    final border = M3Surface.cardBorder(context);
+    final shadow = M3Surface.cardShadow(context);
     final radius = BorderRadius.circular(borderRadius);
 
     Widget content = child;
@@ -42,9 +43,12 @@ class M3Card extends StatelessWidget {
         color: containerColor,
         borderRadius: radius,
         border: border,
+        boxShadow: shadow,
       ),
-      clipBehavior: Clip.antiAlias,
-      child: content,
+      child: ClipRRect(
+        borderRadius: radius,
+        child: content,
+      ),
     );
 
     if (onTap != null || onLongPress != null) {

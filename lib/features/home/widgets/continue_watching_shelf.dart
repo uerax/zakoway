@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../core/models/bangumi/bangumi_item.dart';
 import '../../../core/models/history/watch_history_item.dart';
+import '../../../core/theme/m3_surface.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
@@ -220,29 +221,10 @@ class ContinueWatchingShelf extends StatelessWidget {
         height: cardHeight,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: isDark
-              ? const Color(0xFF1E1E22).withValues(alpha: 0.85)
-              : Colors.white.withValues(alpha: 0.74),
+          color: M3Surface.container(context, level: M3ContainerLevel.low),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.12)
-                : Colors.white.withValues(alpha: 0.90),
-            width: 0.8,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.04),
-              blurRadius: 4,
-              offset: const Offset(0, 1.5),
-            ),
-            BoxShadow(
-              color: theme.colorScheme.primary.withValues(alpha: isDark ? 0.08 : 0.06),
-              blurRadius: 10,
-              spreadRadius: -1,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          border: M3Surface.cardBorder(context),
+          boxShadow: M3Surface.cardShadow(context),
         ),
         child: Row(
           children: [
