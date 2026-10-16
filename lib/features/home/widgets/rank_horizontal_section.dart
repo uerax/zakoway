@@ -187,7 +187,7 @@ class _AnimeHorizontalShelfState extends State<AnimeHorizontalShelf> {
                             physics: const BouncingScrollPhysics(),
                             // 核心性能防线：仅预加载可视区外 100px (约半张卡片)，未进入视口的卡片绝不发起网络下载与解码
                             scrollCacheExtent: const ScrollCacheExtent.pixels(100),
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: EdgeInsets.symmetric(horizontal: context.isDesktop ? 0 : 16),
                             itemCount: totalItemCount,
                             itemBuilder: (context, index) {
                               if (index < widget.items.length) {
@@ -271,9 +271,10 @@ class _AnimeHorizontalShelfState extends State<AnimeHorizontalShelf> {
   Widget _buildHeader(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final isDesktop = context.isDesktop;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      padding: EdgeInsets.fromLTRB(isDesktop ? 0 : 16, 10, isDesktop ? 0 : 16, 6),
       child: Row(
         children: [
           if (widget.icon != null) ...[
