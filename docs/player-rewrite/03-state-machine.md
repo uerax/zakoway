@@ -230,19 +230,35 @@ enum RecoveryReason {
 
 ---
 
-## 七、待验证技术项与验证方案
+## 七、三大底层技术事实（已通过探针实测锁定）
 
-### 待验证项：`player.open()` Future 的确切完成时机
-* **问题描述**：在 media_kit 中，`await player.open(Media(url))` 返回的 Future 究竟是在向底层 libmpv 派发 `loadfile` 指令后立即完成，还是在底层 HTTP 握手建立并解析出流信息后才完成？
-* **潜在风险**：若 `open()` 是立即完成，则 `preparing` 状态几乎瞬态闪过，网络建连期实际上处于 `prebuffering`；若 `open()` 是握手完才完成，则网络超时可能直接由 `open()` 的 Future 抛出而非来自 `stream.error`。
-* **验证方案（阶段 1 前置执行）**：
-  在应用临时接入探针代码，观察日志时间戳与事件先后顺序：
-  ```dart
-  debugPrint('[Probe] 1. 调用 player.open 前: ${DateTime.now()}');
-  final future = player.open(Media(testUrl));
-  future.then((_) => debugPrint('[Probe] 2. player.open Future 完成: ${DateTime.now()}'));
-  player.stream.buffering.listen((b) => debugPrint('[Probe] 缓冲流变动: $b at ${DateTime.now()}'));
-  player.stream.width.listen((w) => debugPrint('[Probe] 尺寸流变动: $w at ${DateTime.now()}'));
-  player.stream.error.listen((e) => debugPrint('[Probe] 错误流捕获: $e at ${DateTime.now()}'));
-  ```
-  通过分析上述输出，即可在阶段 1 编码时彻底锁定 `preparing` 与 `prebuffering` 的精准边界。
+在阶段 1 编码前，通过本地真实 libmpv 环境（Windows x64 原生环境）运行日志时序探针，已彻底实测锁定以下事实：
+
+### 实测结论 1：`player.open()` Future 仅代表 IPC 派发成功，耗时极短（11~36ms）
+* **实测数据**：
+  * 调用 `player.open()` 至 Future 完成耗时：**仅 11ms ~ 36ms**；
+  * Future 完成时刻，底层 HTTP 握手根本尚未建立，甚至首批切片也尚未拉取。
+* **状态机设计锁定**：
+  * `preparing` 状态仅持续十余毫秒；
+  * `await backend.open()` 完成后，状态机应**立即迁移至 `prebuffering`**，网络拉流、握手和首切片加载过程 100% 发生在 `prebuffering` 阶段。
+
+### 实测结论 2：`Failed to open <url>` 错误 100% 仅经由 `stream.error` 异步冒出
+* **实测数据**：
+  * 针对必定 403 的 URL（`https://httpbin.org/status/403`），`player.open()` 的 Future 始终正常完成（`then` 触发），`catchError` **从不被调用**；
+  * 在 1146ms 后，底层通过 `player.stream.error` 派发了 `Failed to open https://httpbin.org/status/403.`。
+* **状态机设计锁定**：
+  * 严禁依赖 `try-catch(open)` 捕获网络或 HTTP 错误；
+  * 错误捕获必须且只能由 `player.stream.error` 统一接收并转化为 `BackendError`。
+
+### 实测结论 3：底层事件物理先后发生顺序全记录
+* **实测毫秒级绝对顺序（本地真实媒体）**：
+  1. `[T0: 0ms]` 调用 `player.open(uri, play: true)`；
+  2. `[T1: 7ms]` 监听器挂载与初始值派发：`playing: false, completed: false, position: 0, duration: 0, buffering: false, buffer: 0`；
+  3. `[T2: 14ms]` 原生指令就绪：`playing: true`（因为 `play: true` 被底层同步设置）；
+  4. `[T3: 14ms]` `player.open()` Future 已经完成；
+  5. `[T4: 14ms]` 底层解复用器启动，`buffering: true` 派发；
+  6. `[T5: 21ms]` demux 成功解析出流元数据，`duration: 3023` 派发；
+  7. `[T6: 22ms]` 首批数据缓冲就绪，`buffering: false` 派发；
+  8. `[T7: 22ms]` `buffer: 2507`（已缓冲范围）派发；
+  9. `[T8: 55ms]` 播放时钟启动出帧，`position: 0` -> `position: 50` -> `position: 100`... 持续递增。
+
