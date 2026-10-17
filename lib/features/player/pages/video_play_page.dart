@@ -1306,6 +1306,41 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     Navigator.of(context).maybePop();
   }
 
+  /// 特殊处理说明：
+  /// 点击推荐番剧时采用 pushReplacement 替代 push：
+  /// 1. 触发当前番剧的完整 dispose 生命周期（自动保存观看历史、彻底注销底层的 libmpv 播放器与硬件解码纹理），
+  ///    杜绝多部番剧在后台同时解码发声与并发占用系统音频/显存；
+  /// 2. 避免用户连续点击多部推荐番剧（A-B-C...）造成原生播放器实例与 GPU 纹理无限堆叠引发 OOM 或系统解码器耗尽崩溃；
+  /// 3. 跳转前显式调用 pause() 与 muteForExit()，彻底切断退场动画期间的残留音频。
+  void _navigateToRecommendedAnime(BangumiRecommendationItem recItem) {
+    _playbackController.pause();
+    _playbackController.muteForExit();
+
+    final parsedEps =
+        int.tryParse(recItem.epsLabel.replaceAll(RegExp(r'\D'), '')) ?? 0;
+    final seedItem = BangumiItem.fromJson({
+      'id': recItem.id,
+      'name': recItem.name,
+      'name_cn': recItem.nameCn,
+      'image': recItem.cover,
+      'rating': {'score': recItem.score},
+      'airDate': recItem.year,
+      'eps': parsedEps,
+    });
+
+    Navigator.of(context).pushReplacement(
+      AdaptivePageRoute.build<void>(
+        context,
+        builder: (context) => VideoPlayPage(
+          title: recItem.displayName,
+          coverUrl: recItem.cover,
+          bangumiItem: seedItem,
+          episodeCount: parsedEps > 0 ? parsedEps : 12,
+        ),
+      ),
+    );
+  }
+
   String get _resolvedCoverUrl => (widget.coverUrl?.isNotEmpty ?? false)
       ? widget.coverUrl!
       : (_effectiveBangumiItem?.coverUrl ?? '');
@@ -1823,17 +1858,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
                 _startDefaultSourceSearch(autoPlayFirst: false),
             onSelectEpisode: _selectEpisode,
             onSelectSlot: _selectSlot,
-            onTapRecommendItem: (recItem) {
-              Navigator.of(context).push(
-                AdaptivePageRoute.build<void>(
-                  context,
-                  builder: (context) => VideoPlayPage(
-                    title: recItem.displayName,
-                    coverUrl: recItem.cover,
-                  ),
-                ),
-              );
-            },
+            onTapRecommendItem: _navigateToRecommendedAnime,
           ),
         ),
       ],
@@ -1961,17 +1986,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       recommendSection: WatchRecommendSection(
         bangumiId: _effectiveBangumiId,
         bangumiItem: _effectiveBangumiItem,
-        onTapItem: (recItem) {
-          Navigator.of(context).push(
-            AdaptivePageRoute.build<void>(
-              context,
-              builder: (context) => VideoPlayPage(
-                title: recItem.displayName,
-                coverUrl: recItem.cover,
-              ),
-            ),
-          );
-        },
+        onTapItem: _navigateToRecommendedAnime,
       ),
     );
   }
