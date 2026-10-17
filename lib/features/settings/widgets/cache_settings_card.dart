@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import '../../../core/network/anime_image_cache_manager.dart';
 import '../../../core/network/bangumi_client.dart';
+import '../../../core/network/bangumi_data_disk_cache_manager.dart';
 import '../../../core/network/player_media_disk_cache_manager.dart';
 import '../../../core/services/app_prewarm_coordinator.dart';
 import '../../player/danmaku/source/bilibili_danmaku_client.dart';
@@ -31,7 +32,7 @@ class _CacheSettingsCardState extends State<CacheSettingsCard> {
       _imageCacheSizeStr = cached.image;
       _dataCacheSizeStr = cached.data;
     }
-    _updateCacheSizes();
+    _updateCacheSizes(forceRefresh: true);
   }
 
   Future<void> _updateCacheSizes({bool forceRefresh = false}) async {
@@ -80,6 +81,9 @@ class _CacheSettingsCardState extends State<CacheSettingsCard> {
   Future<void> _performClearDataCache() async {
     try {
       widget.client.clearCache();
+      try {
+        await BangumiDataDiskCacheManager.instance?.clearAll();
+      } catch (_) {}
       await PlayerMediaDiskCacheManager.instance?.clearAll();
       SourceBundleManager.instance.runtime.clearMemoryCache();
       DandanClient.instance.clearMemoryCache();

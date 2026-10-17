@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:io';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import '../../features/category/controllers/category_controller.dart';
 import '../../features/category/controllers/category_state.dart';
-import '../../features/player/danmaku/source/bilibili_danmaku_client.dart';
-import '../../features/player/danmaku/source/dandan_client.dart';
-import '../../features/player/source/source_bundle_manager.dart';
 import '../../features/search/controllers/search_history_notifier.dart';
 import '../network/anime_image_cache_manager.dart';
 import '../network/bangumi_client.dart';
@@ -100,6 +100,25 @@ class AppPrewarmCoordinator {
     return _searchFuture!;
   }
 
+  static Future<int> _getDirectorySizeByKey(String key) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final dir = Directory(p.join(tempDir.path, key));
+      if (!await dir.exists()) return 0;
+      int total = 0;
+      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+        if (entity is File) {
+          try {
+            total += await entity.length();
+          } catch (_) {}
+        }
+      }
+      return total;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   /// 预热设置页磁盘体积统计（具备防重机制）
   Future<({int imgBytes, int dataBytes})> prewarmSettings(
     BangumiClient client, {
@@ -113,11 +132,16 @@ class AppPrewarmCoordinator {
       try {
         int imgBytes = 0;
         try {
-          imgBytes += await DefaultCacheManager().store.getCacheSize();
-          imgBytes += await AnimeImageCacheManager.instance.store.getCacheSize();
+          final defaultSize = await _getDirectorySizeByKey('libCachedImageData');
+          final animeSize = await _getDirectorySizeByKey(AnimeImageCacheManager.key);
+          imgBytes = defaultSize + animeSize;
+          if (imgBytes == 0) {
+            imgBytes += await DefaultCacheManager().store.getCacheSize();
+            imgBytes += await AnimeImageCacheManager.instance.store.getCacheSize();
+          }
         } catch (_) {}
 
-        int dataBytes = client.dataCacheSizeBytes;
+        int dataBytes = 0;
         try {
           dataBytes += await client.getDiskDataCacheSizeBytes();
         } catch (_) {}
@@ -128,10 +152,6 @@ class AppPrewarmCoordinator {
             dataBytes += await playerDisk.getDiskSizeBytes();
           }
         } catch (_) {}
-
-        dataBytes += SourceBundleManager.instance.runtime.memoryCacheSizeBytes;
-        dataBytes += DandanClient.instance.memoryCacheSizeBytes;
-        dataBytes += BilibiliDanmakuClient.instance.memoryCacheSizeBytes;
 
         cachedImageBytes = imgBytes;
         cachedDataBytes = dataBytes;

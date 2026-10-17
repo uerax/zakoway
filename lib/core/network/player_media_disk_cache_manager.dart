@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 /// 播放器媒体与弹幕专用磁盘缓存管理器：
 /// 1. 基于 flutter_cache_manager，跨全平台稳定持久化到硬盘；
@@ -75,10 +77,32 @@ class PlayerMediaDiskCacheManager extends CacheManager {
     return null;
   }
 
+  /// 获取缓存物理目录
+  static Future<Directory?> getCacheDirectory() async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      return Directory(p.join(tempDir.path, key));
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// 获取当前磁盘缓存的总字节大小
+  /// 特殊处理说明：flutter_cache_manager 的 putFile 在写入文件时不会向 SQLite 数据库写入 length 字段，
+  /// 导致 store.getCacheSize() 恒返回 0。因此必须直接扫描物理缓存目录下的文件真实字节数。
   Future<int> getDiskSizeBytes() async {
     try {
-      return await store.getCacheSize();
+      final dir = await getCacheDirectory();
+      if (dir == null || !await dir.exists()) return 0;
+      int total = 0;
+      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+        if (entity is File) {
+          try {
+            total += await entity.length();
+          } catch (_) {}
+        }
+      }
+      return total;
     } catch (_) {
       return 0;
     }
@@ -88,6 +112,12 @@ class PlayerMediaDiskCacheManager extends CacheManager {
   Future<void> clearAll() async {
     try {
       await emptyCache();
+    } catch (_) {}
+    try {
+      final dir = await getCacheDirectory();
+      if (dir != null && await dir.exists()) {
+        await dir.delete(recursive: true);
+      }
     } catch (_) {}
   }
 }
