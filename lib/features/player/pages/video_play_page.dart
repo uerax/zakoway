@@ -8,6 +8,7 @@ import '../../../core/models/bangumi/bangumi_episode.dart';
 import '../../../core/models/bangumi/bangumi_item.dart';
 import '../../../core/models/history/watch_history_item.dart';
 import '../../../core/network/bangumi_client.dart';
+import '../../../core/services/app_preferences.dart';
 import '../../../core/services/bangumi_oped_service.dart';
 import '../../../core/services/watch_history_service.dart';
 import '../../../core/services/watched_episodes_service.dart';
@@ -114,7 +115,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
 
   // 视频源与选集状态
   String _selectedSourceId = 'xifan-next';
-  late final List<VideoSourceItem> _sources = getDefaultSourceItems();
+  List<VideoSourceItem> get _sources => getDefaultSourceItems();
 
   bool _isLoadingChapters = false;
   String? _resolveError;
@@ -229,6 +230,8 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     );
     _playbackController.core.addListener(_onPlaybackCoreStateChanged);
     _playbackController.timeline.addListener(_onPlaybackTimelineChanged);
+    SourceBundleManager.instance.addListener(_onSourceBundleChanged);
+    AppPreferences.serverModeNotifier.addListener(_onServerModeChanged);
 
     // 预热并同步用户上次持久化的弹幕外观设置与连播偏好
     PlayerPreferencesService.instance.initialize().then((_) {
@@ -940,6 +943,12 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   Future<void> _selectSlot(PlayableSlot slot) async {
     _autoPicker.onUserAction();
 
+    final runtime = SourceBundleManager.instance.runtime;
+    if (!AppPreferences.isServerModeEnabled() && !runtime.isLocalSource(_selectedSourceId)) {
+      _showHudToast('当前源依赖服务端模式，无法解析播放，请开启服务端模式或手动换源');
+      return;
+    }
+
     setState(() {
       _activeEpisode = slot.canonicalEp;
       _currentPlayingPageUrl = slot.pageUrl;
@@ -1015,6 +1024,11 @@ class _VideoPlayPageState extends State<VideoPlayPage>
 
     final episodes = _currentEpisodes;
     if (episodes.isEmpty || ep < 1 || ep > episodes.length) {
+      final runtime = SourceBundleManager.instance.runtime;
+      if (!AppPreferences.isServerModeEnabled() && !runtime.isLocalSource(_selectedSourceId)) {
+        _showHudToast('当前源依赖服务端模式，无法解析播放，请开启服务端模式或手动换源');
+        return;
+      }
       _showHudToast('当前视频源暂无可播放分集，请切换线路或视频源');
       return;
     }
@@ -1122,6 +1136,32 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     }
   }
 
+  void _onSourceBundleChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onServerModeChanged() {
+    final isServerMode = AppPreferences.isServerModeEnabled();
+    final runtime = SourceBundleManager.instance.runtime;
+    final isLocal = runtime.isLocalSource(_selectedSourceId);
+
+    if (!isServerMode) {
+      if (!isLocal) {
+        // 当前在播视频绝不强行打断（让其缓冲播完），但由于本地无爬虫，选集区展示不可用错误状态
+        setState(() {
+          _chapterRoads = [];
+          _resolveError = '当前视频源需开启「Animaku 服务端模式」\n该源为服务端专属扩展源，本地直连模式下无法解析分集。';
+        });
+        _showHudToast('当前源需开启服务端模式，无法解析新集数');
+      }
+    } else {
+      if (!isLocal) {
+        _startDefaultSourceSearch(autoPlayFirst: false);
+      }
+    }
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
     _hudToastTimer?.cancel();
@@ -1136,6 +1176,8 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     _desktopRightTabController.dispose();
     _playbackController.timeline.removeListener(_onPlaybackTimelineChanged);
     _playbackController.core.removeListener(_onPlaybackCoreStateChanged);
+    SourceBundleManager.instance.removeListener(_onSourceBundleChanged);
+    AppPreferences.serverModeNotifier.removeListener(_onServerModeChanged);
     _playbackController.dispose();
     _autoPlayNextNotifier.dispose();
     _danmakuCoordinator.dispose();
@@ -1692,6 +1734,10 @@ class _VideoPlayPageState extends State<VideoPlayPage>
                                 isLoading: _isLoadingChapters,
                                 sourceName: _selectedSourceName,
                                 errorMessage: _resolveError,
+                                onEnableServerMode: (!AppPreferences.isServerModeEnabled() &&
+                                        !SourceBundleManager.instance.runtime.isLocalSource(_selectedSourceId))
+                                    ? () => AppPreferences.setServerModeEnabled(true)
+                                    : null,
                                 onSwitchSource: () {
                                   DefaultTabController.of(bottomSheetContext).animateTo(1);
                                 },
@@ -1881,6 +1927,10 @@ class _VideoPlayPageState extends State<VideoPlayPage>
             loadingMessage: '正在从「$_selectedSourceName」解析分集...',
             sourceName: _selectedSourceName,
             errorMessage: _resolveError,
+            onEnableServerMode: (!AppPreferences.isServerModeEnabled() &&
+                    !SourceBundleManager.instance.runtime.isLocalSource(_selectedSourceId))
+                ? () => AppPreferences.setServerModeEnabled(true)
+                : null,
             onSwitchSource: () {
               if (_desktopRightTabController.index != 1) {
                 _desktopRightTabController.animateTo(1);

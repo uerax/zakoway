@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:zakoway/core/services/app_preferences.dart';
 import 'package:zakoway/features/player/source/models/source_models.dart';
 
@@ -33,12 +34,27 @@ class AnimakuServerClient {
                   'User-Agent': 'Zakoway/2.0 (CrossPlatform; ServerMode)',
                 },
               ),
-            );
+            ) {
+    // 优先从本地持久化缓存恢复上一轮已探明的服务端源清单
+    final persisted = AppPreferences.getServerModeCachedSources();
+    if (persisted.isNotEmpty) {
+      _cachedSupportedSources = persisted.map(normalizeSourceId).toSet();
+      supportedSourcesNotifier.value = _cachedSupportedSources!;
+    }
+  }
 
   static AnimakuServerClient? _instance;
   static AnimakuServerClient get instance => _instance ??= AnimakuServerClient();
 
   final Dio _dio;
+
+  /// 全局支持的源动态响应式监听器（供 UI 实时感知源变动并刷新徽章）
+  final ValueNotifier<Set<String>> supportedSourcesNotifier =
+      ValueNotifier<Set<String>>({});
+
+  /// 服务端实际支持的源名称映射（供动态生成 RemoteServerSource 时读取显示名称）
+  final Map<String, String> _serverSourceNames = {};
+  Map<String, String> get serverSourceNames => Map.unmodifiable(_serverSourceNames);
 
   /// 服务端实际支持的源 ID 缓存池
   Set<String>? _cachedSupportedSources;
@@ -59,34 +75,24 @@ class AnimakuServerClient {
   /// 归一化源 ID，兼容服务端历史别名
   String normalizeSourceId(String sourceId) {
     final norm = sourceId.trim().toLowerCase();
-    if (norm == 'xifan_next' || norm == 'xifannext') return 'xifan-next';
+    if (norm == 'xifan_next' || norm == 'xifannext' || norm == 'xifan') return 'xifan-next';
     return norm;
   }
 
-  /// 检查特定源当前是否被 animaku 服务端支持并接管
+  /// 检查特定源当前是否被 animaku 服务端支持并接管（100% 动态探测匹配，不硬编码）
   bool isSourceSupported(String sourceId) {
     final norm = normalizeSourceId(sourceId);
 
-    // 特殊处理说明：
-    // anime1 等全量媒体代拉源（Full Media Proxy）播放时需服务端持续转发全部视频二进制流，
-    // 会迅速吃满 VPS 下行带宽与月流量。为保护公共节点稳定性，客户端主动将其排除，保持本地直连。
-    if (norm == 'anime1') {
+    // 优先读取内存或持久化缓存
+    final cached = _cachedSupportedSources ??=
+        AppPreferences.getServerModeCachedSources().map(normalizeSourceId).toSet();
+
+    if (cached.isEmpty) {
+      // 若尚未拉取过列表，后台自动触发一次异步静默拉取
+      fetchSupportedSources().ignore();
       return false;
     }
 
-    final cached = _cachedSupportedSources;
-    if (cached == null || cached.isEmpty) {
-      // 若尚未拉取列表，先基于已知服务端 100% 零带宽 CDN 直连固化源清单作初判
-      const defaultKnown = {
-        'xifan-next',
-        'xifan',
-        'cycani',
-        'moonci',
-        'tvtfun',
-        'animoe',
-      };
-      return defaultKnown.contains(norm);
-    }
     return cached.contains(norm) || (norm == 'xifan-next' && cached.contains('xifan'));
   }
 
@@ -122,11 +128,12 @@ class AnimakuServerClient {
     }
   }
 
-  /// 动态同步服务端已挂载的源清单
+  /// 动态同步服务端已挂载的源清单（从服务端 GET /api/source/list 探测并持久化）
   Future<Set<String>> fetchSupportedSources({bool forceRefresh = false}) async {
     final now = DateTime.now();
     if (!forceRefresh &&
         _cachedSupportedSources != null &&
+        _cachedSupportedSources!.isNotEmpty &&
         _sourcesCacheTime != null &&
         now.difference(_sourcesCacheTime!) < const Duration(minutes: 30)) {
       return _cachedSupportedSources!;
@@ -138,14 +145,20 @@ class AnimakuServerClient {
       if (res.statusCode == 200 && res.data is Map && res.data['data'] is List) {
         final list = res.data['data'] as List;
         final set = <String>{};
+        _serverSourceNames.clear();
         for (final item in list) {
           if (item is Map && item['id'] != null) {
-            set.add(item['id'].toString().trim().toLowerCase());
+            final id = normalizeSourceId(item['id'].toString());
+            final name = item['name']?.toString() ?? id;
+            set.add(id);
+            _serverSourceNames[id] = name;
           }
         }
         if (set.isNotEmpty) {
           _cachedSupportedSources = set;
           _sourcesCacheTime = now;
+          supportedSourcesNotifier.value = set;
+          await AppPreferences.setServerModeCachedSources(set.toList());
           return set;
         }
       }
@@ -244,7 +257,9 @@ class AnimakuServerClient {
     return const [];
   }
 
-  /// 解析播放直链并组装受控流地址
+  /// 解析播放直链并组装媒体地址
+  /// 遵循 Animaku 原生 App 接入协议：优先直连源站原始 playUrl 配合 headers（零服务器带宽），
+  /// 仅当 playUrl 为空时才降级回退至服务端受控流地址 streamUrl。
   Future<SourceResolveResult> resolve(String sourceId, String episodeUrl) async {
     final normSource = normalizeSourceId(sourceId);
     final url = '$baseUrl/api/source/resolve';
@@ -259,9 +274,29 @@ class AnimakuServerClient {
     if (res.statusCode == 200 && res.data is Map) {
       final data = res.data['data'];
       if (data is Map) {
+        final playUrl = data['playUrl']?.toString() ?? '';
         final streamUrl = data['streamUrl']?.toString() ?? '';
         final format = data['format']?.toString().toLowerCase() ?? 'hls';
+        final headers = <String, String>{};
 
+        if (data['headers'] is Map) {
+          (data['headers'] as Map).forEach((k, v) {
+            if (k != null && v != null && v.toString().isNotEmpty) {
+              headers[k.toString()] = v.toString();
+            }
+          });
+        }
+
+        // 1. 优先源站原始播放地址直连（零服务器代理带宽原则，原生注入 Referer/Cookie/UA）
+        if (playUrl.isNotEmpty) {
+          return SourceResolveResult(
+            url: playUrl,
+            format: format == 'mp4' ? 'mp4' : 'hls',
+            headers: headers,
+          );
+        }
+
+        // 2. 兜底回退：若服务端未给出原始 playUrl，使用受控代理流地址
         if (streamUrl.isNotEmpty) {
           final fullStreamUrl = streamUrl.startsWith('http://') || streamUrl.startsWith('https://')
               ? streamUrl
@@ -270,17 +305,24 @@ class AnimakuServerClient {
           return SourceResolveResult(
             url: fullStreamUrl,
             format: format == 'mp4' ? 'mp4' : 'hls',
-            headers: const {},
+            headers: headers,
           );
         }
       }
     }
-    throw Exception('服务端解析播放地址失败: 未返回有效的 streamUrl');
+    throw Exception('服务端解析播放地址失败: 未返回有效的 playUrl 或 streamUrl');
   }
 
   /// 清空客户端对服务端的内存状态缓存
   void clearCache() {
     _cachedSupportedSources = null;
     _sourcesCacheTime = null;
+    final persisted = AppPreferences.getServerModeCachedSources();
+    if (persisted.isNotEmpty) {
+      _cachedSupportedSources = persisted.map(normalizeSourceId).toSet();
+      supportedSourcesNotifier.value = _cachedSupportedSources!;
+    } else {
+      supportedSourcesNotifier.value = const {};
+    }
   }
 }

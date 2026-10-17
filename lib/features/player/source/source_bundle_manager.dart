@@ -28,4 +28,9 @@ class SourceBundleManager extends ChangeNotifier {
     if (_initialized) return;
     _initialized = true;
   }
+
+  /// 通知外部监听者（如播放页、选源抽屉）视频源列表发生了动态伸缩
+  void notifySourceChanges() {
+    notifyListeners();
+  }
 }

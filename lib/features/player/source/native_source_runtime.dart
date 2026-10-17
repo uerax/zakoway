@@ -7,6 +7,7 @@ import 'package:zakoway/core/services/app_preferences.dart';
 import 'package:zakoway/core/utils/timed_cache.dart';
 import 'package:zakoway/features/player/source/models/source_models.dart';
 import 'package:zakoway/features/player/source/server/animaku_server_client.dart';
+import 'package:zakoway/features/player/source/source_bundle_manager.dart';
 import 'package:zakoway/features/player/source/sources/anime1_source.dart';
 import 'package:zakoway/features/player/source/sources/animoe_source.dart';
 import 'package:zakoway/features/player/source/sources/cycani_source.dart';
@@ -18,6 +19,7 @@ import 'package:zakoway/features/player/source/sources/mifun_source.dart';
 import 'package:zakoway/features/player/source/sources/moonci_source.dart';
 import 'package:zakoway/features/player/source/sources/mxdm_source.dart';
 import 'package:zakoway/features/player/source/sources/omofun_source.dart';
+import 'package:zakoway/features/player/source/sources/remote_server_source.dart';
 import 'package:zakoway/features/player/source/sources/sorani_source.dart';
 import 'package:zakoway/features/player/source/sources/tvtfun_source.dart';
 import 'package:zakoway/features/player/source/sources/video_source.dart';
@@ -38,14 +40,72 @@ class NativeSourceRuntime {
             ) {
     _registerDefaultSources();
     AppPreferences.serverModeNotifier.addListener(_onServerModeChanged);
+    AnimakuServerClient.instance.supportedSourcesNotifier.addListener(_syncRemoteSources);
+    _syncRemoteSources();
+    if (AppPreferences.isServerModeEnabled()) {
+      AnimakuServerClient.instance.fetchSupportedSources().ignore();
+    }
   }
 
   void _onServerModeChanged() {
     clearMemoryCache();
+    _syncRemoteSources();
+    if (AppPreferences.isServerModeEnabled()) {
+      AnimakuServerClient.instance.fetchSupportedSources(forceRefresh: true).ignore();
+    }
   }
 
   final Dio _dio;
-  final Map<String, VideoSource> _sources = {};
+  final Map<String, VideoSource> _localSources = {};
+  final Map<String, VideoSource> _remoteSources = {};
+
+  Map<String, VideoSource> get _sources {
+    if (!AppPreferences.isServerModeEnabled()) {
+      return _localSources;
+    }
+    return {..._localSources, ..._remoteSources};
+  }
+
+  /// 检查特定源是否为本地内置的原生 Dart 源
+  bool isLocalSource(String sourceId) {
+    final norm = AnimakuServerClient.instance.normalizeSourceId(sourceId);
+    return _localSources.containsKey(norm) || (norm == 'xifan-next' && _localSources.containsKey('xifan'));
+  }
+
+  /// 同步服务端动态扩展源：开则扩充挂载，关则纯净卸载
+  void _syncRemoteSources() {
+    if (!AppPreferences.isServerModeEnabled()) {
+      if (_remoteSources.isNotEmpty) {
+        _remoteSources.clear();
+        SourceBundleManager.instance.notifySourceChanges();
+      }
+      return;
+    }
+
+    final supportedSet = AnimakuServerClient.instance.supportedSourcesNotifier.value;
+    final serverNames = AnimakuServerClient.instance.serverSourceNames;
+    bool changed = false;
+
+    // 清理已不再支持的动态源
+    _remoteSources.removeWhere((id, _) {
+      final keep = supportedSet.contains(id);
+      if (!keep) changed = true;
+      return !keep;
+    });
+
+    // 为本地尚未收录的服务端专属源，动态挂载 RemoteServerSource
+    for (final id in supportedSet) {
+      if (!_localSources.containsKey(id) && !_remoteSources.containsKey(id)) {
+        final name = serverNames[id] ?? id;
+        _remoteSources[id] = RemoteServerSource(id: id, name: name);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      SourceBundleManager.instance.notifySourceChanges();
+    }
+  }
 
   // L1 内存缓存池 (O(1) 毫秒级秒开)
   // 1. 搜索结果: 2 小时
@@ -91,7 +151,7 @@ class NativeSourceRuntime {
   }
 
   void registerSource(VideoSource source) {
-    _sources[source.id] = source;
+    _localSources[source.id] = source;
   }
 
   bool get isInitialized => true;
@@ -396,6 +456,7 @@ class NativeSourceRuntime {
 
   void dispose() {
     AppPreferences.serverModeNotifier.removeListener(_onServerModeChanged);
+    AnimakuServerClient.instance.supportedSourcesNotifier.removeListener(_syncRemoteSources);
     clearMemoryCache();
   }
 }

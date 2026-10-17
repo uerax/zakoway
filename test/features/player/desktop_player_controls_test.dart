@@ -235,6 +235,7 @@ void main() {
       expect(find.text('快捷键指南'), findsOneWidget);
 
       // 点击快捷键指南可唤起桌面快捷键说明对话框
+      await tester.scrollUntilVisible(find.text('快捷键指南'), 100);
       await tester.tap(find.text('快捷键指南'));
       await tester.pumpAndSettle();
       expect(find.text('键盘快捷键指南'), findsOneWidget);

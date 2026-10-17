@@ -37,6 +37,7 @@ class AppPreferences {
   static const _kAnimeCollections = 'pref_anime_collections';
   static const _kServerModeEnabled = 'pref_server_mode_enabled';
   static const _kServerModeApiUrl = 'pref_server_mode_api_url';
+  static const _kServerModeCachedSources = 'pref_server_mode_cached_sources';
 
   /// 默认公开免费 Animaku 服务端地址
   static const String defaultServerModeApiUrl = 'https://bakasine.eu.org';
@@ -375,5 +376,13 @@ class AppPreferences {
     } else {
       await _prefs?.setString(_kServerModeApiUrl, cleanUrl);
     }
+  }
+
+  static List<String> getServerModeCachedSources() {
+    return _prefs?.getStringList(_kServerModeCachedSources) ?? const [];
+  }
+
+  static Future<void> setServerModeCachedSources(List<String> sources) async {
+    await _prefs?.setStringList(_kServerModeCachedSources, sources);
   }
 }
