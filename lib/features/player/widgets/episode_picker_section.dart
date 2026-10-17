@@ -89,6 +89,7 @@ class EpisodePickerSection extends StatefulWidget {
     this.errorMessage,
     this.sourceName,
     this.onSwitchSource,
+    this.onEnableServerMode,
   });
 
   final int episodeCount;
@@ -113,6 +114,8 @@ class EpisodePickerSection extends StatefulWidget {
   final String? sourceName;
   /// 切换至视频源面板的回调
   final VoidCallback? onSwitchSource;
+  /// 一键开启服务端模式的回调
+  final VoidCallback? onEnableServerMode;
   /// 自定义单页集数区间容量（若未指定，移动端默认 28，桌面端默认 50）
   final int? rangeSize;
   final bool shrinkWrap;
@@ -522,9 +525,27 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                 ),
               ),
               const SizedBox(height: 16),
-              Row(
-                mainAxisSize: MainAxisSize.min,
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 10,
+                runSpacing: 8,
                 children: [
+                  if (widget.onEnableServerMode != null)
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      ),
+                      onPressed: widget.onEnableServerMode,
+                      icon: const Icon(Icons.cloud_sync_rounded, size: 16),
+                      label: const Text(
+                        '开启服务端模式',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontFamily: 'MiSans',
+                          fontFamilyFallback: FontManager.fallbackFontFamilies,
+                        ),
+                      ),
+                    ),
                   if (widget.onSwitchSource != null)
                     FilledButton.tonalIcon(
                       style: FilledButton.styleFrom(
@@ -541,8 +562,6 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                         ),
                       ),
                     ),
-                  if (widget.onSwitchSource != null && widget.onRefresh != null)
-                    const SizedBox(width: 10),
                   if (widget.onRefresh != null)
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(

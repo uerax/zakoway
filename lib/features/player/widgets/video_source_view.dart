@@ -157,11 +157,27 @@ class _VideoSourceViewState extends State<VideoSourceView> {
   static const Color _kOrangeColor = Color(0xFFF97316);
 
   @override
+  void initState() {
+    super.initState();
+    AppPreferences.serverModeNotifier.addListener(_onServerStateUpdate);
+    AnimakuServerClient.instance.supportedSourcesNotifier.addListener(_onServerStateUpdate);
+    if (AppPreferences.isServerModeEnabled()) {
+      AnimakuServerClient.instance.fetchSupportedSources().ignore();
+    }
+  }
+
+  @override
   void dispose() {
+    AppPreferences.serverModeNotifier.removeListener(_onServerStateUpdate);
+    AnimakuServerClient.instance.supportedSourcesNotifier.removeListener(_onServerStateUpdate);
     for (final c in _controllers.values) {
       c.dispose();
     }
     super.dispose();
+  }
+
+  void _onServerStateUpdate() {
+    if (mounted) setState(() {});
   }
 
   TextEditingController _getController(String sourceId) {
