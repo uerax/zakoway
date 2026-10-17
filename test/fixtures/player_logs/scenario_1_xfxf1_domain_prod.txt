@@ -1,0 +1,53 @@
+================================================================================
+ZAKOWAY PLAYER PROBE FIXTURE LOG
+================================================================================
+场景名称: 场景 1c: xfxf1 国内沃云线路 (原始域名形态, 生产 mpv 配置, error 级别)
+测试日期: 2026-10-17T16:10:21.263686
+执行环境: Windows 11 Pro x64, media_kit 1.2.6, libmpv v0.36.0-403, FFmpeg n6.0, mbedTLS 3.5.0
+执行命令: flutter test tool/player_probe/run_scenario_1.dart
+URL形态说明: xfxf1 原始域名形态 (apn.moedot.net)，遵循源站 no-referrer 规范
+脱敏规则说明: 敏感参数 sign、t、token 等替换为 ...，其余保持完全原始输出
+请求头信息: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36}
+附加说明: 应用实际生产 mpv 配置（stream-lavf-o reconnect=1,reconnect_on_network_error=1,reconnect_delay_max=2 等）
+================================================================================
+TIMELINE EVENTS (Monotonic relative ms from T0, absolute ISO, tag, raw message):
+================================================================================
+[+    0ms] [2026-10-17T16:10:16.252320] [probe.config] logLevel=MPVLogLevel.error, applyAppProps=true
+[+    0ms] [2026-10-17T16:10:16.252320] [action.open.call] uri=https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=... play=true, headers={User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36}
+[+    1ms] [2026-10-17T16:10:16.252320] [stream.playing] false
+[+    1ms] [2026-10-17T16:10:16.252320] [stream.completed] false
+[+    1ms] [2026-10-17T16:10:16.252320] [stream.position] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T16:10:16.252320] [stream.duration] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T16:10:16.252320] [stream.buffering] false
+[+    1ms] [2026-10-17T16:10:16.252320] [stream.buffer] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T16:10:16.252320] [stream.videoParams] w=null, h=null, dw=null, dh=null, aspect=null, pixelformat=null, hwPixelformat=null
+[+    1ms] [2026-10-17T16:10:16.252320] [stream.tracks] videoCount=2, audioCount=2, subtitleCount=2
+[+    1ms] [2026-10-17T16:10:16.252320] [stream.width] null
+[+    1ms] [2026-10-17T16:10:16.252320] [stream.height] null
+[+    7ms] [2026-10-17T16:10:16.258613] [stream.playing] true
+[+    7ms] [2026-10-17T16:10:16.258613] [action.open.future_completed] cost=7ms
+[+    7ms] [2026-10-17T16:10:16.258613] [stream.buffering] true
+[+  406ms] [2026-10-17T16:10:16.659219] [stream.log] [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+[+  407ms] [2026-10-17T16:10:16.659219] [stream.error] tcp: ffurl_read returned 0xdfb9b0bb
+[+  407ms] [2026-10-17T16:10:16.659219] [stream.log] [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+[+ 1361ms] [2026-10-17T16:10:17.613606] [stream.log] [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+[+ 1361ms] [2026-10-17T16:10:17.613606] [stream.error] tcp: ffurl_read returned 0xdfb9b0bb
+[+ 1361ms] [2026-10-17T16:10:17.613606] [stream.log] [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+[+ 1447ms] [2026-10-17T16:10:17.699568] [stream.log] [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+[+ 1447ms] [2026-10-17T16:10:17.699568] [stream.error] tcp: ffurl_read returned 0xdfb9b0bb
+[+ 1447ms] [2026-10-17T16:10:17.700073] [stream.log] [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+[+ 2542ms] [2026-10-17T16:10:18.794922] [stream.log] [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+[+ 2542ms] [2026-10-17T16:10:18.794922] [stream.error] tcp: ffurl_read returned 0xdfb9b0bb
+[+ 2542ms] [2026-10-17T16:10:18.794922] [stream.log] [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+[+ 2542ms] [2026-10-17T16:10:18.794922] [stream.log] [ffmpeg] (error) Seek failed (to 798084184, size 175)
+[+ 2547ms] [2026-10-17T16:10:18.799676] [stream.tracks] videoCount=3, audioCount=3, subtitleCount=2
+[+ 2547ms] [2026-10-17T16:10:18.800201] [stream.playing] false
+[+ 2547ms] [2026-10-17T16:10:18.800201] [stream.completed] true
+[+ 2547ms] [2026-10-17T16:10:18.800201] [stream.buffering] false
+[+ 2547ms] [2026-10-17T16:10:18.800201] [stream.tracks] videoCount=2, audioCount=2, subtitleCount=2
+[+ 2548ms] [2026-10-17T16:10:18.800747] [stream.duration] 1420085ms (0:23:40.085147)
+[+ 2548ms] [2026-10-17T16:10:18.800747] [stream.tracks] videoCount=3, audioCount=3, subtitleCount=2
+[+ 2548ms] [2026-10-17T16:10:18.801270] [stream.log] [ffmpeg/demuxer] (error) mov,mp4,m4a,3gp,3g2,mj2: stream 1, offset 0x108e83: partial file
+================================================================================
+END OF FIXTURE LOG
+================================================================================

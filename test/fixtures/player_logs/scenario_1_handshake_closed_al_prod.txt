@@ -1,0 +1,43 @@
+================================================================================
+ZAKOWAY PLAYER PROBE FIXTURE LOG
+================================================================================
+场景名称: 场景 1a: AL 线路 TLS 握手对端关闭 (域名形态, 生产 mpv 配置, error 级别)
+测试日期: 2026-10-17T16:10:01.158445
+执行环境: Windows 11 Pro x64, media_kit 1.2.6, libmpv v0.36.0-403, FFmpeg n6.0, mbedTLS 3.5.0
+执行命令: flutter test tool/player_probe/run_scenario_1.dart
+URL形态说明: AL 线路标准域名形态 (play.xfvod.pro:8088)，携带 Referer: https://next.xifanacg.com/
+脱敏规则说明: 敏感参数 sign、t、token 等替换为 ...，其余保持完全原始输出
+请求头信息: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36, Referer: https://next.xifanacg.com/}
+附加说明: 应用实际生产 mpv 配置（stream-lavf-o reconnect=1,reconnect_on_network_error=1,reconnect_delay_max=2 等）
+================================================================================
+TIMELINE EVENTS (Monotonic relative ms from T0, absolute ISO, tag, raw message):
+================================================================================
+[+    1ms] [2026-10-17T16:09:56.125450] [probe.config] logLevel=MPVLogLevel.error, applyAppProps=true
+[+    3ms] [2026-10-17T16:09:56.126978] [action.open.call] uri=https://play.xfvod.pro:8088/temp/2610/%E9%BB%91%E6%9A%9701A.mp4?sign=...&t=..., play=true, headers={User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36, Referer: https://next.xifanacg.com/}
+[+    8ms] [2026-10-17T16:09:56.132593] [stream.playing] false
+[+    8ms] [2026-10-17T16:09:56.132593] [stream.completed] false
+[+    9ms] [2026-10-17T16:09:56.132593] [stream.position] 0ms (0:00:00.000000)
+[+    9ms] [2026-10-17T16:09:56.132593] [stream.duration] 0ms (0:00:00.000000)
+[+    9ms] [2026-10-17T16:09:56.132593] [stream.buffering] false
+[+    9ms] [2026-10-17T16:09:56.132593] [stream.buffer] 0ms (0:00:00.000000)
+[+    9ms] [2026-10-17T16:09:56.132593] [stream.videoParams] w=null, h=null, dw=null, dh=null, aspect=null, pixelformat=null, hwPixelformat=null
+[+    9ms] [2026-10-17T16:09:56.132593] [stream.tracks] videoCount=2, audioCount=2, subtitleCount=2
+[+    9ms] [2026-10-17T16:09:56.133596] [stream.width] null
+[+    9ms] [2026-10-17T16:09:56.133596] [stream.height] null
+[+   17ms] [2026-10-17T16:09:56.140599] [stream.playing] true
+[+   17ms] [2026-10-17T16:09:56.140599] [action.open.future_completed] cost=15ms
+[+   17ms] [2026-10-17T16:09:56.140599] [stream.buffering] true
+[+  218ms] [2026-10-17T16:09:56.342637] [stream.log] [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+[+  219ms] [2026-10-17T16:09:56.342637] [stream.error] tcp: ffurl_read returned 0xdfb9b0bb
+[+  219ms] [2026-10-17T16:09:56.342637] [stream.log] [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+[+  408ms] [2026-10-17T16:09:56.532029] [stream.log] [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+[+  408ms] [2026-10-17T16:09:56.532029] [stream.error] tcp: ffurl_read returned 0xdfb9b0bb
+[+  408ms] [2026-10-17T16:09:56.532029] [stream.log] [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+[+ 1606ms] [2026-10-17T16:09:57.730055] [stream.log] [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+[+ 1606ms] [2026-10-17T16:09:57.730055] [stream.error] tcp: ffurl_read returned 0xdfb9b0bb
+[+ 1607ms] [2026-10-17T16:09:57.730590] [stream.log] [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+[+ 1607ms] [2026-10-17T16:09:57.730590] [stream.log] [stream] (error) Failed to open https://play.xfvod.pro:8088/temp/2610/%E9%BB%91%E6%9A%9701A.mp4?sign=...&t=....
+[+ 1607ms] [2026-10-17T16:09:57.730590] [stream.error] Failed to open https://play.xfvod.pro:8088/temp/2610/%E9%BB%91%E6%9A%9701A.mp4?sign=...&t=....
+================================================================================
+END OF FIXTURE LOG
+================================================================================

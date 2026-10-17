@@ -1,0 +1,439 @@
+================================================================================
+ZAKOWAY PLAYER PROBE FIXTURE LOG
+================================================================================
+场景名称: 场景 7b: 慢起播 (响应头立即返回, 数据按 ~22KB/s 缓慢滴入, 详细 debug 级别)
+测试日期: 2026-10-17T16:00:49.370381
+执行环境: Windows 11 Pro x64, media_kit 1.2.6, libmpv v0.36.0-403, FFmpeg n6.0, mbedTLS 3.5.0
+执行命令: flutter test tool/player_probe/run_scenario_7.dart
+URL形态说明: 本地 Mock HTTP 慢速起播流 (127.0.0.1:0)
+脱敏规则说明: 敏感参数 sign、t、token 等替换为 ...，其余保持完全原始输出
+请求头信息: {}
+附加说明: 响应头立即返回，但数据以 22KB/s 缓慢滴入，首帧在 9~12 秒出画。记录 duration、buffer、buffering、position 动态渐变
+================================================================================
+TIMELINE EVENTS (Monotonic relative ms from T0, absolute ISO, tag, raw message):
+================================================================================
+[+    0ms] [2026-10-17T16:00:35.350840] [probe.config] logLevel=MPVLogLevel.debug, mode=MockServerMode.dripBody
+[+    0ms] [2026-10-17T16:00:35.350840] [action.open.call] uri=http://127.0.0.1:59365/media.mp4, play=true, headers={}
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.playing] false
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.completed] false
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.position] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.duration] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.buffering] false
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.buffer] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.videoParams] w=null, h=null, dw=null, dh=null, aspect=null, pixelformat=null, hwPixelformat=null
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.tracks] videoCount=2, audioCount=2, subtitleCount=2
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.width] null
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.height] null
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.log] [cplayer] (v) Set property: demuxer-seekable-cache="yes" -> 1
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.log] [cplayer] (v) Set property: force-seekable="yes" -> 1
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.log] [cplayer] (v) Set property: hr-seek="default" -> 1
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.log] [cplayer] (v) Set property: hr-seek-framedrop="yes" -> 1
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.log] [cplayer] (v) Set property: cache="yes" -> 1
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.log] [cplayer] (v) Set property: cache-pause="yes" -> 1
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.log] [cplayer] (v) Set property: cache-pause-initial="no" -> 1
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.log] [cplayer] (v) Set property: cache-pause-wait="0.2" -> 1
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.log] [cplayer] (v) Set property: demuxer-readahead-secs="15" -> 1
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.log] [cplayer] (v) Set property: cache-secs="30" -> 1
+[+    1ms] [2026-10-17T16:00:35.351841] [stream.log] [cplayer] (v) Set property: demuxer-max-bytes="33554432" -> 1
+[+    2ms] [2026-10-17T16:00:35.353348] [stream.log] [cplayer] (v) Set property: demuxer-max-back-bytes="16777216" -> 1
+[+    2ms] [2026-10-17T16:00:35.353348] [stream.log] [cplayer] (v) Set property: network-timeout="10" -> 1
+[+    2ms] [2026-10-17T16:00:35.353348] [stream.log] [cplayer] (v) Set property: volume-max="100" -> 1
+[+    2ms] [2026-10-17T16:00:35.353348] [stream.log] [cplayer] (v) Set property: user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" -> 1
+[+    2ms] [2026-10-17T16:00:35.353348] [stream.log] [cplayer] (v) Set property: tls-verify="no" -> 1
+[+    2ms] [2026-10-17T16:00:35.353348] [stream.log] [cplayer] (v) Set property: hwdec-codecs="all" -> 1
+[+    2ms] [2026-10-17T16:00:35.353348] [stream.log] [cplayer] (v) Set property: hwdec="auto" -> 1
+[+    2ms] [2026-10-17T16:00:35.353348] [stream.log] [cplayer] (v) Set property: scale="spline36" -> 1
+[+    2ms] [2026-10-17T16:00:35.353348] [stream.log] [cplayer] (v) Set property: cscale="spline36" -> 1
+[+    2ms] [2026-10-17T16:00:35.353348] [stream.log] [cplayer] (v) Set property: sigmoid-upscaling="yes" -> 1
+[+    2ms] [2026-10-17T16:00:35.353348] [stream.log] [cplayer] (v) Set property: correct-downscaling="yes" -> 1
+[+    2ms] [2026-10-17T16:00:35.353348] [stream.log] [cplayer] (debug) Run command: stop, flags=64, args=[flags=""]
+[+    2ms] [2026-10-17T16:00:35.353348] [stream.log] [cplayer] (debug) Run command: playlist-clear, flags=64, args=[]
+[+    2ms] [2026-10-17T16:00:35.353348] [stream.log] [cplayer] (debug) Run command: playlist-play-index, flags=64, args=[index="none"]
+[+    2ms] [2026-10-17T16:00:35.353348] [stream.log] [cplayer] (v) Set property: pause=true -> 1
+[+    8ms] [2026-10-17T16:00:35.359354] [stream.log] [cplayer] (debug) Run command: loadlist, flags=64, args=[url="C:\\Users\\uerax\\AppData\\Local\\Temp\\68ab1f7b-a690-4d26-b7b1-dbed35b9aaba", flags="append"]
+[+    9ms] [2026-10-17T16:00:35.360353] [stream.log] [playlist_parser] (v) Parsing playlist file C:\Users\uerax\AppData\Local\Temp\68ab1f7b-a690-4d26-b7b1-dbed35b9aaba...
+[+    9ms] [2026-10-17T16:00:35.360353] [stream.log] [file] (v) Opening C:\Users\uerax\AppData\Local\Temp\68ab1f7b-a690-4d26-b7b1-dbed35b9aaba
+[+    9ms] [2026-10-17T16:00:35.360353] [stream.log] [file] (debug) resize stream to 131072 bytes, drop 0 bytes
+[+    9ms] [2026-10-17T16:00:35.360353] [stream.log] [file] (debug) Stream opened successfully.
+[+    9ms] [2026-10-17T16:00:35.360353] [stream.log] [demux] (v) Trying demuxers for level=request.
+[+    9ms] [2026-10-17T16:00:35.360353] [stream.log] [demux] (debug) Trying demuxer: playlist (force-level: request)
+[+    9ms] [2026-10-17T16:00:35.360353] [stream.playing] true
+[+    9ms] [2026-10-17T16:00:35.360353] [action.open.future_completed] cost=9ms
+[+    9ms] [2026-10-17T16:00:35.360353] [stream.buffering] true
+[+    9ms] [2026-10-17T16:00:35.360353] [stream.log] [playlist] (warn) Reading plaintext playlist.
+[+    9ms] [2026-10-17T16:00:35.360353] [stream.log] [playlist] (v) demuxer read all data; closing stream
+[+   10ms] [2026-10-17T16:00:35.361356] [stream.log] [demux] (v) Detected file format: txt (Playlist file)
+[+   10ms] [2026-10-17T16:00:35.361356] [stream.log] [playlist_parser] (v) Playlist successfully parsed
+[+   10ms] [2026-10-17T16:00:35.361356] [stream.log] [global] (debug) state path: 'watch_later' -> '-'
+[+   10ms] [2026-10-17T16:00:35.361356] [stream.log] [cplayer] (v) Set property: pause=false -> 1
+[+   10ms] [2026-10-17T16:00:35.361356] [stream.log] [cplayer] (v) Set property: playlist-pos=0 -> 1
+[+   10ms] [2026-10-17T16:00:35.361356] [stream.log] [global] (debug) state path: 'watch_later' -> '-'
+[+   10ms] [2026-10-17T16:00:35.361356] [stream.log] [cplayer] (v) Running hook: main/on_load
+[+   10ms] [2026-10-17T16:00:35.361356] [stream.log] [cplayer] (v) Set property: http-header-fields=[] -> 1
+[+   10ms] [2026-10-17T16:00:35.361356] [stream.log] [ffmpeg] (v) Opening http://127.0.0.1:59365/media.mp4
+[+   11ms] [2026-10-17T16:00:35.362355] [stream.log] [ffmpeg] (v) Could not set AVOption tls_verify='0'
+[+   11ms] [2026-10-17T16:00:35.362355] [stream.log] [ffmpeg] (debug) resize stream to 131072 bytes, drop 0 bytes
+[+   11ms] [2026-10-17T16:00:35.362355] [stream.log] [ffmpeg] (v) Mime-type: 'video/mp4'
+[+   11ms] [2026-10-17T16:00:35.362355] [stream.log] [ffmpeg] (debug) Stream opened successfully.
+[+   11ms] [2026-10-17T16:00:35.362355] [stream.log] [demux] (v) Trying demuxers for level=normal.
+[+   11ms] [2026-10-17T16:00:35.362355] [stream.log] [demux] (debug) Trying demuxer: disc (force-level: normal)
+[+   11ms] [2026-10-17T16:00:35.362355] [stream.log] [demux] (debug) Trying demuxer: edl (force-level: normal)
+[+  213ms] [2026-10-17T16:00:35.564119] [stream.log] [demux] (debug) Trying demuxer: cue (force-level: normal)
+[+  213ms] [2026-10-17T16:00:35.564119] [stream.log] [demux] (debug) Trying demuxer: rawaudio (force-level: normal)
+[+  213ms] [2026-10-17T16:00:35.564119] [stream.log] [demux] (debug) Trying demuxer: rawvideo (force-level: normal)
+[+  213ms] [2026-10-17T16:00:35.564119] [stream.log] [demux] (debug) Trying demuxer: mkv (force-level: normal)
+[+  213ms] [2026-10-17T16:00:35.564119] [stream.log] [demux] (debug) Trying demuxer: libarchive (force-level: normal)
+[+  213ms] [2026-10-17T16:00:35.565122] [stream.log] [demux] (debug) Trying demuxer: lavf (force-level: normal)
+[+  215ms] [2026-10-17T16:00:35.567124] [stream.log] [lavf] (v) Found 'mov,mp4,m4a,3gp,3g2,mj2' at score=100 size=2048.
+[+  216ms] [2026-10-17T16:00:35.567124] [stream.log] [ffmpeg] (v) stream level seek from 4506 to 220096
+[+ 1025ms] [2026-10-17T16:00:36.376068] [stream.log] [lavf] (v) Could not set AVOption seg_max_retry='5'
+[+ 1025ms] [2026-10-17T16:00:36.377069] [stream.tracks] videoCount=3, audioCount=3, subtitleCount=2
+[+ 1025ms] [2026-10-17T16:00:36.377069] [stream.log] [lavf] (v) Could not set AVOption allowed_extensions='ALL'
+[+ 1026ms] [2026-10-17T16:00:36.377069] [stream.log] [demux] (v) Detected file format: mov,mp4,m4a,3gp,3g2,mj2 (libavformat)
+[+ 1026ms] [2026-10-17T16:00:36.377069] [stream.log] [cplayer] (v) Opening done: http://127.0.0.1:59365/media.mp4
+[+ 1026ms] [2026-10-17T16:00:36.377069] [stream.log] [lavf] (v) select track 1
+[+ 1026ms] [2026-10-17T16:00:36.377069] [stream.log] [cplayer] (info) Video --vid=1 (*) (h264 640x360 30.000fps)
+[+ 1026ms] [2026-10-17T16:00:36.377069] [stream.log] [cplayer] (info) (+) Audio --aid=1 (*) (aac 1ch 44100Hz)
+[+ 1026ms] [2026-10-17T16:00:36.377069] [stream.log] [ad] (v) Codec list:
+[+ 1026ms] [2026-10-17T16:00:36.377069] [stream.duration] 15023ms (0:00:15.023219)
+[+ 1026ms] [2026-10-17T16:00:36.377069] [stream.buffering] false
+[+ 1026ms] [2026-10-17T16:00:36.377069] [stream.log] [ad] (v) aac - (null)
+[+ 1026ms] [2026-10-17T16:00:36.377069] [stream.log] [ad] (v) aac_fixed (aac) - (null)
+[+ 1026ms] [2026-10-17T16:00:36.377069] [stream.log] [ad] (v) Opening decoder aac
+[+ 1026ms] [2026-10-17T16:00:36.378070] [stream.log] [ad] (v) Requesting 1 threads for decoding.
+[+ 1026ms] [2026-10-17T16:00:36.378070] [stream.log] [ad] (v) Selected codec: aac ((null))
+[+ 1026ms] [2026-10-17T16:00:36.378070] [stream.log] [user_filter_wrapper] (v) Setting option 'max-speed' = '8' (flags = 0)
+[+ 1026ms] [2026-10-17T16:00:36.378070] [stream.log] [af] (v) User filter list:
+[+ 1026ms] [2026-10-17T16:00:36.378070] [stream.log] [af] (v) scaletempo2 (scaletempo2.00)
+[+ 1026ms] [2026-10-17T16:00:36.378070] [stream.log] [cplayer] (v) Starting playback...
+[+ 1026ms] [2026-10-17T16:00:36.378070] [stream.log] [ffmpeg] (v) stream level seek from 237756 to 5948
+[+ 1229ms] [2026-10-17T16:00:36.580803] [stream.log] [lavf] (debug) stream 1: resize index to 128
+[+ 1229ms] [2026-10-17T16:00:36.580803] [stream.log] [af] (v) [in] 44100Hz mono 1ch floatp
+[+ 1229ms] [2026-10-17T16:00:36.580803] [stream.log] [af] (v) [scaletempo2] 44100Hz mono 1ch floatp
+[+ 1229ms] [2026-10-17T16:00:36.580803] [stream.log] [af] (v) [userspeed] 44100Hz mono 1ch floatp
+[+ 1229ms] [2026-10-17T16:00:36.580803] [stream.log] [af] (v) [userspeed] (disabled)
+[+ 1229ms] [2026-10-17T16:00:36.580803] [stream.log] [af] (v) [convert] 44100Hz mono 1ch floatp
+[+ 1229ms] [2026-10-17T16:00:36.580803] [stream.log] [ao] (v) Trying audio driver 'wasapi'
+[+ 1230ms] [2026-10-17T16:00:36.581329] [stream.log] [ao/wasapi] (v) requested format: 44100 Hz, mono channels, floatp
+[+ 1230ms] [2026-10-17T16:00:36.581329] [stream.log] [ao/wasapi] (debug) Init wasapi
+[+ 1230ms] [2026-10-17T16:00:36.581329] [stream.log] [ao/wasapi] (debug) Find device ''
+[+ 1230ms] [2026-10-17T16:00:36.581877] [stream.log] [ao/wasapi] (v) No device specified. Selecting default.
+[+ 1232ms] [2026-10-17T16:00:36.583414] [stream.log] [ao/wasapi] (v) Selecting device '{8739ca67-eb79-498e-95bb-310ae722632a}' (P2710V (NVIDIA High Definition Audio))
+[+ 1232ms] [2026-10-17T16:00:36.583414] [stream.log] [ao/wasapi] (v) Monitoring changes in device {0.0.0.00000000}.{8739ca67-eb79-498e-95bb-310ae722632a}
+[+ 1233ms] [2026-10-17T16:00:36.584452] [stream.log] [ao/wasapi] (debug) Init wasapi thread
+[+ 1233ms] [2026-10-17T16:00:36.584452] [stream.log] [ao/wasapi] (debug) Activating pAudioClient interface
+[+ 1233ms] [2026-10-17T16:00:36.584452] [stream.log] [ao/wasapi] (debug) Probing formats
+[+ 1235ms] [2026-10-17T16:00:36.586522] [stream.log] [ao/wasapi] (v) Trying mono float (32/32 bits) @ 48000hz (shared) -> close
+[+ 1236ms] [2026-10-17T16:00:36.586522] [stream.log] [ao/wasapi] (v) Closest match is stereo float (32/32 bits) @ 48000hz
+[+ 1236ms] [2026-10-17T16:00:36.586522] [stream.log] [ao/wasapi] (v) Accepted as stereo float @ 48000hz -> stereo float (32/32 bits) @ 48000hz (shared)
+[+ 1236ms] [2026-10-17T16:00:36.586522] [stream.log] [ao/wasapi] (debug) Fixing format
+[+ 1236ms] [2026-10-17T16:00:36.587530] [stream.log] [ao/wasapi] (debug) IAudioClient::GetDevicePeriod
+[+ 1236ms] [2026-10-17T16:00:36.587530] [stream.log] [ao/wasapi] (v) Device period: 10 ms
+[+ 1236ms] [2026-10-17T16:00:36.587530] [stream.log] [ao/wasapi] (debug) IAudioClient::Initialize
+[+ 1248ms] [2026-10-17T16:00:36.599536] [stream.log] [ao/wasapi] (debug) IAudioClient::Initialize pRenderClient
+[+ 1248ms] [2026-10-17T16:00:36.599536] [stream.log] [ao/wasapi] (debug) IAudioClient::Initialize IAudioClient_SetEventHandle
+[+ 1248ms] [2026-10-17T16:00:36.599536] [stream.log] [ao/wasapi] (debug) IAudioClient::Initialize IAudioClient_GetBufferSize
+[+ 1248ms] [2026-10-17T16:00:36.599536] [stream.log] [ao/wasapi] (v) Buffer frame count: 2400 (50 ms)
+[+ 1248ms] [2026-10-17T16:00:36.599536] [stream.log] [ao/wasapi] (v) IAudioClock::GetFrequency gave a frequency of 384000.
+[+ 1248ms] [2026-10-17T16:00:36.599536] [stream.log] [ao/wasapi] (debug) IAudioClient::Initialize pAudioVolume
+[+ 1248ms] [2026-10-17T16:00:36.599536] [stream.log] [ao/wasapi] (debug) Entering dispatch loop
+[+ 1248ms] [2026-10-17T16:00:36.599536] [stream.log] [ao/wasapi] (debug) Init wasapi done
+[+ 1248ms] [2026-10-17T16:00:36.599536] [stream.log] [ao/wasapi] (v) device buffer: 2400 samples.
+[+ 1248ms] [2026-10-17T16:00:36.599536] [stream.log] [ao/wasapi] (v) using soft-buffer of 9600 samples.
+[+ 1248ms] [2026-10-17T16:00:36.599536] [stream.log] [cplayer] (info) AO: [wasapi] 48000Hz stereo 2ch float
+[+ 1248ms] [2026-10-17T16:00:36.599536] [stream.log] [cplayer] (v) AO: Description: Windows WASAPI audio output (event mode)
+[+ 1248ms] [2026-10-17T16:00:36.599536] [stream.log] [autoconvert] (v) inserting resampler
+[+ 1248ms] [2026-10-17T16:00:36.599536] [stream.log] [swresample] (v) format change, reinitializing resampler
+[+ 1248ms] [2026-10-17T16:00:36.599536] [stream.log] [swresample] (v) 44100Hz mono floatp -> 48000Hz stereo float
+[+ 1248ms] [2026-10-17T16:00:36.599536] [stream.log] [swresample] (v) Remix: mono -> stereo
+[+ 1248ms] [2026-10-17T16:00:36.599536] [stream.log] [af] (v) [out] 48000Hz stereo 2ch float
+[+ 1249ms] [2026-10-17T16:00:36.600537] [stream.log] [cplayer] (v) audio ready
+[+ 1249ms] [2026-10-17T16:00:36.600537] [stream.log] [cplayer] (v) starting audio playback
+[+ 1249ms] [2026-10-17T16:00:36.600537] [stream.log] [cplayer] (v) playback restart complete @ 0.000000, audio=playing, video=eof
+[+ 1249ms] [2026-10-17T16:00:36.600537] [stream.log] [ao/wasapi] (debug) Thread Resume
+[+ 1249ms] [2026-10-17T16:00:36.600537] [stream.log] [ao/wasapi] (debug) Thread Reset
+[+ 1276ms] [2026-10-17T16:00:36.627086] [stream.buffer] 278ms (0:00:00.278639)
+[+ 1279ms] [2026-10-17T16:00:36.630593] [stream.position] 19ms (0:00:00.019437)
+[+ 1339ms] [2026-10-17T16:00:36.689661] [stream.position] 78ms (0:00:00.078891)
+[+ 1399ms] [2026-10-17T16:00:36.750384] [stream.position] 138ms (0:00:00.138894)
+[+ 1449ms] [2026-10-17T16:00:36.799205] [stream.position] 188ms (0:00:00.188912)
+[+ 1499ms] [2026-10-17T16:00:36.850397] [stream.position] 238ms (0:00:00.238920)
+[+ 1527ms] [2026-10-17T16:00:36.878935] [stream.buffer] 626ms (0:00:00.626938)
+[+ 1549ms] [2026-10-17T16:00:36.900474] [stream.position] 288ms (0:00:00.288943)
+[+ 1609ms] [2026-10-17T16:00:36.960103] [stream.position] 348ms (0:00:00.348891)
+[+ 1659ms] [2026-10-17T16:00:37.009191] [stream.position] 398ms (0:00:00.398944)
+[+ 1719ms] [2026-10-17T16:00:37.070312] [stream.position] 458ms (0:00:00.458916)
+[+ 1769ms] [2026-10-17T16:00:37.119494] [stream.position] 508ms (0:00:00.508939)
+[+ 1777ms] [2026-10-17T16:00:37.129016] [stream.buffer] 928ms (0:00:00.928798)
+[+ 1819ms] [2026-10-17T16:00:37.170080] [stream.position] 559ms (0:00:00.559010)
+[+ 1879ms] [2026-10-17T16:00:37.229651] [stream.position] 618ms (0:00:00.618888)
+[+ 1929ms] [2026-10-17T16:00:37.279596] [stream.position] 668ms (0:00:00.668913)
+[+ 1979ms] [2026-10-17T16:00:37.329726] [stream.position] 718ms (0:00:00.718940)
+[+ 2028ms] [2026-10-17T16:00:37.379207] [stream.buffer] 1277ms (0:00:01.277097)
+[+ 2029ms] [2026-10-17T16:00:37.380213] [stream.position] 768ms (0:00:00.768987)
+[+ 2089ms] [2026-10-17T16:00:37.440315] [stream.position] 828ms (0:00:00.828967)
+[+ 2139ms] [2026-10-17T16:00:37.489557] [stream.position] 878ms (0:00:00.878969)
+[+ 2189ms] [2026-10-17T16:00:37.540137] [stream.position] 929ms (0:00:00.929120)
+[+ 2239ms] [2026-10-17T16:00:37.590661] [stream.position] 979ms (0:00:00.979163)
+[+ 2259ms] [2026-10-17T16:00:37.609847] [stream.log] [ao/wasapi] (v) OnPropertyValueChanged triggered on device {0.0.0.00000000}.{8739ca67-eb79-498e-95bb-310ae722632a}
+[+ 2259ms] [2026-10-17T16:00:37.609847] [stream.log] [ao/wasapi] (v) Changed property: {9855c4cd-df8c-449c-a181-8191b68bd06c},0
+[+ 2278ms] [2026-10-17T16:00:37.629899] [stream.buffer] 1904ms (0:00:01.904036)
+[+ 2289ms] [2026-10-17T16:00:37.640411] [stream.position] 1029ms (0:00:01.029181)
+[+ 2349ms] [2026-10-17T16:00:37.700039] [stream.position] 1088ms (0:00:01.088910)
+[+ 2399ms] [2026-10-17T16:00:37.750178] [stream.position] 1139ms (0:00:01.139016)
+[+ 2459ms] [2026-10-17T16:00:37.809823] [stream.position] 1198ms (0:00:01.198892)
+[+ 2509ms] [2026-10-17T16:00:37.859533] [stream.position] 1248ms (0:00:01.248914)
+[+ 2528ms] [2026-10-17T16:00:37.880064] [stream.buffer] 2229ms (0:00:02.229115)
+[+ 2559ms] [2026-10-17T16:00:37.910187] [stream.position] 1298ms (0:00:01.298943)
+[+ 2609ms] [2026-10-17T16:00:37.960285] [stream.position] 1349ms (0:00:01.349166)
+[+ 2659ms] [2026-10-17T16:00:38.009836] [stream.position] 1399ms (0:00:01.399203)
+[+ 2719ms] [2026-10-17T16:00:38.069719] [stream.position] 1458ms (0:00:01.458892)
+[+ 2769ms] [2026-10-17T16:00:38.119839] [stream.position] 1508ms (0:00:01.508950)
+[+ 2779ms] [2026-10-17T16:00:38.130364] [stream.buffer] 2530ms (0:00:02.530975)
+[+ 2819ms] [2026-10-17T16:00:38.169587] [stream.position] 1558ms (0:00:01.558955)
+[+ 2879ms] [2026-10-17T16:00:38.229686] [stream.position] 1619ms (0:00:01.619123)
+[+ 2939ms] [2026-10-17T16:00:38.289782] [stream.position] 1679ms (0:00:01.679142)
+[+ 2999ms] [2026-10-17T16:00:38.350430] [stream.position] 1738ms (0:00:01.738915)
+[+ 3029ms] [2026-10-17T16:00:38.380272] [stream.buffer] 2879ms (0:00:02.879274)
+[+ 3049ms] [2026-10-17T16:00:38.400300] [stream.position] 1788ms (0:00:01.788971)
+[+ 3109ms] [2026-10-17T16:00:38.459910] [stream.position] 1848ms (0:00:01.848891)
+[+ 3159ms] [2026-10-17T16:00:38.510301] [stream.position] 1899ms (0:00:01.899191)
+[+ 3219ms] [2026-10-17T16:00:38.569990] [stream.position] 1959ms (0:00:01.959122)
+[+ 3279ms] [2026-10-17T16:00:38.629422] [stream.position] 2018ms (0:00:02.018892)
+[+ 3279ms] [2026-10-17T16:00:38.630430] [stream.buffer] 3529ms (0:00:03.529433)
+[+ 3329ms] [2026-10-17T16:00:38.679546] [stream.position] 2068ms (0:00:02.068945)
+[+ 3389ms] [2026-10-17T16:00:38.739427] [stream.position] 2128ms (0:00:02.128915)
+[+ 3439ms] [2026-10-17T16:00:38.790021] [stream.position] 2178ms (0:00:02.178965)
+[+ 3489ms] [2026-10-17T16:00:38.839868] [stream.position] 2228ms (0:00:02.228980)
+[+ 3529ms] [2026-10-17T16:00:38.880477] [stream.buffer] 3831ms (0:00:03.831292)
+[+ 3539ms] [2026-10-17T16:00:38.890386] [stream.position] 2278ms (0:00:02.278984)
+[+ 3589ms] [2026-10-17T16:00:38.940521] [stream.position] 2329ms (0:00:02.329120)
+[+ 3649ms] [2026-10-17T16:00:39.000188] [stream.position] 2388ms (0:00:02.388916)
+[+ 3699ms] [2026-10-17T16:00:39.049746] [stream.position] 2438ms (0:00:02.438940)
+[+ 3759ms] [2026-10-17T16:00:39.109656] [stream.position] 2498ms (0:00:02.498893)
+[+ 3779ms] [2026-10-17T16:00:39.129704] [stream.buffer] 4133ms (0:00:04.133151)
+[+ 3809ms] [2026-10-17T16:00:39.160263] [stream.position] 2548ms (0:00:02.548912)
+[+ 3858ms] [2026-10-17T16:00:39.209634] [stream.position] 2598ms (0:00:02.598933)
+[+ 3909ms] [2026-10-17T16:00:39.259972] [stream.position] 2648ms (0:00:02.648916)
+[+ 3959ms] [2026-10-17T16:00:39.310090] [stream.position] 2699ms (0:00:02.699120)
+[+ 4019ms] [2026-10-17T16:00:39.370493] [stream.position] 2759ms (0:00:02.759155)
+[+ 4029ms] [2026-10-17T16:00:39.380004] [stream.buffer] 4481ms (0:00:04.481451)
+[+ 4069ms] [2026-10-17T16:00:39.420513] [stream.position] 2809ms (0:00:02.809186)
+[+ 4129ms] [2026-10-17T16:00:39.480238] [stream.position] 2868ms (0:00:02.868894)
+[+ 4179ms] [2026-10-17T16:00:39.530207] [stream.position] 2918ms (0:00:02.918915)
+[+ 4228ms] [2026-10-17T16:00:39.580295] [stream.position] 2968ms (0:00:02.968940)
+[+ 4279ms] [2026-10-17T16:00:39.630020] [stream.position] 3018ms (0:00:03.018954)
+[+ 4279ms] [2026-10-17T16:00:39.630020] [stream.buffer] 5131ms (0:00:05.131609)
+[+ 4329ms] [2026-10-17T16:00:39.679624] [stream.position] 3068ms (0:00:03.068964)
+[+ 4388ms] [2026-10-17T16:00:39.739704] [stream.position] 3128ms (0:00:03.128890)
+[+ 4439ms] [2026-10-17T16:00:39.790263] [stream.position] 3178ms (0:00:03.178942)
+[+ 4489ms] [2026-10-17T16:00:39.839583] [stream.position] 3229ms (0:00:03.229002)
+[+ 4529ms] [2026-10-17T16:00:39.879645] [stream.buffer] 5410ms (0:00:05.410249)
+[+ 4538ms] [2026-10-17T16:00:39.890164] [stream.position] 3278ms (0:00:03.278988)
+[+ 4589ms] [2026-10-17T16:00:39.939760] [stream.position] 3329ms (0:00:03.329163)
+[+ 4648ms] [2026-10-17T16:00:39.999453] [stream.position] 3388ms (0:00:03.388913)
+[+ 4698ms] [2026-10-17T16:00:40.050062] [stream.position] 3438ms (0:00:03.438944)
+[+ 4758ms] [2026-10-17T16:00:40.110146] [stream.position] 3498ms (0:00:03.498893)
+[+ 4779ms] [2026-10-17T16:00:40.129670] [stream.buffer] 5758ms (0:00:05.758548)
+[+ 4808ms] [2026-10-17T16:00:40.160229] [stream.position] 3548ms (0:00:03.548959)
+[+ 4859ms] [2026-10-17T16:00:40.209804] [stream.position] 3598ms (0:00:03.598976)
+[+ 4918ms] [2026-10-17T16:00:40.269436] [stream.position] 3658ms (0:00:03.658891)
+[+ 4968ms] [2026-10-17T16:00:40.319640] [stream.position] 3708ms (0:00:03.708916)
+[+ 5018ms] [2026-10-17T16:00:40.369791] [stream.position] 3758ms (0:00:03.758978)
+[+ 5029ms] [2026-10-17T16:00:40.380303] [stream.buffer] 6083ms (0:00:06.083628)
+[+ 5069ms] [2026-10-17T16:00:40.420365] [stream.position] 3809ms (0:00:03.809145)
+[+ 5128ms] [2026-10-17T16:00:40.480279] [stream.position] 3868ms (0:00:03.868937)
+[+ 5179ms] [2026-10-17T16:00:40.530055] [stream.position] 3918ms (0:00:03.918947)
+[+ 5229ms] [2026-10-17T16:00:40.579974] [stream.position] 3969ms (0:00:03.969183)
+[+ 5279ms] [2026-10-17T16:00:40.630421] [stream.position] 4019ms (0:00:04.019145)
+[+ 5279ms] [2026-10-17T16:00:40.630421] [stream.buffer] 6757ms (0:00:06.757006)
+[+ 5329ms] [2026-10-17T16:00:40.679673] [stream.position] 4069ms (0:00:04.069157)
+[+ 5388ms] [2026-10-17T16:00:40.739765] [stream.position] 4128ms (0:00:04.128910)
+[+ 5438ms] [2026-10-17T16:00:40.789334] [stream.position] 4178ms (0:00:04.178942)
+[+ 5488ms] [2026-10-17T16:00:40.839423] [stream.position] 4228ms (0:00:04.228948)
+[+ 5529ms] [2026-10-17T16:00:40.879969] [stream.buffer] 7058ms (0:00:07.058866)
+[+ 5539ms] [2026-10-17T16:00:40.890594] [stream.position] 4279ms (0:00:04.279555)
+[+ 5598ms] [2026-10-17T16:00:40.950214] [stream.position] 4338ms (0:00:04.338890)
+[+ 5649ms] [2026-10-17T16:00:41.000298] [stream.position] 4388ms (0:00:04.388939)
+[+ 5698ms] [2026-10-17T16:00:41.049300] [stream.position] 4438ms (0:00:04.438942)
+[+ 5759ms] [2026-10-17T16:00:41.110392] [stream.position] 4499ms (0:00:04.499143)
+[+ 5779ms] [2026-10-17T16:00:41.130423] [stream.buffer] 7383ms (0:00:07.383945)
+[+ 5809ms] [2026-10-17T16:00:41.160008] [stream.position] 4549ms (0:00:04.549159)
+[+ 5868ms] [2026-10-17T16:00:41.220085] [stream.position] 4608ms (0:00:04.608912)
+[+ 5918ms] [2026-10-17T16:00:41.269694] [stream.position] 4658ms (0:00:04.658918)
+[+ 5969ms] [2026-10-17T16:00:41.319827] [stream.position] 4709ms (0:00:04.709167)
+[+ 6028ms] [2026-10-17T16:00:41.378896] [stream.position] 4768ms (0:00:04.768892)
+[+ 6029ms] [2026-10-17T16:00:41.380408] [stream.buffer] 7685ms (0:00:07.685804)
+[+ 6078ms] [2026-10-17T16:00:41.429876] [stream.position] 4818ms (0:00:04.818924)
+[+ 6128ms] [2026-10-17T16:00:41.479738] [stream.position] 4868ms (0:00:04.868913)
+[+ 6179ms] [2026-10-17T16:00:41.529916] [stream.position] 4919ms (0:00:04.919022)
+[+ 6239ms] [2026-10-17T16:00:41.589653] [stream.position] 4979ms (0:00:04.979140)
+[+ 6279ms] [2026-10-17T16:00:41.629871] [stream.buffer] 8266ms (0:00:08.266303)
+[+ 6289ms] [2026-10-17T16:00:41.640367] [stream.position] 5029ms (0:00:05.029384)
+[+ 6348ms] [2026-10-17T16:00:41.699799] [stream.position] 5088ms (0:00:05.088890)
+[+ 6398ms] [2026-10-17T16:00:41.749892] [stream.position] 5138ms (0:00:05.138970)
+[+ 6458ms] [2026-10-17T16:00:41.810018] [stream.position] 5198ms (0:00:05.198913)
+[+ 6508ms] [2026-10-17T16:00:41.859692] [stream.position] 5248ms (0:00:05.248945)
+[+ 6529ms] [2026-10-17T16:00:41.880910] [stream.buffer] 8289ms (0:00:08.289523)
+[+ 6558ms] [2026-10-17T16:00:41.909954] [stream.position] 5298ms (0:00:05.298972)
+[+ 6618ms] [2026-10-17T16:00:41.969736] [stream.position] 5358ms (0:00:05.358918)
+[+ 6668ms] [2026-10-17T16:00:42.019811] [stream.position] 5408ms (0:00:05.408964)
+[+ 6728ms] [2026-10-17T16:00:42.079938] [stream.position] 5468ms (0:00:05.468890)
+[+ 6778ms] [2026-10-17T16:00:42.129525] [stream.position] 5518ms (0:00:05.518914)
+[+ 6779ms] [2026-10-17T16:00:42.130530] [stream.buffer] 8614ms (0:00:08.614603)
+[+ 6829ms] [2026-10-17T16:00:42.180134] [stream.position] 5569ms (0:00:05.569143)
+[+ 6888ms] [2026-10-17T16:00:42.239534] [stream.position] 5628ms (0:00:05.628891)
+[+ 6938ms] [2026-10-17T16:00:42.289668] [stream.position] 5678ms (0:00:05.678914)
+[+ 6988ms] [2026-10-17T16:00:42.339864] [stream.position] 5728ms (0:00:05.728945)
+[+ 7029ms] [2026-10-17T16:00:42.380952] [stream.buffer] 8962ms (0:00:08.962902)
+[+ 7038ms] [2026-10-17T16:00:42.389455] [stream.position] 5778ms (0:00:05.778947)
+[+ 7088ms] [2026-10-17T16:00:42.439353] [stream.position] 5828ms (0:00:05.828972)
+[+ 7148ms] [2026-10-17T16:00:42.499468] [stream.position] 5888ms (0:00:05.888889)
+[+ 7198ms] [2026-10-17T16:00:42.550055] [stream.position] 5938ms (0:00:05.938913)
+[+ 7248ms] [2026-10-17T16:00:42.599955] [stream.position] 5988ms (0:00:05.988947)
+[+ 7280ms] [2026-10-17T16:00:42.631331] [stream.buffer] 9264ms (0:00:09.264761)
+[+ 7298ms] [2026-10-17T16:00:42.650093] [stream.position] 6038ms (0:00:06.038951)
+[+ 7358ms] [2026-10-17T16:00:42.709887] [stream.position] 6098ms (0:00:06.098890)
+[+ 7408ms] [2026-10-17T16:00:42.759464] [stream.position] 6148ms (0:00:06.148916)
+[+ 7458ms] [2026-10-17T16:00:42.810062] [stream.position] 6198ms (0:00:06.198941)
+[+ 7518ms] [2026-10-17T16:00:42.869750] [stream.position] 6258ms (0:00:06.258891)
+[+ 7529ms] [2026-10-17T16:00:42.880264] [stream.buffer] 9891ms (0:00:09.891700)
+[+ 7568ms] [2026-10-17T16:00:42.919341] [stream.position] 6308ms (0:00:06.308892)
+[+ 7619ms] [2026-10-17T16:00:42.969461] [stream.position] 6359ms (0:00:06.359120)
+[+ 7679ms] [2026-10-17T16:00:43.029568] [stream.position] 6419ms (0:00:06.419121)
+[+ 7738ms] [2026-10-17T16:00:43.090275] [stream.position] 6479ms (0:00:06.479023)
+[+ 7779ms] [2026-10-17T16:00:43.130827] [stream.buffer] 10216ms (0:00:10.216780)
+[+ 7788ms] [2026-10-17T16:00:43.139330] [stream.position] 6529ms (0:00:06.529020)
+[+ 7848ms] [2026-10-17T16:00:43.199947] [stream.position] 6588ms (0:00:06.588958)
+[+ 7898ms] [2026-10-17T16:00:43.249502] [stream.position] 6638ms (0:00:06.638959)
+[+ 7948ms] [2026-10-17T16:00:43.299165] [stream.position] 6688ms (0:00:06.688961)
+[+ 7998ms] [2026-10-17T16:00:43.349841] [stream.position] 6738ms (0:00:06.738966)
+[+ 8029ms] [2026-10-17T16:00:43.380878] [stream.buffer] 10565ms (0:00:10.565079)
+[+ 8048ms] [2026-10-17T16:00:43.399939] [stream.position] 6788ms (0:00:06.788982)
+[+ 8108ms] [2026-10-17T16:00:43.459506] [stream.position] 6848ms (0:00:06.848913)
+[+ 8158ms] [2026-10-17T16:00:43.510133] [stream.position] 6898ms (0:00:06.898944)
+[+ 8218ms] [2026-10-17T16:00:43.569721] [stream.position] 6958ms (0:00:06.958914)
+[+ 8268ms] [2026-10-17T16:00:43.619739] [stream.position] 7008ms (0:00:07.008946)
+[+ 8279ms] [2026-10-17T16:00:43.630790] [stream.buffer] 10843ms (0:00:10.843718)
+[+ 8318ms] [2026-10-17T16:00:43.669348] [stream.position] 7058ms (0:00:07.058971)
+[+ 8378ms] [2026-10-17T16:00:43.729446] [stream.position] 7118ms (0:00:07.118889)
+[+ 8428ms] [2026-10-17T16:00:43.780033] [stream.position] 7168ms (0:00:07.168891)
+[+ 8479ms] [2026-10-17T16:00:43.829694] [stream.position] 7218ms (0:00:07.218931)
+[+ 8528ms] [2026-10-17T16:00:43.879339] [stream.position] 7268ms (0:00:07.268935)
+[+ 8530ms] [2026-10-17T16:00:43.881343] [stream.buffer] 11493ms (0:00:11.493877)
+[+ 8578ms] [2026-10-17T16:00:43.929401] [stream.position] 7318ms (0:00:07.318947)
+[+ 8628ms] [2026-10-17T16:00:43.980034] [stream.position] 7369ms (0:00:07.369121)
+[+ 8688ms] [2026-10-17T16:00:44.039699] [stream.position] 7428ms (0:00:07.428943)
+[+ 8738ms] [2026-10-17T16:00:44.090080] [stream.position] 7479ms (0:00:07.479097)
+[+ 8780ms] [2026-10-17T16:00:44.131689] [stream.buffer] 11818ms (0:00:11.818956)
+[+ 8788ms] [2026-10-17T16:00:44.140198] [stream.position] 7529ms (0:00:07.529117)
+[+ 8848ms] [2026-10-17T16:00:44.199275] [stream.position] 7588ms (0:00:07.588909)
+[+ 8898ms] [2026-10-17T16:00:44.249863] [stream.position] 7638ms (0:00:07.638914)
+[+ 8948ms] [2026-10-17T16:00:44.299923] [stream.position] 7688ms (0:00:07.688960)
+[+ 8998ms] [2026-10-17T16:00:44.349564] [stream.position] 7738ms (0:00:07.738998)
+[+ 9030ms] [2026-10-17T16:00:44.381842] [stream.buffer] 12144ms (0:00:12.144036)
+[+ 9048ms] [2026-10-17T16:00:44.399853] [stream.position] 7789ms (0:00:07.789006)
+[+ 9108ms] [2026-10-17T16:00:44.459785] [stream.position] 7848ms (0:00:07.848959)
+[+ 9168ms] [2026-10-17T16:00:44.519409] [stream.position] 7908ms (0:00:07.908889)
+[+ 9218ms] [2026-10-17T16:00:44.569226] [stream.position] 7958ms (0:00:07.958914)
+[+ 9268ms] [2026-10-17T16:00:44.619950] [stream.position] 8008ms (0:00:08.008945)
+[+ 9280ms] [2026-10-17T16:00:44.631185] [stream.buffer] 12469ms (0:00:12.469115)
+[+ 9318ms] [2026-10-17T16:00:44.670114] [stream.position] 8059ms (0:00:08.059107)
+[+ 9368ms] [2026-10-17T16:00:44.720239] [stream.position] 8109ms (0:00:08.109124)
+[+ 9428ms] [2026-10-17T16:00:44.779371] [stream.position] 8168ms (0:00:08.168936)
+[+ 9478ms] [2026-10-17T16:00:44.829964] [stream.position] 8218ms (0:00:08.218944)
+[+ 9528ms] [2026-10-17T16:00:44.879657] [stream.position] 8268ms (0:00:08.268961)
+[+ 9530ms] [2026-10-17T16:00:44.881664] [stream.buffer] 13119ms (0:00:13.119274)
+[+ 9578ms] [2026-10-17T16:00:44.929255] [stream.position] 8318ms (0:00:08.318949)
+[+ 9638ms] [2026-10-17T16:00:44.989717] [stream.position] 8378ms (0:00:08.378891)
+[+ 9688ms] [2026-10-17T16:00:45.039351] [stream.position] 8428ms (0:00:08.428948)
+[+ 9748ms] [2026-10-17T16:00:45.099150] [stream.position] 8488ms (0:00:08.488937)
+[+ 9780ms] [2026-10-17T16:00:45.132212] [stream.buffer] 13467ms (0:00:13.467573)
+[+ 9798ms] [2026-10-17T16:00:45.149224] [stream.position] 8538ms (0:00:08.538940)
+[+ 9848ms] [2026-10-17T16:00:45.199373] [stream.position] 8588ms (0:00:08.588971)
+[+ 9908ms] [2026-10-17T16:00:45.258458] [stream.position] 8648ms (0:00:08.648912)
+[+ 9958ms] [2026-10-17T16:00:45.310124] [stream.position] 8699ms (0:00:08.699144)
+[+10018ms] [2026-10-17T16:00:45.369858] [stream.position] 8758ms (0:00:08.758913)
+[+10030ms] [2026-10-17T16:00:45.381376] [stream.buffer] 13769ms (0:00:13.769433)
+[+10068ms] [2026-10-17T16:00:45.419031] [stream.position] 8808ms (0:00:08.808942)
+[+10128ms] [2026-10-17T16:00:45.479002] [stream.position] 8868ms (0:00:08.868891)
+[+10178ms] [2026-10-17T16:00:45.530086] [stream.position] 8919ms (0:00:08.919143)
+[+10238ms] [2026-10-17T16:00:45.589694] [stream.position] 8978ms (0:00:08.978916)
+[+10281ms] [2026-10-17T16:00:45.632791] [stream.buffer] 14094ms (0:00:14.094512)
+[+10288ms] [2026-10-17T16:00:45.639415] [stream.position] 9028ms (0:00:09.028966)
+[+10338ms] [2026-10-17T16:00:45.689179] [stream.position] 9078ms (0:00:09.078971)
+[+10398ms] [2026-10-17T16:00:45.749789] [stream.position] 9138ms (0:00:09.138891)
+[+10448ms] [2026-10-17T16:00:45.799893] [stream.position] 9188ms (0:00:09.188915)
+[+10498ms] [2026-10-17T16:00:45.848993] [stream.position] 9238ms (0:00:09.238941)
+[+10531ms] [2026-10-17T16:00:45.883078] [stream.buffer] 14744ms (0:00:14.744671)
+[+10548ms] [2026-10-17T16:00:45.899277] [stream.position] 9288ms (0:00:09.288946)
+[+10608ms] [2026-10-17T16:00:45.959909] [stream.position] 9348ms (0:00:09.348892)
+[+10658ms] [2026-10-17T16:00:46.009478] [stream.position] 9398ms (0:00:09.398913)
+[+10708ms] [2026-10-17T16:00:46.059628] [stream.position] 9448ms (0:00:09.448970)
+[+10710ms] [2026-10-17T16:00:46.061632] [stream.log] [lavf] (v) EOF reached.
+[+10768ms] [2026-10-17T16:00:46.119306] [stream.position] 9508ms (0:00:09.508909)
+[+10781ms] [2026-10-17T16:00:46.132830] [stream.buffer] 14976ms (0:00:14.976870)
+[+10818ms] [2026-10-17T16:00:46.169382] [stream.position] 9558ms (0:00:09.558936)
+[+10868ms] [2026-10-17T16:00:46.219477] [stream.position] 9609ms (0:00:09.609120)
+[+10918ms] [2026-10-17T16:00:46.269230] [stream.position] 9659ms (0:00:09.659197)
+[+10978ms] [2026-10-17T16:00:46.329833] [stream.position] 9718ms (0:00:09.718891)
+[+11028ms] [2026-10-17T16:00:46.380134] [stream.position] 9769ms (0:00:09.769145)
+[+11088ms] [2026-10-17T16:00:46.439773] [stream.position] 9828ms (0:00:09.828891)
+[+11138ms] [2026-10-17T16:00:46.489328] [stream.position] 9878ms (0:00:09.878916)
+[+11198ms] [2026-10-17T16:00:46.549008] [stream.position] 9938ms (0:00:09.938889)
+[+11248ms] [2026-10-17T16:00:46.599080] [stream.position] 9988ms (0:00:09.988891)
+[+11298ms] [2026-10-17T16:00:46.649644] [stream.position] 10038ms (0:00:10.038913)
+[+11358ms] [2026-10-17T16:00:46.709771] [stream.position] 10098ms (0:00:10.098891)
+[+11408ms] [2026-10-17T16:00:46.759383] [stream.position] 10148ms (0:00:10.148938)
+[+11458ms] [2026-10-17T16:00:46.809971] [stream.position] 10198ms (0:00:10.198973)
+[+11518ms] [2026-10-17T16:00:46.869588] [stream.position] 10258ms (0:00:10.258889)
+[+11568ms] [2026-10-17T16:00:46.919717] [stream.position] 10308ms (0:00:10.308891)
+[+11618ms] [2026-10-17T16:00:46.969320] [stream.position] 10358ms (0:00:10.358939)
+[+11678ms] [2026-10-17T16:00:47.029448] [stream.position] 10418ms (0:00:10.418923)
+[+11728ms] [2026-10-17T16:00:47.079028] [stream.position] 10468ms (0:00:10.468944)
+[+11788ms] [2026-10-17T16:00:47.139644] [stream.position] 10528ms (0:00:10.528889)
+[+11838ms] [2026-10-17T16:00:47.189499] [stream.position] 10578ms (0:00:10.578893)
+[+11888ms] [2026-10-17T16:00:47.239170] [stream.position] 10628ms (0:00:10.628911)
+[+11938ms] [2026-10-17T16:00:47.289009] [stream.position] 10678ms (0:00:10.678967)
+[+11988ms] [2026-10-17T16:00:47.339124] [stream.position] 10728ms (0:00:10.728992)
+[+12038ms] [2026-10-17T16:00:47.389409] [stream.position] 10778ms (0:00:10.778999)
+[+12088ms] [2026-10-17T16:00:47.439421] [stream.position] 10829ms (0:00:10.829011)
+[+12148ms] [2026-10-17T16:00:47.499027] [stream.position] 10888ms (0:00:10.888891)
+[+12198ms] [2026-10-17T16:00:47.549115] [stream.position] 10938ms (0:00:10.938894)
+[+12248ms] [2026-10-17T16:00:47.599673] [stream.position] 10988ms (0:00:10.988923)
+[+12308ms] [2026-10-17T16:00:47.659666] [stream.position] 11048ms (0:00:11.048891)
+[+12358ms] [2026-10-17T16:00:47.709232] [stream.position] 11098ms (0:00:11.098935)
+[+12408ms] [2026-10-17T16:00:47.759307] [stream.position] 11148ms (0:00:11.148948)
+[+12468ms] [2026-10-17T16:00:47.819053] [stream.position] 11208ms (0:00:11.208939)
+[+12518ms] [2026-10-17T16:00:47.869715] [stream.position] 11258ms (0:00:11.258943)
+[+12568ms] [2026-10-17T16:00:47.919318] [stream.position] 11308ms (0:00:11.308972)
+[+12628ms] [2026-10-17T16:00:47.979578] [stream.position] 11368ms (0:00:11.368891)
+[+12678ms] [2026-10-17T16:00:48.029463] [stream.position] 11419ms (0:00:11.419122)
+[+12738ms] [2026-10-17T16:00:48.089852] [stream.position] 11478ms (0:00:11.478913)
+[+12788ms] [2026-10-17T16:00:48.138945] [stream.position] 11528ms (0:00:11.528916)
+[+12838ms] [2026-10-17T16:00:48.190048] [stream.position] 11579ms (0:00:11.579176)
+[+12898ms] [2026-10-17T16:00:48.249699] [stream.position] 11638ms (0:00:11.638915)
+[+12948ms] [2026-10-17T16:00:48.299269] [stream.position] 11688ms (0:00:11.688915)
+[+12998ms] [2026-10-17T16:00:48.348949] [stream.position] 11738ms (0:00:11.738966)
+[+13048ms] [2026-10-17T16:00:48.399730] [stream.position] 11788ms (0:00:11.788973)
+[+13108ms] [2026-10-17T16:00:48.459318] [stream.position] 11848ms (0:00:11.848893)
+[+13158ms] [2026-10-17T16:00:48.509575] [stream.position] 11898ms (0:00:11.898917)
+[+13218ms] [2026-10-17T16:00:48.569687] [stream.position] 11958ms (0:00:11.958890)
+[+13268ms] [2026-10-17T16:00:48.618915] [stream.position] 12008ms (0:00:12.008916)
+[+13318ms] [2026-10-17T16:00:48.669585] [stream.position] 12058ms (0:00:12.058918)
+[+13368ms] [2026-10-17T16:00:48.719632] [stream.position] 12109ms (0:00:12.109144)
+[+13428ms] [2026-10-17T16:00:48.779245] [stream.position] 12168ms (0:00:12.168913)
+[+13478ms] [2026-10-17T16:00:48.829829] [stream.position] 12218ms (0:00:12.218915)
+[+13528ms] [2026-10-17T16:00:48.879523] [stream.position] 12268ms (0:00:12.268914)
+[+13578ms] [2026-10-17T16:00:48.929640] [stream.position] 12318ms (0:00:12.318987)
+[+13638ms] [2026-10-17T16:00:48.989435] [stream.position] 12378ms (0:00:12.378892)
+[+13688ms] [2026-10-17T16:00:49.039066] [stream.position] 12429ms (0:00:12.429122)
+[+13748ms] [2026-10-17T16:00:49.099170] [stream.position] 12488ms (0:00:12.488914)
+[+13798ms] [2026-10-17T16:00:49.148797] [stream.position] 12538ms (0:00:12.538939)
+[+13848ms] [2026-10-17T16:00:49.198936] [stream.position] 12588ms (0:00:12.588949)
+[+13908ms] [2026-10-17T16:00:49.258538] [stream.position] 12648ms (0:00:12.648917)
+[+13958ms] [2026-10-17T16:00:49.309681] [stream.position] 12698ms (0:00:12.698941)
+[+14008ms] [2026-10-17T16:00:49.358860] [stream.position] 12748ms (0:00:12.748970)
+================================================================================
+END OF FIXTURE LOG
+================================================================================

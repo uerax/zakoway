@@ -1,0 +1,342 @@
+================================================================================
+ZAKOWAY PLAYER PROBE FIXTURE LOG
+================================================================================
+场景名称: 场景 6a: 连续两次 open() (间隔 20ms, 详细级别)
+测试日期: 2026-10-17T15:55:31.692304
+执行环境: Windows 11 Pro x64, media_kit 1.2.6, libmpv v0.36.0-403, FFmpeg n6.0, mbedTLS 3.5.0
+执行命令: flutter test tool/player_probe/run_scenario_6.dart
+URL形态说明: Stream A (http://127.0.0.1:50845/stream_A.mp4) -> Stream B (http://127.0.0.1:50845/stream_B.mp4)
+脱敏规则说明: 敏感参数 sign、t、token 等替换为 ...，其余保持完全原始输出
+请求头信息: {}
+附加说明: 时序变体: open A 后等待 20ms（尚未出画、Future 刚完成）立即 open B。记录各流重置标记出现时刻及 A 的迟到事件
+================================================================================
+TIMELINE EVENTS (Monotonic relative ms from T0, absolute ISO, tag, raw message):
+================================================================================
+[+    0ms] [2026-10-17T15:55:28.631278] [probe.config] logLevel=MPVLogLevel.debug, variant=open A 后等待 20ms（尚未出画、Future 刚完成）立即 open B
+[+    0ms] [2026-10-17T15:55:28.631278] [action.open.call] uri=http://127.0.0.1:50845/stream_A.mp4, play=true, headers={}
+[+    1ms] [2026-10-17T15:55:28.632280] [stream.log] [cplayer] (v) Set property: stream-lavf-o="reconnect=1,reconnect_on_network_error=1,reconnect_delay_max=2" -> 1
+[+    1ms] [2026-10-17T15:55:28.632280] [stream.playing] false
+[+    1ms] [2026-10-17T15:55:28.632280] [stream.completed] false
+[+    1ms] [2026-10-17T15:55:28.632280] [stream.position] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T15:55:28.632280] [stream.duration] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T15:55:28.632280] [stream.buffering] false
+[+    1ms] [2026-10-17T15:55:28.632280] [stream.buffer] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T15:55:28.632280] [stream.videoParams] w=null, h=null, dw=null, dh=null, aspect=null, pixelformat=null, hwPixelformat=null
+[+    1ms] [2026-10-17T15:55:28.632280] [stream.tracks] videoCount=2, audioCount=2, subtitleCount=2
+[+    1ms] [2026-10-17T15:55:28.632280] [stream.width] null
+[+    1ms] [2026-10-17T15:55:28.632280] [stream.height] null
+[+    1ms] [2026-10-17T15:55:28.632280] [stream.log] [cplayer] (v) Set property: cache-on-disk="no" -> 1
+[+    2ms] [2026-10-17T15:55:28.632280] [stream.log] [cplayer] (v) Set property: demuxer-seekable-cache="yes" -> 1
+[+    2ms] [2026-10-17T15:55:28.632280] [stream.log] [cplayer] (v) Set property: force-seekable="yes" -> 1
+[+    2ms] [2026-10-17T15:55:28.632280] [stream.log] [cplayer] (v) Set property: hr-seek="default" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: hr-seek-framedrop="yes" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: cache="yes" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: cache-pause="yes" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: cache-pause-initial="no" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: cache-pause-wait="0.2" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: demuxer-readahead-secs="15" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: cache-secs="30" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: demuxer-max-bytes="33554432" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: demuxer-max-back-bytes="16777216" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: network-timeout="10" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: volume-max="100" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: tls-verify="no" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: hwdec-codecs="all" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: hwdec="auto" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: scale="spline36" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: cscale="spline36" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: sigmoid-upscaling="yes" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: correct-downscaling="yes" -> 1
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (debug) Run command: stop, flags=64, args=[flags=""]
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (debug) Run command: playlist-clear, flags=64, args=[]
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (debug) Run command: playlist-play-index, flags=64, args=[index="none"]
+[+    2ms] [2026-10-17T15:55:28.633278] [stream.log] [cplayer] (v) Set property: pause=true -> 1
+[+    8ms] [2026-10-17T15:55:28.639280] [stream.log] [cplayer] (debug) Run command: loadlist, flags=64, args=[url="C:\\Users\\uerax\\AppData\\Local\\Temp\\ed38bb02-23f2-483b-9fd2-12104fda8272", flags="append"]
+[+    8ms] [2026-10-17T15:55:28.639280] [stream.log] [playlist_parser] (v) Parsing playlist file C:\Users\uerax\AppData\Local\Temp\ed38bb02-23f2-483b-9fd2-12104fda8272...
+[+    8ms] [2026-10-17T15:55:28.639280] [stream.log] [file] (v) Opening C:\Users\uerax\AppData\Local\Temp\ed38bb02-23f2-483b-9fd2-12104fda8272
+[+    8ms] [2026-10-17T15:55:28.639280] [stream.log] [file] (debug) resize stream to 131072 bytes, drop 0 bytes
+[+    8ms] [2026-10-17T15:55:28.639280] [stream.log] [file] (debug) Stream opened successfully.
+[+    8ms] [2026-10-17T15:55:28.639280] [stream.playing] true
+[+    8ms] [2026-10-17T15:55:28.639280] [action.open.future_completed] cost=8ms
+[+    8ms] [2026-10-17T15:55:28.639280] [stream.buffering] true
+[+    9ms] [2026-10-17T15:55:28.639280] [stream.log] [demux] (v) Trying demuxers for level=request.
+[+    9ms] [2026-10-17T15:55:28.639280] [stream.log] [demux] (debug) Trying demuxer: playlist (force-level: request)
+[+    9ms] [2026-10-17T15:55:28.639280] [stream.log] [playlist] (warn) Reading plaintext playlist.
+[+    9ms] [2026-10-17T15:55:28.639280] [stream.log] [playlist] (v) demuxer read all data; closing stream
+[+    9ms] [2026-10-17T15:55:28.639280] [stream.log] [demux] (v) Detected file format: txt (Playlist file)
+[+    9ms] [2026-10-17T15:55:28.639280] [stream.log] [playlist_parser] (v) Playlist successfully parsed
+[+    9ms] [2026-10-17T15:55:28.639280] [stream.log] [global] (debug) state path: 'watch_later' -> '-'
+[+    9ms] [2026-10-17T15:55:28.640783] [stream.log] [cplayer] (v) Set property: pause=false -> 1
+[+    9ms] [2026-10-17T15:55:28.640783] [stream.log] [cplayer] (v) Set property: playlist-pos=0 -> 1
+[+    9ms] [2026-10-17T15:55:28.640783] [stream.log] [global] (debug) state path: 'watch_later' -> '-'
+[+    9ms] [2026-10-17T15:55:28.640783] [stream.log] [cplayer] (v) Running hook: main/on_load
+[+    9ms] [2026-10-17T15:55:28.640783] [stream.log] [cplayer] (v) Set property: http-header-fields=[] -> 1
+[+    9ms] [2026-10-17T15:55:28.640783] [stream.log] [ffmpeg] (v) Opening http://127.0.0.1:50845/stream_A.mp4
+[+   11ms] [2026-10-17T15:55:28.640783] [stream.log] [ffmpeg] (v) Could not set AVOption tls_verify='0'
+[+   11ms] [2026-10-17T15:55:28.640783] [stream.log] [ffmpeg] (debug) resize stream to 131072 bytes, drop 0 bytes
+[+   11ms] [2026-10-17T15:55:28.642322] [stream.log] [ffmpeg] (v) Mime-type: 'video/mp4'
+[+   11ms] [2026-10-17T15:55:28.642322] [stream.log] [ffmpeg] (debug) Stream opened successfully.
+[+   11ms] [2026-10-17T15:55:28.642322] [stream.log] [demux] (v) Trying demuxers for level=normal.
+[+   11ms] [2026-10-17T15:55:28.642322] [stream.log] [demux] (debug) Trying demuxer: disc (force-level: normal)
+[+   11ms] [2026-10-17T15:55:28.642322] [stream.log] [demux] (debug) Trying demuxer: edl (force-level: normal)
+[+   11ms] [2026-10-17T15:55:28.642322] [stream.log] [demux] (debug) Trying demuxer: cue (force-level: normal)
+[+   11ms] [2026-10-17T15:55:28.642322] [stream.log] [demux] (debug) Trying demuxer: rawaudio (force-level: normal)
+[+   11ms] [2026-10-17T15:55:28.642322] [stream.log] [demux] (debug) Trying demuxer: rawvideo (force-level: normal)
+[+   11ms] [2026-10-17T15:55:28.642322] [stream.log] [demux] (debug) Trying demuxer: mkv (force-level: normal)
+[+   11ms] [2026-10-17T15:55:28.642322] [stream.log] [demux] (debug) Trying demuxer: libarchive (force-level: normal)
+[+   11ms] [2026-10-17T15:55:28.642322] [stream.log] [demux] (debug) Trying demuxer: lavf (force-level: normal)
+[+   13ms] [2026-10-17T15:55:28.643873] [stream.log] [lavf] (v) Found 'mov,mp4,m4a,3gp,3g2,mj2' at score=100 size=2048.
+[+   13ms] [2026-10-17T15:55:28.644880] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 220096
+[+   16ms] [2026-10-17T15:55:28.646881] [stream.tracks] videoCount=3, audioCount=3, subtitleCount=2
+[+   16ms] [2026-10-17T15:55:28.647882] [stream.duration] 15023ms (0:00:15.023219)
+[+   16ms] [2026-10-17T15:55:28.647882] [stream.buffering] false
+[+   17ms] [2026-10-17T15:55:28.647882] [stream.log] [lavf] (v) Could not set AVOption seg_max_retry='5'
+[+   17ms] [2026-10-17T15:55:28.647882] [stream.log] [lavf] (v) Could not set AVOption allowed_extensions='ALL'
+[+   17ms] [2026-10-17T15:55:28.647882] [stream.log] [demux] (v) Detected file format: mov,mp4,m4a,3gp,3g2,mj2 (libavformat)
+[+   17ms] [2026-10-17T15:55:28.647882] [stream.log] [cplayer] (v) Opening done: http://127.0.0.1:50845/stream_A.mp4
+[+   17ms] [2026-10-17T15:55:28.647882] [stream.log] [lavf] (v) select track 1
+[+   17ms] [2026-10-17T15:55:28.647882] [stream.log] [cplayer] (info) Video --vid=1 (*) (h264 640x360 30.000fps)
+[+   17ms] [2026-10-17T15:55:28.647882] [stream.log] [cplayer] (info) (+) Audio --aid=1 (*) (aac 1ch 44100Hz)
+[+   17ms] [2026-10-17T15:55:28.647882] [stream.log] [ad] (v) Codec list:
+[+   17ms] [2026-10-17T15:55:28.647882] [stream.log] [ad] (v) aac - (null)
+[+   17ms] [2026-10-17T15:55:28.647882] [stream.log] [ad] (v) aac_fixed (aac) - (null)
+[+   17ms] [2026-10-17T15:55:28.647882] [stream.log] [ad] (v) Opening decoder aac
+[+   17ms] [2026-10-17T15:55:28.647882] [stream.log] [ad] (v) Requesting 1 threads for decoding.
+[+   17ms] [2026-10-17T15:55:28.647882] [stream.log] [ad] (v) Selected codec: aac ((null))
+[+   17ms] [2026-10-17T15:55:28.648880] [stream.log] [user_filter_wrapper] (v) Setting option 'max-speed' = '8' (flags = 0)
+[+   17ms] [2026-10-17T15:55:28.648880] [stream.log] [af] (v) User filter list:
+[+   17ms] [2026-10-17T15:55:28.648880] [stream.log] [af] (v) scaletempo2 (scaletempo2.00)
+[+   17ms] [2026-10-17T15:55:28.648880] [stream.log] [cplayer] (v) Starting playback...
+[+   17ms] [2026-10-17T15:55:28.648880] [stream.log] [ffmpeg] (v) stream level seek from 237756 to 5948
+[+   19ms] [2026-10-17T15:55:28.649880] [stream.log] [lavf] (debug) stream 1: resize index to 128
+[+   19ms] [2026-10-17T15:55:28.649880] [stream.log] [af] (v) [in] 44100Hz mono 1ch floatp
+[+   19ms] [2026-10-17T15:55:28.649880] [stream.log] [af] (v) [scaletempo2] 44100Hz mono 1ch floatp
+[+   19ms] [2026-10-17T15:55:28.649880] [stream.log] [af] (v) [userspeed] 44100Hz mono 1ch floatp
+[+   19ms] [2026-10-17T15:55:28.649880] [stream.log] [af] (v) [userspeed] (disabled)
+[+   19ms] [2026-10-17T15:55:28.649880] [stream.log] [af] (v) [convert] 44100Hz mono 1ch floatp
+[+   19ms] [2026-10-17T15:55:28.649880] [stream.log] [ao] (v) Trying audio driver 'wasapi'
+[+   19ms] [2026-10-17T15:55:28.649880] [stream.log] [ao/wasapi] (v) requested format: 44100 Hz, mono channels, floatp
+[+   19ms] [2026-10-17T15:55:28.649880] [stream.log] [ao/wasapi] (debug) Init wasapi
+[+   19ms] [2026-10-17T15:55:28.649880] [stream.log] [ao/wasapi] (debug) Find device ''
+[+   20ms] [2026-10-17T15:55:28.650885] [stream.log] [ao/wasapi] (v) No device specified. Selecting default.
+[+   20ms] [2026-10-17T15:55:28.650885] [stream.log] [lavf] (v) EOF reached.
+[+   21ms] [2026-10-17T15:55:28.651885] [stream.log] [ao/wasapi] (v) Selecting device '{8739ca67-eb79-498e-95bb-310ae722632a}' (P2710V (NVIDIA High Definition Audio))
+[+   21ms] [2026-10-17T15:55:28.651885] [stream.log] [ao/wasapi] (v) Monitoring changes in device {0.0.0.00000000}.{8739ca67-eb79-498e-95bb-310ae722632a}
+[+   21ms] [2026-10-17T15:55:28.652885] [action.open.call] uri=http://127.0.0.1:50845/stream_B.mp4, play=true, headers={}
+[+   22ms] [2026-10-17T15:55:28.652885] [stream.log] [ao/wasapi] (debug) Init wasapi thread
+[+   22ms] [2026-10-17T15:55:28.652885] [stream.log] [ao/wasapi] (debug) Activating pAudioClient interface
+[+   22ms] [2026-10-17T15:55:28.652885] [stream.log] [ao/wasapi] (debug) Probing formats
+[+   25ms] [2026-10-17T15:55:28.655886] [stream.log] [ao/wasapi] (v) Trying mono float (32/32 bits) @ 48000hz (shared) -> close
+[+   25ms] [2026-10-17T15:55:28.655886] [stream.log] [ao/wasapi] (v) Closest match is stereo float (32/32 bits) @ 48000hz
+[+   25ms] [2026-10-17T15:55:28.655886] [stream.log] [ao/wasapi] (v) Accepted as stereo float @ 48000hz -> stereo float (32/32 bits) @ 48000hz (shared)
+[+   25ms] [2026-10-17T15:55:28.655886] [stream.log] [ao/wasapi] (debug) Fixing format
+[+   25ms] [2026-10-17T15:55:28.655886] [stream.log] [ao/wasapi] (debug) IAudioClient::GetDevicePeriod
+[+   25ms] [2026-10-17T15:55:28.655886] [stream.log] [ao/wasapi] (v) Device period: 10 ms
+[+   25ms] [2026-10-17T15:55:28.655886] [stream.log] [ao/wasapi] (debug) IAudioClient::Initialize
+[+   40ms] [2026-10-17T15:55:28.670602] [stream.log] [ao/wasapi] (debug) IAudioClient::Initialize pRenderClient
+[+   40ms] [2026-10-17T15:55:28.670602] [stream.log] [ao/wasapi] (debug) IAudioClient::Initialize IAudioClient_SetEventHandle
+[+   40ms] [2026-10-17T15:55:28.670602] [stream.log] [ao/wasapi] (debug) IAudioClient::Initialize IAudioClient_GetBufferSize
+[+   40ms] [2026-10-17T15:55:28.670602] [stream.log] [ao/wasapi] (v) Buffer frame count: 2400 (50 ms)
+[+   40ms] [2026-10-17T15:55:28.670602] [stream.log] [ao/wasapi] (v) IAudioClock::GetFrequency gave a frequency of 384000.
+[+   40ms] [2026-10-17T15:55:28.671610] [stream.log] [ao/wasapi] (debug) IAudioClient::Initialize pAudioVolume
+[+   40ms] [2026-10-17T15:55:28.671610] [stream.log] [ao/wasapi] (debug) Entering dispatch loop
+[+   40ms] [2026-10-17T15:55:28.671610] [stream.log] [ao/wasapi] (debug) Init wasapi done
+[+   40ms] [2026-10-17T15:55:28.671610] [stream.log] [ao/wasapi] (v) device buffer: 2400 samples.
+[+   41ms] [2026-10-17T15:55:28.671610] [stream.log] [ao/wasapi] (v) using soft-buffer of 9600 samples.
+[+   41ms] [2026-10-17T15:55:28.672607] [stream.log] [cplayer] (info) AO: [wasapi] 48000Hz stereo 2ch float
+[+   41ms] [2026-10-17T15:55:28.672607] [stream.log] [cplayer] (v) AO: Description: Windows WASAPI audio output (event mode)
+[+   41ms] [2026-10-17T15:55:28.672607] [stream.log] [autoconvert] (v) inserting resampler
+[+   41ms] [2026-10-17T15:55:28.672607] [stream.log] [swresample] (v) format change, reinitializing resampler
+[+   41ms] [2026-10-17T15:55:28.672607] [stream.log] [swresample] (v) 44100Hz mono floatp -> 48000Hz stereo float
+[+   41ms] [2026-10-17T15:55:28.672607] [stream.log] [swresample] (v) Remix: mono -> stereo
+[+   41ms] [2026-10-17T15:55:28.672607] [stream.log] [af] (v) [out] 48000Hz stereo 2ch float
+[+   41ms] [2026-10-17T15:55:28.672607] [stream.log] [cplayer] (debug) Run command: stop, flags=64, args=[flags=""]
+[+   41ms] [2026-10-17T15:55:28.672607] [stream.log] [cplayer] (v) EOF code: 4
+[+   41ms] [2026-10-17T15:55:28.672607] [stream.log] [cplayer] (v) Running hook: main/on_unload
+[+   41ms] [2026-10-17T15:55:28.672607] [stream.log] [ao/wasapi] (debug) Thread Reset
+[+   41ms] [2026-10-17T15:55:28.672607] [stream.log] [cplayer] (debug) Run command: playlist-clear, flags=64, args=[]
+[+   42ms] [2026-10-17T15:55:28.672607] [stream.log] [cplayer] (v) Set property: http-header-fields=null -> -2
+[+   42ms] [2026-10-17T15:55:28.672607] [stream.log] [cplayer] (v) Set property: start="none" -> 1
+[+   42ms] [2026-10-17T15:55:28.672607] [stream.log] [cplayer] (v) Set property: end="none" -> 1
+[+   42ms] [2026-10-17T15:55:28.672607] [stream.log] [ad] (debug) Uninit decoder.
+[+   42ms] [2026-10-17T15:55:28.672607] [stream.log] [cplayer] (v) finished playback, success (reason 2)
+[+   42ms] [2026-10-17T15:55:28.672607] [stream.log] [cplayer] (info) 
+[+   42ms] [2026-10-17T15:55:28.672607] [stream.log] [ao/wasapi] (debug) Uninit wasapi
+[+   42ms] [2026-10-17T15:55:28.672607] [stream.log] [ao/wasapi] (debug) Thread Reset
+[+   42ms] [2026-10-17T15:55:28.672607] [stream.log] [ao/wasapi] (debug) Thread shutdown
+[+   45ms] [2026-10-17T15:55:28.676113] [stream.log] [ao/wasapi] (debug) Thread uninit done
+[+   46ms] [2026-10-17T15:55:28.677114] [stream.log] [ao/wasapi] (debug) Thread return
+[+   46ms] [2026-10-17T15:55:28.677114] [stream.playing] false
+[+   46ms] [2026-10-17T15:55:28.677114] [stream.duration] 0ms (0:00:00.000000)
+[+   46ms] [2026-10-17T15:55:28.677114] [stream.videoParams] w=null, h=null, dw=null, dh=null, aspect=null, pixelformat=null, hwPixelformat=null
+[+   46ms] [2026-10-17T15:55:28.677114] [stream.tracks] videoCount=2, audioCount=2, subtitleCount=2
+[+   47ms] [2026-10-17T15:55:28.678116] [stream.log] [ao/wasapi] (debug) Uninit wasapi done
+[+   47ms] [2026-10-17T15:55:28.678116] [stream.log] [cplayer] (debug) Run command: playlist-play-index, flags=64, args=[index="none"]
+[+   48ms] [2026-10-17T15:55:28.679116] [stream.log] [cplayer] (v) Set property: pause=true -> 1
+[+   53ms] [2026-10-17T15:55:28.684115] [stream.log] [cplayer] (debug) Run command: loadlist, flags=64, args=[url="C:\\Users\\uerax\\AppData\\Local\\Temp\\dac51dc7-64df-48a9-a848-16eb631312f4", flags="append"]
+[+   53ms] [2026-10-17T15:55:28.684115] [stream.log] [playlist_parser] (v) Parsing playlist file C:\Users\uerax\AppData\Local\Temp\dac51dc7-64df-48a9-a848-16eb631312f4...
+[+   53ms] [2026-10-17T15:55:28.684115] [stream.log] [file] (v) Opening C:\Users\uerax\AppData\Local\Temp\dac51dc7-64df-48a9-a848-16eb631312f4
+[+   53ms] [2026-10-17T15:55:28.684115] [stream.playing] true
+[+   53ms] [2026-10-17T15:55:28.684115] [action.open.future_completed] cost=32ms
+[+   54ms] [2026-10-17T15:55:28.685118] [stream.buffering] true
+[+   54ms] [2026-10-17T15:55:28.685118] [stream.log] [file] (debug) resize stream to 131072 bytes, drop 0 bytes
+[+   54ms] [2026-10-17T15:55:28.685118] [stream.log] [file] (debug) Stream opened successfully.
+[+   54ms] [2026-10-17T15:55:28.685118] [stream.log] [demux] (v) Trying demuxers for level=request.
+[+   54ms] [2026-10-17T15:55:28.685118] [stream.log] [demux] (debug) Trying demuxer: playlist (force-level: request)
+[+   54ms] [2026-10-17T15:55:28.685118] [stream.log] [playlist] (warn) Reading plaintext playlist.
+[+   54ms] [2026-10-17T15:55:28.685118] [stream.log] [playlist] (v) demuxer read all data; closing stream
+[+   54ms] [2026-10-17T15:55:28.685118] [stream.log] [demux] (v) Detected file format: txt (Playlist file)
+[+   54ms] [2026-10-17T15:55:28.685118] [stream.log] [playlist_parser] (v) Playlist successfully parsed
+[+   54ms] [2026-10-17T15:55:28.685118] [stream.log] [global] (debug) state path: 'watch_later' -> '-'
+[+   54ms] [2026-10-17T15:55:28.686116] [stream.log] [cplayer] (v) Set property: pause=false -> 1
+[+   55ms] [2026-10-17T15:55:28.686116] [stream.log] [cplayer] (v) Set property: playlist-pos=0 -> 1
+[+   55ms] [2026-10-17T15:55:28.686116] [stream.log] [global] (debug) state path: 'watch_later' -> '-'
+[+   55ms] [2026-10-17T15:55:28.686116] [stream.log] [cplayer] (v) Running hook: main/on_load
+[+   55ms] [2026-10-17T15:55:28.686116] [stream.log] [cplayer] (v) Set property: http-header-fields=[] -> 1
+[+   55ms] [2026-10-17T15:55:28.686116] [stream.log] [ffmpeg] (v) Opening http://127.0.0.1:50845/stream_B.mp4
+[+   58ms] [2026-10-17T15:55:28.689115] [stream.log] [ffmpeg] (v) Could not set AVOption tls_verify='0'
+[+   58ms] [2026-10-17T15:55:28.689115] [stream.log] [ffmpeg] (debug) resize stream to 131072 bytes, drop 0 bytes
+[+   58ms] [2026-10-17T15:55:28.689115] [stream.log] [ffmpeg] (v) Mime-type: 'video/mp4'
+[+   59ms] [2026-10-17T15:55:28.690115] [stream.log] [ffmpeg] (debug) Stream opened successfully.
+[+   59ms] [2026-10-17T15:55:28.690115] [stream.log] [demux] (v) Trying demuxers for level=normal.
+[+   59ms] [2026-10-17T15:55:28.690115] [stream.log] [demux] (debug) Trying demuxer: disc (force-level: normal)
+[+   60ms] [2026-10-17T15:55:28.691119] [stream.log] [demux] (debug) Trying demuxer: edl (force-level: normal)
+[+   60ms] [2026-10-17T15:55:28.691119] [stream.log] [demux] (debug) Trying demuxer: cue (force-level: normal)
+[+   60ms] [2026-10-17T15:55:28.691119] [stream.log] [demux] (debug) Trying demuxer: rawaudio (force-level: normal)
+[+   60ms] [2026-10-17T15:55:28.691119] [stream.log] [demux] (debug) Trying demuxer: rawvideo (force-level: normal)
+[+   60ms] [2026-10-17T15:55:28.691119] [stream.log] [demux] (debug) Trying demuxer: mkv (force-level: normal)
+[+   60ms] [2026-10-17T15:55:28.691119] [stream.log] [demux] (debug) Trying demuxer: libarchive (force-level: normal)
+[+   60ms] [2026-10-17T15:55:28.691119] [stream.log] [demux] (debug) Trying demuxer: lavf (force-level: normal)
+[+   61ms] [2026-10-17T15:55:28.692120] [stream.log] [lavf] (v) Found 'mov,mp4,m4a,3gp,3g2,mj2' at score=100 size=2048.
+[+   61ms] [2026-10-17T15:55:28.692120] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 220096
+[+   73ms] [2026-10-17T15:55:28.705120] [stream.tracks] videoCount=3, audioCount=3, subtitleCount=2
+[+   74ms] [2026-10-17T15:55:28.705120] [stream.log] [lavf] (v) Could not set AVOption seg_max_retry='5'
+[+   74ms] [2026-10-17T15:55:28.705120] [stream.duration] 15023ms (0:00:15.023219)
+[+   74ms] [2026-10-17T15:55:28.705120] [stream.buffering] false
+[+   74ms] [2026-10-17T15:55:28.705120] [stream.log] [lavf] (v) Could not set AVOption allowed_extensions='ALL'
+[+   74ms] [2026-10-17T15:55:28.705120] [stream.log] [demux] (v) Detected file format: mov,mp4,m4a,3gp,3g2,mj2 (libavformat)
+[+   74ms] [2026-10-17T15:55:28.705120] [stream.log] [cplayer] (v) Opening done: http://127.0.0.1:50845/stream_B.mp4
+[+   74ms] [2026-10-17T15:55:28.705120] [stream.log] [lavf] (v) select track 1
+[+   74ms] [2026-10-17T15:55:28.705120] [stream.log] [cplayer] (info) Video --vid=1 (*) (h264 640x360 30.000fps)
+[+   74ms] [2026-10-17T15:55:28.706120] [stream.log] [cplayer] (info) (+) Audio --aid=1 (*) (aac 1ch 44100Hz)
+[+   75ms] [2026-10-17T15:55:28.706120] [stream.log] [ad] (v) Codec list:
+[+   75ms] [2026-10-17T15:55:28.706120] [stream.log] [ad] (v) aac - (null)
+[+   75ms] [2026-10-17T15:55:28.706120] [stream.log] [ad] (v) aac_fixed (aac) - (null)
+[+   75ms] [2026-10-17T15:55:28.706120] [stream.log] [ad] (v) Opening decoder aac
+[+   75ms] [2026-10-17T15:55:28.706120] [stream.log] [ad] (v) Requesting 1 threads for decoding.
+[+   75ms] [2026-10-17T15:55:28.706120] [stream.log] [ad] (v) Selected codec: aac ((null))
+[+   75ms] [2026-10-17T15:55:28.706120] [stream.log] [user_filter_wrapper] (v) Setting option 'max-speed' = '8' (flags = 0)
+[+   75ms] [2026-10-17T15:55:28.706120] [stream.log] [af] (v) User filter list:
+[+   75ms] [2026-10-17T15:55:28.706120] [stream.log] [af] (v) scaletempo2 (scaletempo2.00)
+[+   75ms] [2026-10-17T15:55:28.706120] [stream.log] [cplayer] (v) Starting playback...
+[+   75ms] [2026-10-17T15:55:28.706120] [stream.log] [ffmpeg] (v) stream level seek from 237756 to 5948
+[+   76ms] [2026-10-17T15:55:28.707628] [stream.log] [lavf] (debug) stream 1: resize index to 128
+[+   76ms] [2026-10-17T15:55:28.707628] [stream.log] [af] (v) [in] 44100Hz mono 1ch floatp
+[+   76ms] [2026-10-17T15:55:28.707628] [stream.log] [af] (v) [scaletempo2] 44100Hz mono 1ch floatp
+[+   76ms] [2026-10-17T15:55:28.707628] [stream.log] [af] (v) [userspeed] 44100Hz mono 1ch floatp
+[+   77ms] [2026-10-17T15:55:28.707628] [stream.log] [af] (v) [userspeed] (disabled)
+[+   77ms] [2026-10-17T15:55:28.707628] [stream.log] [af] (v) [convert] 44100Hz mono 1ch floatp
+[+   77ms] [2026-10-17T15:55:28.707628] [stream.log] [ao] (v) Trying audio driver 'wasapi'
+[+   77ms] [2026-10-17T15:55:28.707628] [stream.log] [ao/wasapi] (v) requested format: 44100 Hz, mono channels, floatp
+[+   77ms] [2026-10-17T15:55:28.707628] [stream.log] [ao/wasapi] (debug) Init wasapi
+[+   77ms] [2026-10-17T15:55:28.707628] [stream.log] [ao/wasapi] (debug) Find device ''
+[+   78ms] [2026-10-17T15:55:28.708635] [stream.log] [ao/wasapi] (v) No device specified. Selecting default.
+[+   78ms] [2026-10-17T15:55:28.708635] [stream.log] [lavf] (v) EOF reached.
+[+   79ms] [2026-10-17T15:55:28.710636] [stream.log] [ao/wasapi] (v) Selecting device '{8739ca67-eb79-498e-95bb-310ae722632a}' (P2710V (NVIDIA High Definition Audio))
+[+   79ms] [2026-10-17T15:55:28.710636] [stream.log] [ao/wasapi] (v) Monitoring changes in device {0.0.0.00000000}.{8739ca67-eb79-498e-95bb-310ae722632a}
+[+   80ms] [2026-10-17T15:55:28.710636] [stream.log] [ao/wasapi] (debug) Init wasapi thread
+[+   80ms] [2026-10-17T15:55:28.711635] [stream.log] [ao/wasapi] (debug) Activating pAudioClient interface
+[+   80ms] [2026-10-17T15:55:28.711635] [stream.log] [ao/wasapi] (debug) Probing formats
+[+   82ms] [2026-10-17T15:55:28.713635] [stream.log] [ao/wasapi] (v) Trying mono float (32/32 bits) @ 48000hz (shared) -> close
+[+   82ms] [2026-10-17T15:55:28.713635] [stream.log] [ao/wasapi] (v) Closest match is stereo float (32/32 bits) @ 48000hz
+[+   83ms] [2026-10-17T15:55:28.713635] [stream.log] [ao/wasapi] (v) Accepted as stereo float @ 48000hz -> stereo float (32/32 bits) @ 48000hz (shared)
+[+   83ms] [2026-10-17T15:55:28.713635] [stream.log] [ao/wasapi] (debug) Fixing format
+[+   83ms] [2026-10-17T15:55:28.713635] [stream.log] [ao/wasapi] (debug) IAudioClient::GetDevicePeriod
+[+   83ms] [2026-10-17T15:55:28.713635] [stream.log] [ao/wasapi] (v) Device period: 10 ms
+[+   83ms] [2026-10-17T15:55:28.713635] [stream.log] [ao/wasapi] (debug) IAudioClient::Initialize
+[+   94ms] [2026-10-17T15:55:28.725522] [stream.log] [ao/wasapi] (debug) IAudioClient::Initialize pRenderClient
+[+   95ms] [2026-10-17T15:55:28.726036] [stream.log] [ao/wasapi] (debug) IAudioClient::Initialize IAudioClient_SetEventHandle
+[+   95ms] [2026-10-17T15:55:28.726036] [stream.log] [ao/wasapi] (debug) IAudioClient::Initialize IAudioClient_GetBufferSize
+[+   95ms] [2026-10-17T15:55:28.726036] [stream.log] [ao/wasapi] (v) Buffer frame count: 2400 (50 ms)
+[+   95ms] [2026-10-17T15:55:28.726036] [stream.log] [ao/wasapi] (v) IAudioClock::GetFrequency gave a frequency of 384000.
+[+   95ms] [2026-10-17T15:55:28.726036] [stream.log] [ao/wasapi] (debug) IAudioClient::Initialize pAudioVolume
+[+   95ms] [2026-10-17T15:55:28.726036] [stream.log] [ao/wasapi] (debug) Entering dispatch loop
+[+   95ms] [2026-10-17T15:55:28.726036] [stream.log] [ao/wasapi] (debug) Init wasapi done
+[+   95ms] [2026-10-17T15:55:28.726036] [stream.log] [ao/wasapi] (v) device buffer: 2400 samples.
+[+   95ms] [2026-10-17T15:55:28.726036] [stream.log] [ao/wasapi] (v) using soft-buffer of 9600 samples.
+[+   95ms] [2026-10-17T15:55:28.726555] [stream.log] [cplayer] (info) AO: [wasapi] 48000Hz stereo 2ch float
+[+   95ms] [2026-10-17T15:55:28.726555] [stream.log] [cplayer] (v) AO: Description: Windows WASAPI audio output (event mode)
+[+   95ms] [2026-10-17T15:55:28.726555] [stream.log] [autoconvert] (v) inserting resampler
+[+   95ms] [2026-10-17T15:55:28.726555] [stream.log] [swresample] (v) format change, reinitializing resampler
+[+   95ms] [2026-10-17T15:55:28.726555] [stream.log] [swresample] (v) 44100Hz mono floatp -> 48000Hz stereo float
+[+   95ms] [2026-10-17T15:55:28.726555] [stream.log] [swresample] (v) Remix: mono -> stereo
+[+   95ms] [2026-10-17T15:55:28.726555] [stream.log] [af] (v) [out] 48000Hz stereo 2ch float
+[+   96ms] [2026-10-17T15:55:28.727070] [stream.log] [cplayer] (v) audio ready
+[+   96ms] [2026-10-17T15:55:28.727070] [stream.log] [cplayer] (v) starting audio playback
+[+   96ms] [2026-10-17T15:55:28.727070] [stream.log] [cplayer] (v) playback restart complete @ 0.000000, audio=playing, video=eof
+[+   96ms] [2026-10-17T15:55:28.727070] [stream.log] [ao/wasapi] (debug) Thread Resume
+[+   96ms] [2026-10-17T15:55:28.727070] [stream.log] [ao/wasapi] (debug) Thread Reset
+[+   97ms] [2026-10-17T15:55:28.728169] [stream.position] 0ms (0:00:00.000016)
+[+  156ms] [2026-10-17T15:55:28.787215] [stream.position] 48ms (0:00:00.048895)
+[+  205ms] [2026-10-17T15:55:28.837028] [stream.position] 98ms (0:00:00.098928)
+[+  255ms] [2026-10-17T15:55:28.886287] [stream.position] 148ms (0:00:00.148921)
+[+  266ms] [2026-10-17T15:55:28.897708] [stream.buffer] 14976ms (0:00:14.976870)
+[+  305ms] [2026-10-17T15:55:28.936273] [stream.position] 198ms (0:00:00.198943)
+[+  365ms] [2026-10-17T15:55:28.996158] [stream.position] 258ms (0:00:00.258892)
+[+  415ms] [2026-10-17T15:55:29.046802] [stream.position] 308ms (0:00:00.308960)
+[+  465ms] [2026-10-17T15:55:29.096861] [stream.position] 358ms (0:00:00.358956)
+[+  516ms] [2026-10-17T15:55:29.147132] [stream.position] 409ms (0:00:00.409491)
+[+  566ms] [2026-10-17T15:55:29.197145] [stream.position] 459ms (0:00:00.459491)
+[+  625ms] [2026-10-17T15:55:29.256304] [stream.position] 518ms (0:00:00.518850)
+[+  675ms] [2026-10-17T15:55:29.306449] [stream.position] 568ms (0:00:00.568899)
+[+  735ms] [2026-10-17T15:55:29.366464] [stream.position] 628ms (0:00:00.628871)
+[+  785ms] [2026-10-17T15:55:29.416054] [stream.position] 678ms (0:00:00.678928)
+[+  836ms] [2026-10-17T15:55:29.466745] [stream.position] 728ms (0:00:00.728936)
+[+  895ms] [2026-10-17T15:55:29.526941] [stream.position] 788ms (0:00:00.788896)
+[+  945ms] [2026-10-17T15:55:29.576093] [stream.position] 838ms (0:00:00.838907)
+[+ 1005ms] [2026-10-17T15:55:29.636185] [stream.position] 898ms (0:00:00.898867)
+[+ 1056ms] [2026-10-17T15:55:29.687406] [stream.position] 949ms (0:00:00.949542)
+[+ 1101ms] [2026-10-17T15:55:29.732132] [stream.log] [ao/wasapi] (v) OnPropertyValueChanged triggered on device {0.0.0.00000000}.{8739ca67-eb79-498e-95bb-310ae722632a}
+[+ 1101ms] [2026-10-17T15:55:29.732132] [stream.log] [ao/wasapi] (v) Changed property: {9855c4cd-df8c-449c-a181-8191b68bd06c},0
+[+ 1115ms] [2026-10-17T15:55:29.746649] [stream.position] 1008ms (0:00:01.008851)
+[+ 1165ms] [2026-10-17T15:55:29.796645] [stream.position] 1058ms (0:00:01.058876)
+[+ 1215ms] [2026-10-17T15:55:29.845455] [stream.position] 1108ms (0:00:01.108927)
+[+ 1265ms] [2026-10-17T15:55:29.897007] [stream.position] 1158ms (0:00:01.158982)
+[+ 1315ms] [2026-10-17T15:55:29.947025] [stream.position] 1208ms (0:00:01.208986)
+[+ 1375ms] [2026-10-17T15:55:30.006559] [stream.position] 1268ms (0:00:01.268900)
+[+ 1425ms] [2026-10-17T15:55:30.056159] [stream.position] 1318ms (0:00:01.318940)
+[+ 1475ms] [2026-10-17T15:55:30.106750] [stream.position] 1368ms (0:00:01.368960)
+[+ 1525ms] [2026-10-17T15:55:30.156868] [stream.position] 1418ms (0:00:01.418972)
+[+ 1585ms] [2026-10-17T15:55:30.215958] [stream.position] 1478ms (0:00:01.478874)
+[+ 1635ms] [2026-10-17T15:55:30.266071] [stream.position] 1528ms (0:00:01.528876)
+[+ 1685ms] [2026-10-17T15:55:30.316287] [stream.position] 1578ms (0:00:01.578899)
+[+ 1735ms] [2026-10-17T15:55:30.366872] [stream.position] 1628ms (0:00:01.628898)
+[+ 1785ms] [2026-10-17T15:55:30.416113] [stream.position] 1678ms (0:00:01.678904)
+[+ 1835ms] [2026-10-17T15:55:30.466388] [stream.position] 1728ms (0:00:01.728903)
+[+ 1885ms] [2026-10-17T15:55:30.516452] [stream.position] 1778ms (0:00:01.778931)
+[+ 1945ms] [2026-10-17T15:55:30.576540] [stream.position] 1838ms (0:00:01.838850)
+[+ 1995ms] [2026-10-17T15:55:30.626730] [stream.position] 1888ms (0:00:01.888874)
+[+ 2045ms] [2026-10-17T15:55:30.676444] [stream.position] 1938ms (0:00:01.938899)
+[+ 2105ms] [2026-10-17T15:55:30.736387] [stream.position] 1998ms (0:00:01.998871)
+[+ 2155ms] [2026-10-17T15:55:30.786838] [stream.position] 2048ms (0:00:02.048872)
+[+ 2205ms] [2026-10-17T15:55:30.836018] [stream.position] 2098ms (0:00:02.098874)
+[+ 2255ms] [2026-10-17T15:55:30.886354] [stream.position] 2148ms (0:00:02.148877)
+[+ 2305ms] [2026-10-17T15:55:30.936520] [stream.position] 2198ms (0:00:02.198935)
+[+ 2355ms] [2026-10-17T15:55:30.986649] [stream.position] 2248ms (0:00:02.248962)
+[+ 2405ms] [2026-10-17T15:55:31.036543] [stream.position] 2299ms (0:00:02.299057)
+[+ 2465ms] [2026-10-17T15:55:31.096580] [stream.position] 2358ms (0:00:02.358873)
+[+ 2515ms] [2026-10-17T15:55:31.146419] [stream.position] 2408ms (0:00:02.408901)
+[+ 2565ms] [2026-10-17T15:55:31.196359] [stream.position] 2458ms (0:00:02.458931)
+[+ 2625ms] [2026-10-17T15:55:31.256600] [stream.position] 2518ms (0:00:02.518873)
+[+ 2675ms] [2026-10-17T15:55:31.306595] [stream.position] 2568ms (0:00:02.568903)
+[+ 2725ms] [2026-10-17T15:55:31.355921] [stream.position] 2618ms (0:00:02.618931)
+[+ 2775ms] [2026-10-17T15:55:31.406634] [stream.position] 2668ms (0:00:02.668936)
+[+ 2825ms] [2026-10-17T15:55:31.456718] [stream.position] 2718ms (0:00:02.718988)
+[+ 2885ms] [2026-10-17T15:55:31.515855] [stream.position] 2778ms (0:00:02.778876)
+[+ 2935ms] [2026-10-17T15:55:31.566748] [stream.position] 2828ms (0:00:02.828900)
+[+ 2985ms] [2026-10-17T15:55:31.616775] [stream.position] 2878ms (0:00:02.878964)
+[+ 3035ms] [2026-10-17T15:55:31.666545] [stream.position] 2928ms (0:00:02.928975)
+================================================================================
+END OF FIXTURE LOG
+================================================================================

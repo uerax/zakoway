@@ -1,0 +1,120 @@
+================================================================================
+ZAKOWAY PLAYER PROBE FIXTURE LOG
+================================================================================
+场景名称: 场景 4a: 中途异常 EOF (断开后持续拒绝连接, 详细 debug 级别)
+测试日期: 2026-10-17T15:51:54.123635
+执行环境: Windows 11 Pro x64, media_kit 1.2.6, libmpv v0.36.0-403, FFmpeg n6.0, mbedTLS 3.5.0
+执行命令: flutter test tool/player_probe/run_scenario_4.dart
+URL形态说明: 本地 Mock HTTP 媒体流 (127.0.0.1:0)，模拟中途 EOF
+脱敏规则说明: 敏感参数 sign、t、token 等替换为 ...，其余保持完全原始输出
+请求头信息: {}
+附加说明: 传输 70KB 后断开 Socket，后续重连一律拒绝连接；观察 completed 是否误触发及 stream.error 报错
+================================================================================
+TIMELINE EVENTS (Monotonic relative ms from T0, absolute ISO, tag, raw message):
+================================================================================
+[+    0ms] [2026-10-17T15:51:46.102432] [probe.config] logLevel=MPVLogLevel.debug, mode=MockServerMode.eofAndRefuse
+[+    0ms] [2026-10-17T15:51:46.102432] [action.open.call] uri=http://127.0.0.1:51616/media.mp4, play=true, headers={}
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.playing] false
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.completed] false
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.position] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.duration] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.buffering] false
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.buffer] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.videoParams] w=null, h=null, dw=null, dh=null, aspect=null, pixelformat=null, hwPixelformat=null
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.tracks] videoCount=2, audioCount=2, subtitleCount=2
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.width] null
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.height] null
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: demuxer-seekable-cache="yes" -> 1
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: force-seekable="yes" -> 1
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: hr-seek="default" -> 1
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: hr-seek-framedrop="yes" -> 1
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: cache="yes" -> 1
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: cache-pause="yes" -> 1
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: cache-pause-initial="no" -> 1
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: cache-pause-wait="0.2" -> 1
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: demuxer-readahead-secs="15" -> 1
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: cache-secs="30" -> 1
+[+    1ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: demuxer-max-bytes="33554432" -> 1
+[+    2ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: demuxer-max-back-bytes="16777216" -> 1
+[+    2ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: network-timeout="10" -> 1
+[+    2ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: volume-max="100" -> 1
+[+    2ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" -> 1
+[+    2ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: tls-verify="no" -> 1
+[+    2ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: hwdec-codecs="all" -> 1
+[+    2ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: hwdec="auto" -> 1
+[+    2ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: scale="spline36" -> 1
+[+    2ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: cscale="spline36" -> 1
+[+    2ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: sigmoid-upscaling="yes" -> 1
+[+    2ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: correct-downscaling="yes" -> 1
+[+    2ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (debug) Run command: stop, flags=64, args=[flags=""]
+[+    2ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (debug) Run command: playlist-clear, flags=64, args=[]
+[+    2ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (debug) Run command: playlist-play-index, flags=64, args=[index="none"]
+[+    2ms] [2026-10-17T15:51:46.103965] [stream.log] [cplayer] (v) Set property: pause=true -> 1
+[+    7ms] [2026-10-17T15:51:46.109748] [stream.log] [cplayer] (debug) Run command: loadlist, flags=64, args=[url="C:\\Users\\uerax\\AppData\\Local\\Temp\\20129cff-8cf5-4de2-80f9-f04e6c1c4a91", flags="append"]
+[+    7ms] [2026-10-17T15:51:46.109748] [stream.log] [playlist_parser] (v) Parsing playlist file C:\Users\uerax\AppData\Local\Temp\20129cff-8cf5-4de2-80f9-f04e6c1c4a91...
+[+    7ms] [2026-10-17T15:51:46.109748] [stream.log] [file] (v) Opening C:\Users\uerax\AppData\Local\Temp\20129cff-8cf5-4de2-80f9-f04e6c1c4a91
+[+    8ms] [2026-10-17T15:51:46.109748] [stream.log] [file] (debug) resize stream to 131072 bytes, drop 0 bytes
+[+    8ms] [2026-10-17T15:51:46.109748] [stream.playing] true
+[+    8ms] [2026-10-17T15:51:46.109748] [action.open.future_completed] cost=8ms
+[+    8ms] [2026-10-17T15:51:46.111754] [stream.buffering] true
+[+    8ms] [2026-10-17T15:51:46.111754] [stream.log] [file] (debug) Stream opened successfully.
+[+    8ms] [2026-10-17T15:51:46.111754] [stream.log] [demux] (v) Trying demuxers for level=request.
+[+    8ms] [2026-10-17T15:51:46.111754] [stream.log] [demux] (debug) Trying demuxer: playlist (force-level: request)
+[+    8ms] [2026-10-17T15:51:46.111754] [stream.log] [playlist] (warn) Reading plaintext playlist.
+[+    8ms] [2026-10-17T15:51:46.111754] [stream.log] [playlist] (v) demuxer read all data; closing stream
+[+    8ms] [2026-10-17T15:51:46.111754] [stream.log] [demux] (v) Detected file format: txt (Playlist file)
+[+    9ms] [2026-10-17T15:51:46.111754] [stream.log] [playlist_parser] (v) Playlist successfully parsed
+[+    9ms] [2026-10-17T15:51:46.111754] [stream.log] [global] (debug) state path: 'watch_later' -> '-'
+[+    9ms] [2026-10-17T15:51:46.111754] [stream.log] [cplayer] (v) Set property: pause=false -> 1
+[+    9ms] [2026-10-17T15:51:46.111754] [stream.log] [cplayer] (v) Set property: playlist-pos=0 -> 1
+[+    9ms] [2026-10-17T15:51:46.111754] [stream.log] [global] (debug) state path: 'watch_later' -> '-'
+[+    9ms] [2026-10-17T15:51:46.111754] [stream.log] [cplayer] (v) Running hook: main/on_load
+[+    9ms] [2026-10-17T15:51:46.111754] [stream.log] [cplayer] (v) Set property: http-header-fields=[] -> 1
+[+    9ms] [2026-10-17T15:51:46.111754] [stream.log] [ffmpeg] (v) Opening http://127.0.0.1:51616/media.mp4
+[+   10ms] [2026-10-17T15:51:46.113759] [stream.log] [ffmpeg] (v) Could not set AVOption tls_verify='0'
+[+   10ms] [2026-10-17T15:51:46.113759] [stream.log] [ffmpeg] (debug) resize stream to 131072 bytes, drop 0 bytes
+[+   10ms] [2026-10-17T15:51:46.113759] [stream.log] [ffmpeg] (v) Mime-type: 'video/mp4'
+[+   10ms] [2026-10-17T15:51:46.113759] [stream.log] [ffmpeg] (debug) Stream opened successfully.
+[+   10ms] [2026-10-17T15:51:46.113759] [stream.log] [demux] (v) Trying demuxers for level=normal.
+[+   10ms] [2026-10-17T15:51:46.113759] [stream.log] [demux] (debug) Trying demuxer: disc (force-level: normal)
+[+   10ms] [2026-10-17T15:51:46.113759] [stream.log] [demux] (debug) Trying demuxer: edl (force-level: normal)
+[+   10ms] [2026-10-17T15:51:46.113759] [stream.log] [demux] (debug) Trying demuxer: cue (force-level: normal)
+[+   10ms] [2026-10-17T15:51:46.113759] [stream.log] [demux] (debug) Trying demuxer: rawaudio (force-level: normal)
+[+   10ms] [2026-10-17T15:51:46.113759] [stream.log] [demux] (debug) Trying demuxer: rawvideo (force-level: normal)
+[+   10ms] [2026-10-17T15:51:46.113759] [stream.log] [demux] (debug) Trying demuxer: mkv (force-level: normal)
+[+   10ms] [2026-10-17T15:51:46.113759] [stream.log] [demux] (debug) Trying demuxer: libarchive (force-level: normal)
+[+   11ms] [2026-10-17T15:51:46.113759] [stream.log] [demux] (debug) Trying demuxer: lavf (force-level: normal)
+[+   12ms] [2026-10-17T15:51:46.115763] [stream.log] [lavf] (v) Found 'mov,mp4,m4a,3gp,3g2,mj2' at score=100 size=2048.
+[+   13ms] [2026-10-17T15:51:46.116081] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 220096
+[+ 1046ms] [2026-10-17T15:51:47.149248] [stream.log] [ffmpeg] (error) Seek failed (to 220096, size -40)
+[+ 1046ms] [2026-10-17T15:51:47.149619] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 220096
+[+ 2057ms] [2026-10-17T15:51:48.159636] [stream.log] [ffmpeg] (error) Seek failed (to 220096, size -40)
+[+ 2057ms] [2026-10-17T15:51:48.159636] [stream.log] [lavf] (error) avformat_open_input() failed
+[+ 2057ms] [2026-10-17T15:51:48.159636] [stream.log] [demux] (debug) Trying demuxer: mf (force-level: normal)
+[+ 2057ms] [2026-10-17T15:51:48.159636] [stream.log] [demux] (debug) Trying demuxer: playlist (force-level: normal)
+[+ 2057ms] [2026-10-17T15:51:48.159636] [stream.log] [demux] (debug) Trying demuxer: null (force-level: normal)
+[+ 2057ms] [2026-10-17T15:51:48.159636] [stream.log] [demux] (v) Trying demuxers for level=unsafe.
+[+ 2057ms] [2026-10-17T15:51:48.159636] [stream.log] [demux] (debug) Trying demuxer: disc (force-level: unsafe)
+[+ 2057ms] [2026-10-17T15:51:48.159636] [stream.log] [demux] (debug) Trying demuxer: edl (force-level: unsafe)
+[+ 2057ms] [2026-10-17T15:51:48.159636] [stream.log] [demux] (debug) Trying demuxer: cue (force-level: unsafe)
+[+ 2057ms] [2026-10-17T15:51:48.159636] [stream.log] [demux] (debug) Trying demuxer: rawaudio (force-level: unsafe)
+[+ 2057ms] [2026-10-17T15:51:48.159636] [stream.log] [demux] (debug) Trying demuxer: rawvideo (force-level: unsafe)
+[+ 2057ms] [2026-10-17T15:51:48.159636] [stream.log] [demux] (debug) Trying demuxer: mkv (force-level: unsafe)
+[+ 2057ms] [2026-10-17T15:51:48.159636] [stream.log] [demux] (debug) Trying demuxer: libarchive (force-level: unsafe)
+[+ 2057ms] [2026-10-17T15:51:48.159636] [stream.log] [ffmpeg] (debug) resize stream to 262144 bytes, drop 0 bytes
+[+ 2057ms] [2026-10-17T15:51:48.159636] [stream.log] [demux] (debug) Trying demuxer: lavf (force-level: unsafe)
+[+ 2058ms] [2026-10-17T15:51:48.161641] [stream.log] [lavf] (v) Found 'mov,mp4,m4a,3gp,3g2,mj2' at score=100 size=2048.
+[+ 2059ms] [2026-10-17T15:51:48.161641] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 220096
+[+ 3096ms] [2026-10-17T15:51:49.199202] [stream.log] [ffmpeg] (error) Seek failed (to 220096, size -40)
+[+ 3096ms] [2026-10-17T15:51:49.199202] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 808452959
+[+ 4114ms] [2026-10-17T15:51:50.217933] [stream.log] [ffmpeg] (error) Seek failed (to 808452959, size -40)
+[+ 4114ms] [2026-10-17T15:51:50.217933] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 1703446247
+[+ 5162ms] [2026-10-17T15:51:51.265187] [stream.log] [ffmpeg] (error) Seek failed (to 1703446247, size -40)
+[+ 5162ms] [2026-10-17T15:51:51.265187] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 1937509722
+[+ 6206ms] [2026-10-17T15:51:52.309337] [stream.log] [ffmpeg] (error) Seek failed (to 1937509722, size -40)
+[+ 6206ms] [2026-10-17T15:51:52.309337] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 91702498
+[+ 7220ms] [2026-10-17T15:51:53.323938] [stream.log] [ffmpeg] (error) Seek failed (to 91702498, size -40)
+[+ 7221ms] [2026-10-17T15:51:53.323938] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 3377609092
+================================================================================
+END OF FIXTURE LOG
+================================================================================

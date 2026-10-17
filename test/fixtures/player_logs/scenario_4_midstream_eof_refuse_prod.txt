@@ -1,0 +1,41 @@
+================================================================================
+ZAKOWAY PLAYER PROBE FIXTURE LOG
+================================================================================
+场景名称: 场景 4a: 中途异常 EOF (断开后持续拒绝连接, 生产 error 级别)
+测试日期: 2026-10-17T15:51:46.087224
+执行环境: Windows 11 Pro x64, media_kit 1.2.6, libmpv v0.36.0-403, FFmpeg n6.0, mbedTLS 3.5.0
+执行命令: flutter test tool/player_probe/run_scenario_4.dart
+URL形态说明: 本地 Mock HTTP 媒体流 (127.0.0.1:0)，模拟中途 EOF
+脱敏规则说明: 敏感参数 sign、t、token 等替换为 ...，其余保持完全原始输出
+请求头信息: {}
+附加说明: 传输 70KB 后断开 Socket，后续重连一律拒绝连接；观察 completed 是否误触发及 stream.error 报错
+================================================================================
+TIMELINE EVENTS (Monotonic relative ms from T0, absolute ISO, tag, raw message):
+================================================================================
+[+    1ms] [2026-10-17T15:51:38.057807] [probe.config] logLevel=MPVLogLevel.error, mode=MockServerMode.eofAndRefuse
+[+    3ms] [2026-10-17T15:51:38.059809] [action.open.call] uri=http://127.0.0.1:51571/media.mp4, play=true, headers={}
+[+    9ms] [2026-10-17T15:51:38.065817] [stream.playing] false
+[+   10ms] [2026-10-17T15:51:38.065817] [stream.completed] false
+[+   10ms] [2026-10-17T15:51:38.065817] [stream.position] 0ms (0:00:00.000000)
+[+   10ms] [2026-10-17T15:51:38.065817] [stream.duration] 0ms (0:00:00.000000)
+[+   10ms] [2026-10-17T15:51:38.065817] [stream.buffering] false
+[+   10ms] [2026-10-17T15:51:38.065817] [stream.buffer] 0ms (0:00:00.000000)
+[+   10ms] [2026-10-17T15:51:38.065817] [stream.videoParams] w=null, h=null, dw=null, dh=null, aspect=null, pixelformat=null, hwPixelformat=null
+[+   10ms] [2026-10-17T15:51:38.065817] [stream.tracks] videoCount=2, audioCount=2, subtitleCount=2
+[+   10ms] [2026-10-17T15:51:38.065817] [stream.width] null
+[+   11ms] [2026-10-17T15:51:38.066819] [stream.height] null
+[+   18ms] [2026-10-17T15:51:38.073819] [stream.playing] true
+[+   18ms] [2026-10-17T15:51:38.073819] [action.open.future_completed] cost=15ms
+[+   18ms] [2026-10-17T15:51:38.073819] [stream.buffering] true
+[+ 1065ms] [2026-10-17T15:51:39.120580] [stream.log] [ffmpeg] (error) Seek failed (to 220096, size -40)
+[+ 2079ms] [2026-10-17T15:51:40.134452] [stream.log] [ffmpeg] (error) Seek failed (to 220096, size -40)
+[+ 2079ms] [2026-10-17T15:51:40.135452] [stream.log] [ffmpeg/demuxer] (error) mov,mp4,m4a,3gp,3g2,mj2: moov atom not found
+[+ 2079ms] [2026-10-17T15:51:40.135452] [stream.log] [lavf] (error) avformat_open_input() failed
+[+ 3096ms] [2026-10-17T15:51:41.151893] [stream.log] [ffmpeg] (error) Seek failed (to 220096, size -40)
+[+ 4118ms] [2026-10-17T15:51:42.172283] [stream.log] [ffmpeg] (error) Seek failed (to 808452959, size -40)
+[+ 5141ms] [2026-10-17T15:51:43.197173] [stream.log] [ffmpeg] (error) Seek failed (to 1703446247, size -40)
+[+ 6176ms] [2026-10-17T15:51:44.230775] [stream.log] [ffmpeg] (error) Seek failed (to 1937509722, size -40)
+[+ 7198ms] [2026-10-17T15:51:45.254191] [stream.log] [ffmpeg] (error) Seek failed (to 91702498, size -40)
+================================================================================
+END OF FIXTURE LOG
+================================================================================

@@ -1,0 +1,36 @@
+================================================================================
+ZAKOWAY PLAYER PROBE FIXTURE LOG
+================================================================================
+场景名称: 场景 3a: DNS 解析失败 (不存在域名, 生产 error 级别)
+测试日期: 2026-10-17T15:49:37.326226
+执行环境: Windows 11 Pro x64, media_kit 1.2.6, libmpv v0.36.0-403, FFmpeg n6.0, mbedTLS 3.5.0
+执行命令: flutter test tool/player_probe/run_scenario_3.dart
+URL形态说明: http://probe-dns-nxdomain.invalid/video.mp4
+脱敏规则说明: 敏感参数 sign、t、token 等替换为 ...，其余保持完全原始输出
+请求头信息: {}
+附加说明: 应用实际生产 mpv 配置（network-timeout=10, reconnect_delay_max=2），等待直至 Failed to open 派发
+================================================================================
+TIMELINE EVENTS (Monotonic relative ms from T0, absolute ISO, tag, raw message):
+================================================================================
+[+    1ms] [2026-10-17T15:49:12.296834] [probe.config] logLevel=MPVLogLevel.error, appProps=true
+[+    3ms] [2026-10-17T15:49:12.299133] [action.open.call] uri=http://probe-dns-nxdomain.invalid/video.mp4, play=true, headers={}
+[+   10ms] [2026-10-17T15:49:12.305648] [stream.playing] false
+[+   10ms] [2026-10-17T15:49:12.305648] [stream.completed] false
+[+   11ms] [2026-10-17T15:49:12.305648] [stream.position] 0ms (0:00:00.000000)
+[+   11ms] [2026-10-17T15:49:12.305648] [stream.duration] 0ms (0:00:00.000000)
+[+   11ms] [2026-10-17T15:49:12.305648] [stream.buffering] false
+[+   11ms] [2026-10-17T15:49:12.305648] [stream.buffer] 0ms (0:00:00.000000)
+[+   11ms] [2026-10-17T15:49:12.306648] [stream.videoParams] w=null, h=null, dw=null, dh=null, aspect=null, pixelformat=null, hwPixelformat=null
+[+   11ms] [2026-10-17T15:49:12.306648] [stream.tracks] videoCount=2, audioCount=2, subtitleCount=2
+[+   11ms] [2026-10-17T15:49:12.306648] [stream.width] null
+[+   11ms] [2026-10-17T15:49:12.306648] [stream.height] null
+[+   20ms] [2026-10-17T15:49:12.314691] [stream.playing] true
+[+   20ms] [2026-10-17T15:49:12.314691] [action.open.future_completed] cost=17ms
+[+   20ms] [2026-10-17T15:49:12.315695] [stream.buffering] true
+[+11089ms] [2026-10-17T15:49:23.382958] [stream.log] [ffmpeg] (error) tcp: Failed to resolve hostname probe-dns-nxdomain.invalid: The name does not resolve for the supplied parameters
+[+11089ms] [2026-10-17T15:49:23.382958] [stream.error] tcp: Failed to resolve hostname probe-dns-nxdomain.invalid: The name does not resolve for the supplied parameters
+[+22155ms] [2026-10-17T15:49:34.449613] [stream.log] [ffmpeg] (error) tcp: Failed to resolve hostname probe-dns-nxdomain.invalid: The name does not resolve for the supplied parameters
+[+22155ms] [2026-10-17T15:49:34.449613] [stream.error] tcp: Failed to resolve hostname probe-dns-nxdomain.invalid: The name does not resolve for the supplied parameters
+================================================================================
+END OF FIXTURE LOG
+================================================================================
