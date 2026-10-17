@@ -218,7 +218,7 @@ class _AnimakuServerSettingsCardState extends State<AnimakuServerSettingsCard> {
       children: [
         const M3SettingsSectionHeader(title: 'Animaku 服务端模式'),
         M3SettingsCard(
-          footerText: '开启后受限源由服务端中继解析；不支持的源自动降级走本地直连。默认内置公开节点 (bakasine.eu.org)，支持自定义或自建。',
+          footerText: '开启后会使用服务端获取数据, 解决海外访问障碍',
           children: [
             // 开关行
             M3SettingsTile(
