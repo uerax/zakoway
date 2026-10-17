@@ -1,0 +1,375 @@
+================================================================================
+ZAKOWAY PLAYER PROBE FIXTURE LOG - P1
+================================================================================
+场景名称: P1 形态 B: xfxf1 IP 改写形态 [39.173.185.37] (生产 mpv 配置, debug 级别, 5次)
+测试日期: 2026-10-17T21:29:50.445597
+执行环境: Windows 11 Pro x64, media_kit 1.2.6, libmpv v0.36.0-403, FFmpeg n6.0, mbedTLS 3.5.0
+执行命令: flutter test tool/player_probe/run_probe_p1_xfxf1_production.dart
+选用番剧与分集: 稀饭新番主线-1 - 第1集 (https://next.xifanacg.com/anime/3403/play/121397?source_id=4&source=xfxf1)
+URL形态说明: 域名替换为 IPv4 节点 39.173.185.37，附带 Host 请求头，每次迭代重新获取新签名
+成功定义: open 后 15 秒内 position >= 1000ms 为成功，出现 Failed to open 或 15 秒超时未达标为失败
+脱敏规则说明: 敏感参数 sign、t、token 等替换为 ...，其余保持完全原始输出
+附加说明: 生产 mpv 配置，每次迭代重新 resolve() 获取新签名，记录实际使用 IP 与失败类型归因
+================================================================================
+
+--- Iteration #1 ---
+目标 URL: https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+实际使用 IP: 39.173.185.37
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36, Host: apn.moedot.net}
+结果: FAILED (耗时: 15010ms, 归因: timeout_no_progress)
+stream.log:
+  [cplayer] (v) Set property: demuxer-seekable-cache="yes" -> 1
+  [cplayer] (v) Set property: force-seekable="yes" -> 1
+  [cplayer] (v) Set property: hr-seek="default" -> 1
+  [cplayer] (v) Set property: hr-seek-framedrop="yes" -> 1
+  [cplayer] (v) Set property: cache="yes" -> 1
+  [cplayer] (v) Set property: cache-pause="yes" -> 1
+  [cplayer] (v) Set property: cache-pause-initial="no" -> 1
+  [cplayer] (v) Set property: cache-pause-wait="0.2" -> 1
+  [cplayer] (v) Set property: demuxer-readahead-secs="15" -> 1
+  [cplayer] (v) Set property: cache-secs="30" -> 1
+  [cplayer] (v) Set property: demuxer-max-bytes="33554432" -> 1
+  [cplayer] (v) Set property: demuxer-max-back-bytes="16777216" -> 1
+  [cplayer] (v) Set property: network-timeout="10" -> 1
+  [cplayer] (v) Set property: volume-max="100" -> 1
+  [cplayer] (v) Set property: user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" -> 1
+  [cplayer] (v) Set property: tls-verify="no" -> 1
+  [cplayer] (v) Set property: hwdec-codecs="all" -> 1
+  [cplayer] (v) Set property: hwdec="auto" -> 1
+  [cplayer] (v) Set property: scale="spline36" -> 1
+  [cplayer] (v) Set property: cscale="spline36" -> 1
+  [cplayer] (v) Set property: sigmoid-upscaling="yes" -> 1
+  [cplayer] (v) Set property: correct-downscaling="yes" -> 1
+  [cplayer] (debug) Run command: stop, flags=64, args=[flags=""]
+  [cplayer] (debug) Run command: playlist-clear, flags=64, args=[]
+  [cplayer] (debug) Run command: playlist-play-index, flags=64, args=[index="none"]
+  [cplayer] (v) Set property: pause=true -> 1
+  [cplayer] (debug) Run command: loadlist, flags=64, args=[url="C:\\Users\\uerax\\AppData\\Local\\Temp\\2c0fa6b1-bba4-4e98-acdd-2a719c72837c", flags="append"]
+  [playlist_parser] (v) Parsing playlist file C:\Users\uerax\AppData\Local\Temp\2c0fa6b1-bba4-4e98-acdd-2a719c72837c...
+  [file] (v) Opening C:\Users\uerax\AppData\Local\Temp\2c0fa6b1-bba4-4e98-acdd-2a719c72837c
+  [file] (debug) resize stream to 131072 bytes, drop 0 bytes
+  [file] (debug) Stream opened successfully.
+  [demux] (v) Trying demuxers for level=request.
+  [demux] (debug) Trying demuxer: playlist (force-level: request)
+  [playlist] (warn) Reading plaintext playlist.
+  [playlist] (v) demuxer read all data; closing stream
+  [demux] (v) Detected file format: txt (Playlist file)
+  [playlist_parser] (v) Playlist successfully parsed
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Set property: pause=false -> 1
+  [cplayer] (v) Set property: playlist-pos=0 -> 1
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Running hook: main/on_load
+  [cplayer] (v) Set property: http-header-fields=["User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36","Host: apn.moedot.net"] -> 1
+  [ffmpeg] (v) Opening https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+  [ffmpeg] (debug) resize stream to 131072 bytes, drop 0 bytes
+  [ffmpeg] (v) Mime-type: 'video/mp4'
+  [ffmpeg] (debug) Stream opened successfully.
+  [demux] (v) Trying demuxers for level=normal.
+  [demux] (debug) Trying demuxer: disc (force-level: normal)
+  [demux] (debug) Trying demuxer: edl (force-level: normal)
+  [demux] (debug) Trying demuxer: cue (force-level: normal)
+  [demux] (debug) Trying demuxer: rawaudio (force-level: normal)
+  [demux] (debug) Trying demuxer: rawvideo (force-level: normal)
+  [demux] (debug) Trying demuxer: mkv (force-level: normal)
+  [demux] (debug) Trying demuxer: libarchive (force-level: normal)
+  [demux] (debug) Trying demuxer: lavf (force-level: normal)
+  [lavf] (v) Found 'mov,mp4,m4a,3gp,3g2,mj2' at score=100 size=2048.
+  [ffmpeg] (v) stream level seek from 1043877 to 798084184
+  [ffmpeg] (error) Seek failed (to 798084184, size 173)
+  [lavf] (v) Could not set AVOption seg_max_retry='5'
+  [lavf] (v) Could not set AVOption allowed_extensions='ALL'
+  [demux] (v) Detected file format: mov,mp4,m4a,3gp,3g2,mj2 (libavformat)
+  [cplayer] (v) Opening done: https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+  [lavf] (v) select track 1
+  [cplayer] (info) Video --vid=1 (*) (h264 1920x1080 23.976fps)
+  [cplayer] (info) (+) Audio --aid=1 (*) (aac 2ch 44100Hz)
+  [display-tags] (info) File tags:
+  [display-tags] (info) Comment: AVPT BEV: 4.0.0
+  [ad] (v) Codec list:
+  [ad] (v) aac - (null)
+  [ad] (v) aac_fixed (aac) - (null)
+  [ad] (v) Opening decoder aac
+  [ad] (v) Requesting 1 threads for decoding.
+  [ad] (v) Selected codec: aac ((null))
+  [user_filter_wrapper] (v) Setting option 'max-speed' = '8' (flags = 0)
+  [af] (v) User filter list:
+  [af] (v) scaletempo2 (scaletempo2.00)
+  [cplayer] (v) Starting playback...
+  [lavf] (v) EOF reached.
+  [af] (v) filter input EOF
+  [af] (v) [userspeed] (disabled)
+  [af] (v) [convert] (disabled)
+  [af] (v) filter output EOF
+  [cplayer] (v) got EOF with no data before it
+  [cplayer] (v) audio EOF reached
+  [cplayer] (v) playback restart complete @ -9223372036854775808.000000, audio=eof, video=eof
+
+--- Iteration #2 ---
+目标 URL: https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+实际使用 IP: 39.173.185.37
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36, Host: apn.moedot.net}
+结果: FAILED (耗时: 1629ms, 归因: tls_handshake_closed)
+stream.error:
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  Failed to open https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+stream.log:
+  [cplayer] (v) Set property: demuxer-seekable-cache="yes" -> 1
+  [cplayer] (v) Set property: force-seekable="yes" -> 1
+  [cplayer] (v) Set property: hr-seek="default" -> 1
+  [cplayer] (v) Set property: hr-seek-framedrop="yes" -> 1
+  [cplayer] (v) Set property: cache="yes" -> 1
+  [cplayer] (v) Set property: cache-pause="yes" -> 1
+  [cplayer] (v) Set property: cache-pause-initial="no" -> 1
+  [cplayer] (v) Set property: cache-pause-wait="0.2" -> 1
+  [cplayer] (v) Set property: demuxer-readahead-secs="15" -> 1
+  [cplayer] (v) Set property: cache-secs="30" -> 1
+  [cplayer] (v) Set property: demuxer-max-bytes="33554432" -> 1
+  [cplayer] (v) Set property: demuxer-max-back-bytes="16777216" -> 1
+  [cplayer] (v) Set property: network-timeout="10" -> 1
+  [cplayer] (v) Set property: volume-max="100" -> 1
+  [cplayer] (v) Set property: user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" -> 1
+  [cplayer] (v) Set property: tls-verify="no" -> 1
+  [cplayer] (v) Set property: hwdec-codecs="all" -> 1
+  [cplayer] (v) Set property: hwdec="auto" -> 1
+  [cplayer] (v) Set property: scale="spline36" -> 1
+  [cplayer] (v) Set property: cscale="spline36" -> 1
+  [cplayer] (v) Set property: sigmoid-upscaling="yes" -> 1
+  [cplayer] (v) Set property: correct-downscaling="yes" -> 1
+  [cplayer] (debug) Run command: stop, flags=64, args=[flags=""]
+  [cplayer] (debug) Run command: playlist-clear, flags=64, args=[]
+  [cplayer] (debug) Run command: playlist-play-index, flags=64, args=[index="none"]
+  [cplayer] (v) Set property: pause=true -> 1
+  [cplayer] (debug) Run command: loadlist, flags=64, args=[url="C:\\Users\\uerax\\AppData\\Local\\Temp\\9252c574-ca55-4367-903c-0b2c316c68e0", flags="append"]
+  [playlist_parser] (v) Parsing playlist file C:\Users\uerax\AppData\Local\Temp\9252c574-ca55-4367-903c-0b2c316c68e0...
+  [file] (v) Opening C:\Users\uerax\AppData\Local\Temp\9252c574-ca55-4367-903c-0b2c316c68e0
+  [file] (debug) resize stream to 131072 bytes, drop 0 bytes
+  [file] (debug) Stream opened successfully.
+  [demux] (v) Trying demuxers for level=request.
+  [demux] (debug) Trying demuxer: playlist (force-level: request)
+  [playlist] (warn) Reading plaintext playlist.
+  [playlist] (v) demuxer read all data; closing stream
+  [demux] (v) Detected file format: txt (Playlist file)
+  [playlist_parser] (v) Playlist successfully parsed
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Set property: pause=false -> 1
+  [cplayer] (v) Set property: playlist-pos=0 -> 1
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Running hook: main/on_load
+  [cplayer] (v) Set property: http-header-fields=["User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36","Host: apn.moedot.net"] -> 1
+  [ffmpeg] (v) Opening https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+  [ffmpeg] (debug) tcp: Starting connection attempt to 39.173.185.37 port 443
+  [ffmpeg] (debug) tcp: Successfully connected to 39.173.185.37 port 443
+  [ffmpeg] (debug) tcp: Starting connection attempt to 61.48.58.57 port 30443
+  [ffmpeg] (debug) tcp: Successfully connected to 61.48.58.57 port 30443
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (warn) https: Will reconnect at 0 in 0 second(s).
+  [ffmpeg] (debug) tcp: Starting connection attempt to 61.48.58.57 port 30443
+  [ffmpeg] (debug) tcp: Successfully connected to 61.48.58.57 port 30443
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (warn) https: Will reconnect at 0 in 1 second(s).
+  [ffmpeg] (debug) tcp: Starting connection attempt to 61.48.58.57 port 30443
+  [ffmpeg] (debug) tcp: Successfully connected to 61.48.58.57 port 30443
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [stream] (error) Failed to open https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+  [cplayer] (v) Opening failed or was aborted: https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+  [cplayer] (v) Running hook: main/on_unload
+  [cplayer] (v) Set property: http-header-fields=null -> -2
+
+--- Iteration #3 ---
+目标 URL: https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+实际使用 IP: 39.173.185.37
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36, Host: apn.moedot.net}
+结果: FAILED (耗时: 1832ms, 归因: unknown_error)
+stream.error:
+  Failed to open https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+stream.log:
+  [cplayer] (v) Set property: demuxer-seekable-cache="yes" -> 1
+  [cplayer] (v) Set property: force-seekable="yes" -> 1
+  [cplayer] (v) Set property: hr-seek="default" -> 1
+  [cplayer] (v) Set property: hr-seek-framedrop="yes" -> 1
+  [cplayer] (v) Set property: cache="yes" -> 1
+  [cplayer] (v) Set property: cache-pause="yes" -> 1
+  [cplayer] (v) Set property: cache-pause-initial="no" -> 1
+  [cplayer] (v) Set property: cache-pause-wait="0.2" -> 1
+  [cplayer] (v) Set property: demuxer-readahead-secs="15" -> 1
+  [cplayer] (v) Set property: cache-secs="30" -> 1
+  [cplayer] (v) Set property: demuxer-max-bytes="33554432" -> 1
+  [cplayer] (v) Set property: demuxer-max-back-bytes="16777216" -> 1
+  [cplayer] (v) Set property: network-timeout="10" -> 1
+  [cplayer] (v) Set property: volume-max="100" -> 1
+  [cplayer] (v) Set property: user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" -> 1
+  [cplayer] (v) Set property: tls-verify="no" -> 1
+  [cplayer] (v) Set property: hwdec-codecs="all" -> 1
+  [cplayer] (v) Set property: hwdec="auto" -> 1
+  [cplayer] (v) Set property: scale="spline36" -> 1
+  [cplayer] (v) Set property: cscale="spline36" -> 1
+  [cplayer] (v) Set property: sigmoid-upscaling="yes" -> 1
+  [cplayer] (v) Set property: correct-downscaling="yes" -> 1
+  [cplayer] (debug) Run command: stop, flags=64, args=[flags=""]
+  [cplayer] (debug) Run command: playlist-clear, flags=64, args=[]
+  [cplayer] (debug) Run command: playlist-play-index, flags=64, args=[index="none"]
+  [cplayer] (v) Set property: pause=true -> 1
+  [cplayer] (debug) Run command: loadlist, flags=64, args=[url="C:\\Users\\uerax\\AppData\\Local\\Temp\\06987ce3-d938-4333-8e18-86730f00cac0", flags="append"]
+  [playlist_parser] (v) Parsing playlist file C:\Users\uerax\AppData\Local\Temp\06987ce3-d938-4333-8e18-86730f00cac0...
+  [file] (v) Opening C:\Users\uerax\AppData\Local\Temp\06987ce3-d938-4333-8e18-86730f00cac0
+  [file] (debug) resize stream to 131072 bytes, drop 0 bytes
+  [file] (debug) Stream opened successfully.
+  [demux] (v) Trying demuxers for level=request.
+  [demux] (debug) Trying demuxer: playlist (force-level: request)
+  [playlist] (warn) Reading plaintext playlist.
+  [playlist] (v) demuxer read all data; closing stream
+  [demux] (v) Detected file format: txt (Playlist file)
+  [playlist_parser] (v) Playlist successfully parsed
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Set property: pause=false -> 1
+  [cplayer] (v) Set property: playlist-pos=0 -> 1
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Running hook: main/on_load
+  [cplayer] (v) Set property: http-header-fields=["User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36","Host: apn.moedot.net"] -> 1
+  [ffmpeg] (v) Opening https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+  [stream] (error) Failed to open https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+
+--- Iteration #4 ---
+目标 URL: https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+实际使用 IP: 39.173.185.37
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36, Host: apn.moedot.net}
+结果: FAILED (耗时: 1575ms, 归因: unknown_error)
+stream.error:
+  Failed to open https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+stream.log:
+  [cplayer] (v) Set property: demuxer-seekable-cache="yes" -> 1
+  [cplayer] (v) Set property: force-seekable="yes" -> 1
+  [cplayer] (v) Set property: hr-seek="default" -> 1
+  [cplayer] (v) Set property: hr-seek-framedrop="yes" -> 1
+  [cplayer] (v) Set property: cache="yes" -> 1
+  [cplayer] (v) Set property: cache-pause="yes" -> 1
+  [cplayer] (v) Set property: cache-pause-initial="no" -> 1
+  [cplayer] (v) Set property: cache-pause-wait="0.2" -> 1
+  [cplayer] (v) Set property: demuxer-readahead-secs="15" -> 1
+  [cplayer] (v) Set property: cache-secs="30" -> 1
+  [cplayer] (v) Set property: demuxer-max-bytes="33554432" -> 1
+  [cplayer] (v) Set property: demuxer-max-back-bytes="16777216" -> 1
+  [cplayer] (v) Set property: network-timeout="10" -> 1
+  [cplayer] (v) Set property: volume-max="100" -> 1
+  [cplayer] (v) Set property: user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" -> 1
+  [cplayer] (v) Set property: tls-verify="no" -> 1
+  [cplayer] (v) Set property: hwdec-codecs="all" -> 1
+  [cplayer] (v) Set property: hwdec="auto" -> 1
+  [cplayer] (v) Set property: scale="spline36" -> 1
+  [cplayer] (v) Set property: cscale="spline36" -> 1
+  [cplayer] (v) Set property: sigmoid-upscaling="yes" -> 1
+  [cplayer] (v) Set property: correct-downscaling="yes" -> 1
+  [cplayer] (debug) Run command: stop, flags=64, args=[flags=""]
+  [cplayer] (debug) Run command: playlist-clear, flags=64, args=[]
+  [cplayer] (debug) Run command: playlist-play-index, flags=64, args=[index="none"]
+  [cplayer] (v) Set property: pause=true -> 1
+  [cplayer] (debug) Run command: loadlist, flags=64, args=[url="C:\\Users\\uerax\\AppData\\Local\\Temp\\7cc4c9c3-1b25-4111-a6ec-7cb6e30e0836", flags="append"]
+  [playlist_parser] (v) Parsing playlist file C:\Users\uerax\AppData\Local\Temp\7cc4c9c3-1b25-4111-a6ec-7cb6e30e0836...
+  [file] (v) Opening C:\Users\uerax\AppData\Local\Temp\7cc4c9c3-1b25-4111-a6ec-7cb6e30e0836
+  [file] (debug) resize stream to 131072 bytes, drop 0 bytes
+  [file] (debug) Stream opened successfully.
+  [demux] (v) Trying demuxers for level=request.
+  [demux] (debug) Trying demuxer: playlist (force-level: request)
+  [playlist] (warn) Reading plaintext playlist.
+  [playlist] (v) demuxer read all data; closing stream
+  [demux] (v) Detected file format: txt (Playlist file)
+  [playlist_parser] (v) Playlist successfully parsed
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Set property: pause=false -> 1
+  [cplayer] (v) Set property: playlist-pos=0 -> 1
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Running hook: main/on_load
+  [cplayer] (v) Set property: http-header-fields=["User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36","Host: apn.moedot.net"] -> 1
+  [ffmpeg] (v) Opening https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+  [stream] (error) Failed to open https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+
+--- Iteration #5 ---
+目标 URL: https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+实际使用 IP: 39.173.185.37
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36, Host: apn.moedot.net}
+结果: FAILED (耗时: 1563ms, 归因: tls_handshake_closed)
+stream.error:
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  Failed to open https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+stream.log:
+  [cplayer] (v) Set property: demuxer-seekable-cache="yes" -> 1
+  [cplayer] (v) Set property: force-seekable="yes" -> 1
+  [cplayer] (v) Set property: hr-seek="default" -> 1
+  [cplayer] (v) Set property: hr-seek-framedrop="yes" -> 1
+  [cplayer] (v) Set property: cache="yes" -> 1
+  [cplayer] (v) Set property: cache-pause="yes" -> 1
+  [cplayer] (v) Set property: cache-pause-initial="no" -> 1
+  [cplayer] (v) Set property: cache-pause-wait="0.2" -> 1
+  [cplayer] (v) Set property: demuxer-readahead-secs="15" -> 1
+  [cplayer] (v) Set property: cache-secs="30" -> 1
+  [cplayer] (v) Set property: demuxer-max-bytes="33554432" -> 1
+  [cplayer] (v) Set property: demuxer-max-back-bytes="16777216" -> 1
+  [cplayer] (v) Set property: network-timeout="10" -> 1
+  [cplayer] (v) Set property: volume-max="100" -> 1
+  [cplayer] (v) Set property: user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" -> 1
+  [cplayer] (v) Set property: tls-verify="no" -> 1
+  [cplayer] (v) Set property: hwdec-codecs="all" -> 1
+  [cplayer] (v) Set property: hwdec="auto" -> 1
+  [cplayer] (v) Set property: scale="spline36" -> 1
+  [cplayer] (v) Set property: cscale="spline36" -> 1
+  [cplayer] (v) Set property: sigmoid-upscaling="yes" -> 1
+  [cplayer] (v) Set property: correct-downscaling="yes" -> 1
+  [cplayer] (debug) Run command: stop, flags=64, args=[flags=""]
+  [cplayer] (debug) Run command: playlist-clear, flags=64, args=[]
+  [cplayer] (debug) Run command: playlist-play-index, flags=64, args=[index="none"]
+  [cplayer] (v) Set property: pause=true -> 1
+  [cplayer] (debug) Run command: loadlist, flags=64, args=[url="C:\\Users\\uerax\\AppData\\Local\\Temp\\d2817030-ab68-4ec4-b3f2-d59540be8ac5", flags="append"]
+  [playlist_parser] (v) Parsing playlist file C:\Users\uerax\AppData\Local\Temp\d2817030-ab68-4ec4-b3f2-d59540be8ac5...
+  [file] (v) Opening C:\Users\uerax\AppData\Local\Temp\d2817030-ab68-4ec4-b3f2-d59540be8ac5
+  [file] (debug) resize stream to 131072 bytes, drop 0 bytes
+  [file] (debug) Stream opened successfully.
+  [demux] (v) Trying demuxers for level=request.
+  [demux] (debug) Trying demuxer: playlist (force-level: request)
+  [playlist] (warn) Reading plaintext playlist.
+  [playlist] (v) demuxer read all data; closing stream
+  [demux] (v) Detected file format: txt (Playlist file)
+  [playlist_parser] (v) Playlist successfully parsed
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Set property: pause=false -> 1
+  [cplayer] (v) Set property: playlist-pos=0 -> 1
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Running hook: main/on_load
+  [cplayer] (v) Set property: http-header-fields=["User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36","Host: apn.moedot.net"] -> 1
+  [ffmpeg] (v) Opening https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+  [ffmpeg] (debug) tcp: Starting connection attempt to 39.173.185.37 port 443
+  [ffmpeg] (debug) tcp: Successfully connected to 39.173.185.37 port 443
+  [ffmpeg] (debug) tcp: Starting connection attempt to 61.48.58.57 port 30443
+  [ffmpeg] (debug) tcp: Successfully connected to 61.48.58.57 port 30443
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (warn) https: Will reconnect at 0 in 0 second(s).
+  [ffmpeg] (debug) tcp: Starting connection attempt to 61.48.58.57 port 30443
+  [ffmpeg] (debug) tcp: Successfully connected to 61.48.58.57 port 30443
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (warn) https: Will reconnect at 0 in 1 second(s).
+  [ffmpeg] (debug) tcp: Starting connection attempt to 61.48.58.57 port 30443
+  [ffmpeg] (debug) tcp: Successfully connected to 61.48.58.57 port 30443
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [stream] (error) Failed to open https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+  [cplayer] (v) Opening failed or was aborted: https://39.173.185.37/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+
+================================================================================
+SUMMARY STATS:
+总测试轮次: 5
+成功次数: 0
+失败次数: 5
+  - TLS 握手中断失败: 2
+  - HTTP/签名层失败: 0
+  - 15秒超时未达标: 1
+成功率: 0.0%
+================================================================================

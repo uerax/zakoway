@@ -1,0 +1,362 @@
+================================================================================
+TLS CLIENT MATRIX - OPENSSL S_CLIENT
+================================================================================
+目标主机: bjdownload.pan.wo.cn:30443
+目标 IPv4: 61.48.58.57
+测试日期: 2026-10-17T21:33:46.472411
+执行环境: OpenSSL 3.x (Git for Windows)
+================================================================================
+
+--- Test Case: openssl s_client tls1_2_servername_http11 (-tls1_2 -servername bjdownload.pan.wo.cn -alpn http/1.1) ---
+Exit Code: 1
+Stdout / SSL Session Output:
+CONNECTED(00000168)
+---
+no peer certificate available
+---
+No client certificate CA names sent
+---
+SSL handshake has read 0 bytes and written 245 bytes
+Verification: OK
+---
+New, (NONE), Cipher is (NONE)
+Secure Renegotiation IS NOT supported
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+SSL-Session:
+    Protocol  : TLSv1.2
+    Cipher    : 0000
+    Session-ID: 
+    Session-ID-ctx: 
+    Master-Key: 
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    Start Time: 1792244026
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: no
+---
+Stderr:
+Connecting to 61.48.58.57
+6C600000:error:0A000126:SSL routines::unexpected eof while reading:../openssl-3.2.3/ssl/record/rec_layer_s3.c:689:
+
+--- Test Case: openssl s_client tls1_3_servername_http11 (-tls1_3 -servername bjdownload.pan.wo.cn -alpn http/1.1) ---
+Exit Code: 1
+Stdout / SSL Session Output:
+CONNECTED(00000168)
+---
+no peer certificate available
+---
+No client certificate CA names sent
+---
+SSL handshake has read 0 bytes and written 287 bytes
+Verification: OK
+---
+New, (NONE), Cipher is (NONE)
+This TLS version forbids renegotiation.
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+Early data was not sent
+Verify return code: 0 (ok)
+---
+Stderr:
+Connecting to 61.48.58.57
+20580000:error:0A000126:SSL routines::unexpected eof while reading:../openssl-3.2.3/ssl/record/rec_layer_s3.c:689:
+
+--- Test Case: openssl s_client tls1_2_servername_h2 (-tls1_2 -servername bjdownload.pan.wo.cn -alpn h2,http/1.1) ---
+Exit Code: 1
+Stdout / SSL Session Output:
+CONNECTED(00000164)
+---
+no peer certificate available
+---
+No client certificate CA names sent
+---
+SSL handshake has read 0 bytes and written 248 bytes
+Verification: OK
+---
+New, (NONE), Cipher is (NONE)
+Secure Renegotiation IS NOT supported
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+SSL-Session:
+    Protocol  : TLSv1.2
+    Cipher    : 0000
+    Session-ID: 
+    Session-ID-ctx: 
+    Master-Key: 
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    Start Time: 1792244027
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: no
+---
+Stderr:
+Connecting to 61.48.58.57
+48620000:error:0A000126:SSL routines::unexpected eof while reading:../openssl-3.2.3/ssl/record/rec_layer_s3.c:689:
+
+--- Test Case: openssl s_client tls1_3_servername_h2 (-tls1_3 -servername bjdownload.pan.wo.cn -alpn h2,http/1.1) ---
+Exit Code: 1
+Stdout / SSL Session Output:
+CONNECTED(00000160)
+---
+no peer certificate available
+---
+No client certificate CA names sent
+---
+SSL handshake has read 0 bytes and written 290 bytes
+Verification: OK
+---
+New, (NONE), Cipher is (NONE)
+This TLS version forbids renegotiation.
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+Early data was not sent
+Verify return code: 0 (ok)
+---
+Stderr:
+Connecting to 61.48.58.57
+1C0D0000:error:0A000126:SSL routines::unexpected eof while reading:../openssl-3.2.3/ssl/record/rec_layer_s3.c:689:
+
+--- Test Case: openssl s_client tls1_2_noservername (-tls1_2 -noservername) ---
+Exit Code: 0
+Stdout / SSL Session Output:
+CONNECTED(00000170)
+---
+Certificate chain
+ 0 s:C=CN, ST=北京市, O=联通在线信息科技有限公司, CN=*.pan.wo.cn
+   i:C=US, O=DigiCert, Inc., CN=DigiCert Basic OV G2 TLS CN RSA4096 SHA256 2022 CA1
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Aug  5 00:00:00 2026 GMT; NotAfter: Feb 19 23:59:59 2027 GMT
+ 1 s:C=US, O=DigiCert, Inc., CN=DigiCert Basic OV G2 TLS CN RSA4096 SHA256 2022 CA1
+   i:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   a:PKEY: rsaEncryption, 4096 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Dec 15 00:00:00 2022 GMT; NotAfter: Dec 14 23:59:59 2032 GMT
+ 2 s:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   i:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Aug  1 12:00:00 2013 GMT; NotAfter: Jan 15 12:00:00 2038 GMT
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIHnjCCBYagAwIBAgIQDGMYOYf/CwI4aF8zgViFlzANBgkqhkiG9w0BAQsFADBk
+MQswCQYDVQQGEwJVUzEXMBUGA1UEChMORGlnaUNlcnQsIEluYy4xPDA6BgNVBAMT
+M0RpZ2lDZXJ0IEJhc2ljIE9WIEcyIFRMUyBDTiBSU0E0MDk2IFNIQTI1NiAyMDIy
+IENBMTAeFw0yNjA4MDUwMDAwMDBaFw0yNzAyMTkyMzU5NTlaMGYxCzAJBgNVBAYT
+AkNOMRIwEAYDVQQIDAnljJfkuqzluIIxLTArBgNVBAoMJOiBlOmAmuWcqOe6v+S/
+oeaBr+enkeaKgOaciemZkOWFrOWPuDEUMBIGA1UEAwwLKi5wYW4ud28uY24wggEi
+MA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC2/JVtZbSbWA/betsQOo2CnPqO
+c1wXhaDk2dWOsAQ0oZsSqMo4UtTkoMY3Dxc/NwYqv46zVm5Vh8rGKlVBgq3YWO21
+8vmWySqaLW2DTwXtw58jaJii4+8UBI27CJ9qtTjFOXkokcc4rqN9Xeag2tWFmuFR
+FXZl96U8kwHpF5Hc0y5umYUOp/MGS69Y2cuyRcMqV3rkLfPgnKVT5nnz1kceItb1
+RJASstJ4c4iFSqvAwc/HbzQsNHCuEiZR68m6K11GByaG+uwItd1MDjj4Chv0qfwi
+uXbVrj+x+MUD5ZjTwpnktAw5X9rDhidEDfPpyV6kYUGWNmjVz2ff+biTprJ/AgMB
+AAGjggNIMIIDRDAfBgNVHSMEGDAWgBSpSMuo2MInjDMv2mbuG93Aw8sHQzAdBgNV
+HQ4EFgQUSfwEEbm0cw4asJexIsln78alxWowIQYDVR0RBBowGIILKi5wYW4ud28u
+Y26CCXBhbi53by5jbjA+BgNVHSAENzA1MDMGBmeBDAECAjApMCcGCCsGAQUFBwIB
+FhtodHRwOi8vd3d3LmRpZ2ljZXJ0LmNvbS9DUFMwDgYDVR0PAQH/BAQDAgWgMBMG
+A1UdJQQMMAoGCCsGAQUFBwMBMFYGA1UdHwRPME0wS6BJoEeGRWh0dHA6Ly9jcmwu
+ZGlnaWNlcnQuY24vRGlnaUNlcnRCYXNpY09WRzJUTFNDTlJTQTQwOTZTSEEyNTYy
+MDIyQ0ExLmNybDCBigYIKwYBBQUHAQEEfjB8MCMGCCsGAQUFBzABhhdodHRwOi8v
+b2NzcC5kaWdpY2VydC5jbjBVBggrBgEFBQcwAoZJaHR0cDovL2NhY2VydHMuZGln
+aWNlcnQuY24vRGlnaUNlcnRCYXNpY09WRzJUTFNDTlJTQTQwOTZTSEEyNTYyMDIy
+Q0ExLmNydDAMBgNVHRMBAf8EAjAAMIIBhQYKKwYBBAHWeQIEAgSCAXUEggFxAW8A
+dQBMY9yY5Zwdq4j2Hoo93q6Pq0SjN3tfm5TD+6Gc/MG+JgAAAZ/PlFUwAAAEAwBG
+MEQCIGCenceIjv8uFbPwwbI2Svy676VMD4Ko8W/S9Pa5kt0QAiBsCvIh9dNX20uz
+IaU1NkOD1sHLcpx/TCd9U0dcPAdnDwB2ANbVjanQF1Pzakqgx1dJAq/rx9ws04zZ
+92TIDIkZHp8CAAABn8+UVTQAAAQDAEcwRQIhALOXje+vtTqODPMwoneWAeUzxpZp
+swvGqujfcUjOpdT9AiBjX24Y4kRGyT0aWdKr4CFe9TX9btcqLob1JGKNdX00DwB+
+AI7KRwus3mrzogawpHqEt0b+H8a/lT4l5ptO5AJI88boAAABn8+UVZAACAAABQAH
+x/v6BAMARzBFAiBLHBOrkX/lsMupncS2kMQIJ2PIOc6sRftMpYgmThdifwIhANnx
+1HPq23/+UdUAnDUiCgXp91Oz3/UE+t4f6079SqMIMA0GCSqGSIb3DQEBCwUAA4IC
+AQCyxyk73klnhXv/76rzHKGZWHANxEvcr94Sv5hPIgfI1cqkxJmKzoY68KiykRuM
+AmdVn6eRYJIIjW7ZZjf1bYg/dwkelwZEAe0gU/285AkfCSK88cBeFpOBpVu9xXWb
+z5uSm18gqrDRB+FkTIaccIysprP9qM2kSAtYiF5NW7P9Jh4NLXcE26wG8DEH8koq
+okCV8X1hJKnH0JevgHqIx048tQdrRYdn+VVlzohRPsdEo8Wwnia0SuvUf+rzDaKv
+IvAPcY4n4dI8CfbU7KfR4+oaZl/J1duzUGI9Y0XllAl3x4djrpXwWNzbmClEUs7r
+deAXTIQ0Llp/Sw1BUkPEDncylcajKTk4gQk/QSud6S688PhZU0T3OFEuALPDuqmd
+8Su7MOeRhCJM6zqWYO0WxhHLcyJWZ3BBH9fikEzTJWhiZ1MRwLsbgnK18p7PnMuZ
+vysbr8g+b99Qie3AyfesG/RjEwRt/SDcNnD1KhYR7HHjJ3/my13dbXAXgxye5+YD
+ncOuu47OnHezULjbW437K65hKK4+sTWJ9Oy/bzmqgxWsElnVDavOy2yX/LFI+h8y
+mOj8/KrzieJCauxAymDXdhyb3Ri2/c9y9r9KkNGYcjjpwAoxtL9f4jbsyJ/H8Sk8
+Pj2PcQ2Cuuq+2zbcbBJsZd0kkFVbiRR5uPd9mcMpjIP+fg==
+-----END CERTIFICATE-----
+subject=C=CN, ST=北京市, O=联通在线信息科技有限公司, CN=*.pan.wo.cn
+issuer=C=US, O=DigiCert, Inc., CN=DigiCert Basic OV G2 TLS CN RSA4096 SHA256 2022 CA1
+---
+No client certificate CA names sent
+Peer signing digest: SHA256
+Peer signature type: RSA-PSS
+Server Temp Key: X25519, 253 bits
+---
+SSL handshake has read 4949 bytes and written 287 bytes
+Verification: OK
+---
+New, TLSv1.2, Cipher is ECDHE-RSA-AES128-GCM-SHA256
+Server public key is 2048 bit
+Secure Renegotiation IS supported
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+SSL-Session:
+    Protocol  : TLSv1.2
+    Cipher    : ECDHE-RSA-AES128-GCM-SHA256
+    Session-ID: 0AC939D640AC288A75B15C4E7125FF63296D203F2A23C8CA97608A15CD3784E7
+    Session-ID-ctx: 
+    Master-Key: 2F3A7C2F069C31592A2EA6B4C96CE798F86C5AAA235AA3C7C974B5C31068A8233606771236F855D2EE9475308DEF3206
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket:
+    0000 - dd 96 03 37 08 47 81 fa-46 46 13 ff 45 47 91 bd   ...7.G..FF..EG..
+    0010 - 23 09 8a 37 be 6b 2d ac-6a c3 bf 6d 59 0e 96 bb   #..7.k-.j..mY...
+    0020 - c1 6d a2 d6 20 80 47 2b-a8 94 cc 60 0a e1 c1 52   .m.. .G+...`...R
+    0030 - 62 11 5e dd 2e d9 48 30-ac 4a e9 10 c0 4e d3 74   b.^...H0.J...N.t
+    0040 - d0 8e 1c 82 c6 a5 6f f6-a2 38 e4 c8 80 4a bb 13   ......o..8...J..
+    0050 - 5d ea 5d a6 1a 6b bb df-63 a0 0d ea b4 42 7a 07   ].]..k..c....Bz.
+    0060 - 6a 2c aa 9b 7d 8c 32 dc-aa a0 24 e3 1d dc c6 6c   j,..}.2...$....l
+    0070 - 14 7c 20 96 1a aa f0 48-da                        .| ....H.
+
+    Start Time: 1792244028
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: yes
+---
+Stderr:
+Connecting to 61.48.58.57
+depth=2 C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+verify return:1
+depth=1 C=US, O=DigiCert, Inc., CN=DigiCert Basic OV G2 TLS CN RSA4096 SHA256 2022 CA1
+verify return:1
+depth=0 C=CN, ST=北京市, O=联通在线信息科技有限公司, CN=*.pan.wo.cn
+verify return:1
+DONE
+
+--- Test Case: openssl s_client tls1_3_noservername (-tls1_3 -noservername) ---
+Exit Code: 0
+Stdout / SSL Session Output:
+CONNECTED(00000160)
+---
+Certificate chain
+ 0 s:C=CN, ST=北京市, O=联通在线信息科技有限公司, CN=*.pan.wo.cn
+   i:C=US, O=DigiCert, Inc., CN=DigiCert Basic OV G2 TLS CN RSA4096 SHA256 2022 CA1
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Aug  5 00:00:00 2026 GMT; NotAfter: Feb 19 23:59:59 2027 GMT
+ 1 s:C=US, O=DigiCert, Inc., CN=DigiCert Basic OV G2 TLS CN RSA4096 SHA256 2022 CA1
+   i:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   a:PKEY: rsaEncryption, 4096 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Dec 15 00:00:00 2022 GMT; NotAfter: Dec 14 23:59:59 2032 GMT
+ 2 s:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   i:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Aug  1 12:00:00 2013 GMT; NotAfter: Jan 15 12:00:00 2038 GMT
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIHnjCCBYagAwIBAgIQDGMYOYf/CwI4aF8zgViFlzANBgkqhkiG9w0BAQsFADBk
+MQswCQYDVQQGEwJVUzEXMBUGA1UEChMORGlnaUNlcnQsIEluYy4xPDA6BgNVBAMT
+M0RpZ2lDZXJ0IEJhc2ljIE9WIEcyIFRMUyBDTiBSU0E0MDk2IFNIQTI1NiAyMDIy
+IENBMTAeFw0yNjA4MDUwMDAwMDBaFw0yNzAyMTkyMzU5NTlaMGYxCzAJBgNVBAYT
+AkNOMRIwEAYDVQQIDAnljJfkuqzluIIxLTArBgNVBAoMJOiBlOmAmuWcqOe6v+S/
+oeaBr+enkeaKgOaciemZkOWFrOWPuDEUMBIGA1UEAwwLKi5wYW4ud28uY24wggEi
+MA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC2/JVtZbSbWA/betsQOo2CnPqO
+c1wXhaDk2dWOsAQ0oZsSqMo4UtTkoMY3Dxc/NwYqv46zVm5Vh8rGKlVBgq3YWO21
+8vmWySqaLW2DTwXtw58jaJii4+8UBI27CJ9qtTjFOXkokcc4rqN9Xeag2tWFmuFR
+FXZl96U8kwHpF5Hc0y5umYUOp/MGS69Y2cuyRcMqV3rkLfPgnKVT5nnz1kceItb1
+RJASstJ4c4iFSqvAwc/HbzQsNHCuEiZR68m6K11GByaG+uwItd1MDjj4Chv0qfwi
+uXbVrj+x+MUD5ZjTwpnktAw5X9rDhidEDfPpyV6kYUGWNmjVz2ff+biTprJ/AgMB
+AAGjggNIMIIDRDAfBgNVHSMEGDAWgBSpSMuo2MInjDMv2mbuG93Aw8sHQzAdBgNV
+HQ4EFgQUSfwEEbm0cw4asJexIsln78alxWowIQYDVR0RBBowGIILKi5wYW4ud28u
+Y26CCXBhbi53by5jbjA+BgNVHSAENzA1MDMGBmeBDAECAjApMCcGCCsGAQUFBwIB
+FhtodHRwOi8vd3d3LmRpZ2ljZXJ0LmNvbS9DUFMwDgYDVR0PAQH/BAQDAgWgMBMG
+A1UdJQQMMAoGCCsGAQUFBwMBMFYGA1UdHwRPME0wS6BJoEeGRWh0dHA6Ly9jcmwu
+ZGlnaWNlcnQuY24vRGlnaUNlcnRCYXNpY09WRzJUTFNDTlJTQTQwOTZTSEEyNTYy
+MDIyQ0ExLmNybDCBigYIKwYBBQUHAQEEfjB8MCMGCCsGAQUFBzABhhdodHRwOi8v
+b2NzcC5kaWdpY2VydC5jbjBVBggrBgEFBQcwAoZJaHR0cDovL2NhY2VydHMuZGln
+aWNlcnQuY24vRGlnaUNlcnRCYXNpY09WRzJUTFNDTlJTQTQwOTZTSEEyNTYyMDIy
+Q0ExLmNydDAMBgNVHRMBAf8EAjAAMIIBhQYKKwYBBAHWeQIEAgSCAXUEggFxAW8A
+dQBMY9yY5Zwdq4j2Hoo93q6Pq0SjN3tfm5TD+6Gc/MG+JgAAAZ/PlFUwAAAEAwBG
+MEQCIGCenceIjv8uFbPwwbI2Svy676VMD4Ko8W/S9Pa5kt0QAiBsCvIh9dNX20uz
+IaU1NkOD1sHLcpx/TCd9U0dcPAdnDwB2ANbVjanQF1Pzakqgx1dJAq/rx9ws04zZ
+92TIDIkZHp8CAAABn8+UVTQAAAQDAEcwRQIhALOXje+vtTqODPMwoneWAeUzxpZp
+swvGqujfcUjOpdT9AiBjX24Y4kRGyT0aWdKr4CFe9TX9btcqLob1JGKNdX00DwB+
+AI7KRwus3mrzogawpHqEt0b+H8a/lT4l5ptO5AJI88boAAABn8+UVZAACAAABQAH
+x/v6BAMARzBFAiBLHBOrkX/lsMupncS2kMQIJ2PIOc6sRftMpYgmThdifwIhANnx
+1HPq23/+UdUAnDUiCgXp91Oz3/UE+t4f6079SqMIMA0GCSqGSIb3DQEBCwUAA4IC
+AQCyxyk73klnhXv/76rzHKGZWHANxEvcr94Sv5hPIgfI1cqkxJmKzoY68KiykRuM
+AmdVn6eRYJIIjW7ZZjf1bYg/dwkelwZEAe0gU/285AkfCSK88cBeFpOBpVu9xXWb
+z5uSm18gqrDRB+FkTIaccIysprP9qM2kSAtYiF5NW7P9Jh4NLXcE26wG8DEH8koq
+okCV8X1hJKnH0JevgHqIx048tQdrRYdn+VVlzohRPsdEo8Wwnia0SuvUf+rzDaKv
+IvAPcY4n4dI8CfbU7KfR4+oaZl/J1duzUGI9Y0XllAl3x4djrpXwWNzbmClEUs7r
+deAXTIQ0Llp/Sw1BUkPEDncylcajKTk4gQk/QSud6S688PhZU0T3OFEuALPDuqmd
+8Su7MOeRhCJM6zqWYO0WxhHLcyJWZ3BBH9fikEzTJWhiZ1MRwLsbgnK18p7PnMuZ
+vysbr8g+b99Qie3AyfesG/RjEwRt/SDcNnD1KhYR7HHjJ3/my13dbXAXgxye5+YD
+ncOuu47OnHezULjbW437K65hKK4+sTWJ9Oy/bzmqgxWsElnVDavOy2yX/LFI+h8y
+mOj8/KrzieJCauxAymDXdhyb3Ri2/c9y9r9KkNGYcjjpwAoxtL9f4jbsyJ/H8Sk8
+Pj2PcQ2Cuuq+2zbcbBJsZd0kkFVbiRR5uPd9mcMpjIP+fg==
+-----END CERTIFICATE-----
+subject=C=CN, ST=北京市, O=联通在线信息科技有限公司, CN=*.pan.wo.cn
+issuer=C=US, O=DigiCert, Inc., CN=DigiCert Basic OV G2 TLS CN RSA4096 SHA256 2022 CA1
+---
+No client certificate CA names sent
+Peer signing digest: SHA256
+Peer signature type: RSA-PSS
+Server Temp Key: X25519, 253 bits
+---
+SSL handshake has read 4909 bytes and written 300 bytes
+Verification: OK
+---
+New, TLSv1.3, Cipher is TLS_AES_128_GCM_SHA256
+Server public key is 2048 bit
+This TLS version forbids renegotiation.
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+Early data was not sent
+Verify return code: 0 (ok)
+---
+---
+Post-Handshake New Session Ticket arrived:
+SSL-Session:
+    Protocol  : TLSv1.3
+    Cipher    : TLS_AES_128_GCM_SHA256
+    Session-ID: A57802505B79235692D191D8A47A814C9F011E7159FDBBD0223AA8358AC7E264
+    Session-ID-ctx: 
+    Resumption PSK: A633B9AF7962DC828572BDF4F103D4D0AA3DA01AAF0309D21C1C7FD09386249F
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket lifetime hint: 604800 (seconds)
+    TLS session ticket:
+    0000 - 4c 6a 86 7b 75 46 83 1c-f8 db 25 35 e4 6e 53 f1   Lj.{uF....%5.nS.
+    0010 - 19 d4 5f 3f ba e3 25 ac-31 66 63 a3 2b 39 c7 e7   .._?..%.1fc.+9..
+    0020 - 12 5f a9 2a 34 8e 23 73-cf 39 34 bc 4a 0a 73 27   ._.*4.#s.94.J.s'
+    0030 - 3c 27 ea 79 3b b1 bc be-49 b3 18 24 4b 8a df 44   <'.y;...I..$K..D
+    0040 - 6a ff 91 bf cf 0b a8 a1-2f db 2d 03 3d cd be 46   j......./.-.=..F
+    0050 - ab 75 26 b3 a1 8c 3b ed-1b 9b 7d 24 ee 72 01 05   .u&...;...}$.r..
+    0060 - 78 ad e4 ed bc 70 48 62-81                        x....pHb.
+
+    Start Time: 1792244029
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: no
+    Max Early Data: 0
+---
+read R BLOCK
+Stderr:
+Connecting to 61.48.58.57
+depth=2 C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+verify return:1
+depth=1 C=US, O=DigiCert, Inc., CN=DigiCert Basic OV G2 TLS CN RSA4096 SHA256 2022 CA1
+verify return:1
+depth=0 C=CN, ST=北京市, O=联通在线信息科技有限公司, CN=*.pan.wo.cn
+verify return:1
+DONE
+

@@ -1,0 +1,52 @@
+================================================================================
+TLS CLIENT MATRIX - CURL.EXE
+================================================================================
+目标主机: play.xfvod.pro:8088
+测试日期: 2026-10-17T21:33:27.037348
+执行环境: Windows 11 / MinGW curl.exe
+================================================================================
+
+--- Test Case: curl --tlsv1.2 --http1.1 ---
+Exit Code: 35
+Stdout:
+
+Stderr (Handshake trace):
+* Host play.xfvod.pro:8088 was resolved.
+* IPv6: (none)
+* IPv4: 170.178.190.51
+*   Trying 170.178.190.51:8088...
+* schannel: disabled automatic use of client certificate
+* ALPN: curl offers http/1.1
+* schannel: failed to receive handshake, SSL/TLS connection failed
+* closing connection #0
+
+--- Test Case: curl --tlsv1.3 --http1.1 ---
+Exit Code: 35
+Stdout:
+
+Stderr (Handshake trace):
+* Host play.xfvod.pro:8088 was resolved.
+* IPv6: (none)
+* IPv4: 170.178.190.51
+*   Trying 170.178.190.51:8088...
+* schannel: disabled automatic use of client certificate
+* ALPN: curl offers http/1.1
+* schannel: failed to receive handshake, SSL/TLS connection failed
+* closing connection #0
+
+--- Test Case: curl --tlsv1.2 --http2 ---
+Exit Code: 2
+Stdout:
+
+Stderr (Handshake trace):
+curl: option --http2: the installed libcurl version does not support this
+curl: try 'curl --help' for more information
+
+--- Test Case: curl --tlsv1.3 --http2 ---
+Exit Code: 2
+Stdout:
+
+Stderr (Handshake trace):
+curl: option --http2: the installed libcurl version does not support this
+curl: try 'curl --help' for more information
+

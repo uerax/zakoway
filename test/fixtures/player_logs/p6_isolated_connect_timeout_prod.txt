@@ -1,0 +1,33 @@
+================================================================================
+ZAKOWAY PLAYER PROBE FIXTURE LOG
+================================================================================
+场景名称: P6 组 2: 独立全新进程单独运行连接超时
+测试日期: 2026-10-17T21:55:02.558996
+执行环境: Windows 11 Pro x64, media_kit 1.2.6, libmpv v0.36.0-403, FFmpeg n6.0, mbedTLS 3.5.0
+执行命令: flutter test tool/player_probe/standalone_timeout.dart
+URL形态说明: http://10.255.255.1:12345/video.mp4
+脱敏规则说明: 敏感参数 sign、t、token 等替换为 ...，其余保持完全原始输出
+请求头信息: {}
+附加说明: 在完全独立的干净 OS 进程中运行，进程启动前无任何 DNS 失败历史
+================================================================================
+TIMELINE EVENTS (Monotonic relative ms from T0, absolute ISO, tag, raw message):
+================================================================================
+[+    2ms] [2026-10-17T21:54:45.931784] [action.open.call] uri=http://10.255.255.1:12345/video.mp4, play=true, headers={}
+[+   12ms] [2026-10-17T21:54:45.941649] [stream.playing] false
+[+   12ms] [2026-10-17T21:54:45.941649] [stream.completed] false
+[+   13ms] [2026-10-17T21:54:45.941649] [stream.position] 0ms (0:00:00.000000)
+[+   13ms] [2026-10-17T21:54:45.941649] [stream.duration] 0ms (0:00:00.000000)
+[+   13ms] [2026-10-17T21:54:45.942652] [stream.buffering] false
+[+   13ms] [2026-10-17T21:54:45.942652] [stream.buffer] 0ms (0:00:00.000000)
+[+   13ms] [2026-10-17T21:54:45.942652] [stream.videoParams] w=null, h=null, dw=null, dh=null, aspect=null, pixelformat=null, hwPixelformat=null
+[+   13ms] [2026-10-17T21:54:45.942652] [stream.tracks] videoCount=2, audioCount=2, subtitleCount=2
+[+   13ms] [2026-10-17T21:54:45.942652] [stream.width] null
+[+   13ms] [2026-10-17T21:54:45.942652] [stream.height] null
+[+   22ms] [2026-10-17T21:54:45.951203] [stream.playing] true
+[+   22ms] [2026-10-17T21:54:45.951203] [action.open.future_completed] cost=20ms
+[+   22ms] [2026-10-17T21:54:45.952204] [stream.buffering] true
+[+16625ms] [2026-10-17T21:55:02.554831] [stream.log] [stream] (error) Failed to open http://10.255.255.1:12345/video.mp4.
+[+16625ms] [2026-10-17T21:55:02.554831] [stream.error] Failed to open http://10.255.255.1:12345/video.mp4.
+================================================================================
+END OF FIXTURE LOG
+================================================================================

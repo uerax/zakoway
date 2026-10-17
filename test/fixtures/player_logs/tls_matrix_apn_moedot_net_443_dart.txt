@@ -1,0 +1,29 @@
+================================================================================
+TLS CLIENT MATRIX - DART SECURESOCKET
+================================================================================
+目标主机: apn.moedot.net:443
+解析 IPv4: 39.173.185.37
+测试日期: 2026-10-17T21:33:35.887505
+执行命令: flutter test tool/player_probe/run_probe_p3_tls_matrix.dart
+================================================================================
+
+--- Test Case: Direct SecureSocket.connect (ALPN: [http/1.1]) ---
+TLS 握手: SUCCESS (耗时: 61ms, 协商 ALPN: http/1.1)
+HTTP 响应首行: HTTP/1.1 200 OK
+HTTP 响应头: {Date: Sat, 17 Oct 2026 13:33:37 GMT, Content-Type: text/html, Transfer-Encoding: chunked, Connection: close, Server: openresty, Vary: Accept-Encoding, X-CCDN-Origin-Time: 48, via: CHN-ZJhangzhou-CMCC9-CACHE16[67],CHN-ZJhangzhou-CMCC9-CACHE24[64,TCP_MISS,65],CHN-JSwuxi-GLOBAL2-CACHE38[53],CHN-JSwuxi-GLOBAL2-CACHE9[48,TCP_MISS,49], x-hcs-proxy-type: 0, X-CCDN-CacheTTL: 0}
+
+--- Test Case: Direct SecureSocket.connect (ALPN: [h2,http/1.1]) ---
+TLS 握手: SUCCESS (耗时: 178ms, 协商 ALPN: http/1.1)
+HTTP 响应首行: HTTP/1.1 200 OK
+HTTP 响应头: {Date: Sat, 17 Oct 2026 13:33:37 GMT, Content-Type: text/html, Transfer-Encoding: chunked, Connection: close, Server: openresty, Vary: Accept-Encoding, X-CCDN-Origin-Time: 40, via: CHN-ZJhangzhou-CMCC9-CACHE21[69],CHN-ZJhangzhou-CMCC9-CACHE14[62,TCP_MISS,67],CHN-JSwuxi-GLOBAL2-CACHE18[49],CHN-JSwuxi-GLOBAL2-CACHE43[40,TCP_MISS,42], x-hcs-proxy-type: 0, X-CCDN-CacheTTL: 0}
+
+--- Test Case: Two-Step (Socket.connect -> secure) (ALPN: [http/1.1]) ---
+TLS 握手: SUCCESS (耗时: 57ms, 协商 ALPN: http/1.1)
+HTTP 响应首行: HTTP/1.1 200 OK
+HTTP 响应头: {Date: Sat, 17 Oct 2026 13:33:37 GMT, Content-Type: text/html, Transfer-Encoding: chunked, Connection: close, Server: openresty, Vary: Accept-Encoding, X-CCDN-Origin-Time: 39, via: CHN-ZJhangzhou-CMCC9-CACHE27[59],CHN-ZJhangzhou-CMCC9-CACHE14[55,TCP_MISS,57],CHN-JSwuxi-GLOBAL2-CACHE111[44],CHN-JSwuxi-GLOBAL2-CACHE98[39,TCP_MISS,42], x-hcs-proxy-type: 0, X-CCDN-CacheTTL: 0}
+
+--- Test Case: Two-Step (Socket.connect -> secure) (ALPN: [h2,http/1.1]) ---
+TLS 握手: SUCCESS (耗时: 52ms, 协商 ALPN: http/1.1)
+HTTP 响应首行: HTTP/1.1 200 OK
+HTTP 响应头: {Date: Sat, 17 Oct 2026 13:33:37 GMT, Content-Type: text/html, Transfer-Encoding: chunked, Connection: close, Server: openresty, Vary: Accept-Encoding, X-CCDN-Origin-Time: 39, via: CHN-ZJhangzhou-CMCC9-CACHE13[69],CHN-ZJhangzhou-CMCC9-CACHE9[65,TCP_MISS,68],CHN-JSwuxi-GLOBAL2-CACHE55[54],CHN-JSwuxi-GLOBAL2-CACHE97[39,TCP_MISS,46], x-hcs-proxy-type: 0, X-CCDN-CacheTTL: 0}
+

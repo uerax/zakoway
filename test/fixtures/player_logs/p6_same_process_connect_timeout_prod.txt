@@ -1,0 +1,34 @@
+================================================================================
+ZAKOWAY PLAYER PROBE FIXTURE LOG
+================================================================================
+场景名称: P6 组 1: 同一进程内连续复用 (DNS失败后立即新建Player跑连接超时)
+测试日期: 2026-10-17T21:54:42.663571
+执行环境: Windows 11 Pro x64, media_kit 1.2.6, libmpv v0.36.0-403, FFmpeg n6.0, mbedTLS 3.5.0
+执行命令: flutter test tool/player_probe/run_probe_p6_delayed_log_isolation.dart
+URL形态说明: http://10.255.255.1:12345/video.mp4 (在同一进程前置运行 probe-dns-nxdomain.invalid)
+脱敏规则说明: 敏感参数 sign、t、token 等替换为 ...，其余保持完全原始输出
+请求头信息: {}
+附加说明: 验证同进程内前一个 Player 的后台网络线程在 dispose 后是否向后一个 Player 派发迟到日志；实测结果: leaked=false
+================================================================================
+TIMELINE EVENTS (Monotonic relative ms from T0, absolute ISO, tag, raw message):
+================================================================================
+[+    0ms] [2026-10-17T21:54:25.549757] [probe.config] tag=p6.same_process.step2_timeout, url=http://10.255.255.1:12345/video.mp4
+[+    0ms] [2026-10-17T21:54:25.549757] [action.open.call] uri=http://10.255.255.1:12345/video.mp4, play=true, headers={}
+[+    1ms] [2026-10-17T21:54:25.551763] [stream.playing] false
+[+    1ms] [2026-10-17T21:54:25.551763] [stream.completed] false
+[+    1ms] [2026-10-17T21:54:25.551763] [stream.position] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T21:54:25.551763] [stream.duration] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T21:54:25.551763] [stream.buffering] false
+[+    1ms] [2026-10-17T21:54:25.551763] [stream.buffer] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T21:54:25.551763] [stream.videoParams] w=null, h=null, dw=null, dh=null, aspect=null, pixelformat=null, hwPixelformat=null
+[+    1ms] [2026-10-17T21:54:25.551763] [stream.tracks] videoCount=2, audioCount=2, subtitleCount=2
+[+    2ms] [2026-10-17T21:54:25.551763] [stream.width] null
+[+    2ms] [2026-10-17T21:54:25.551763] [stream.height] null
+[+   10ms] [2026-10-17T21:54:25.560269] [stream.playing] true
+[+   10ms] [2026-10-17T21:54:25.560269] [action.open.future_completed] cost=10ms
+[+   10ms] [2026-10-17T21:54:25.560269] [stream.buffering] true
+[+16598ms] [2026-10-17T21:54:42.149038] [stream.log] [stream] (error) Failed to open http://10.255.255.1:12345/video.mp4.
+[+16599ms] [2026-10-17T21:54:42.149038] [stream.error] Failed to open http://10.255.255.1:12345/video.mp4.
+================================================================================
+END OF FIXTURE LOG
+================================================================================

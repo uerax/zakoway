@@ -4,10 +4,12 @@ import 'dart:math';
 
 enum MockServerMode {
   normal,
-  eofAndRefuse, // 场景 4a: 断开后持续拒绝连接
-  eofAndRecover, // 场景 4b: 断开后恢复服务
+  eofAndRefuse, // 场景 4a: 断开后持续拒绝连接 (传输 eofByteThreshold 后断开)
+  eofAndRecover, // 场景 4b: 断开后恢复服务 (传输 eofByteThreshold 后断开一次)
   delayHeaders, // 场景 7a: 响应头延迟 9~12 秒
   dripBody, // 场景 7b: 响应头立即返回，数据缓慢滴入 (9~12 秒出首帧)
+  p4Refuse, // P4: 由探针在 position >= 3s 时通知切断，其后持续拒绝连接
+  p4Recover, // P4: 由探针在 position >= 3s 时通知切断，其后恢复服务
 }
 
 class MockMediaServer {
@@ -28,9 +30,28 @@ class MockMediaServer {
   HttpServer? _server;
   int _requestCount = 0;
   bool _hasDroppedOnce = false;
+  int totalBytesTransferred = 0;
+  final List<HttpRequest> _activeRequests = [];
 
   int get port => _server?.port ?? 0;
   String get url => 'http://127.0.0.1:$port/media.mp4';
+
+  /// 由探针进程在满足条件时调用，瞬间切断当前所有连接，并记录/返回已传输字节数
+  int dropConnectionNow() {
+    _hasDroppedOnce = true;
+    final bytesAtDrop = totalBytesTransferred;
+    for (final req in List<HttpRequest>.from(_activeRequests)) {
+      try {
+        req.response.detachSocket().then((s) {
+          try {
+            s.destroy();
+          } catch (_) {}
+        });
+      } catch (_) {}
+    }
+    _activeRequests.clear();
+    return bytesAtDrop;
+  }
 
   Future<void> start() async {
     final bytes = await mediaFile.readAsBytes();
@@ -41,7 +62,7 @@ class MockMediaServer {
       _requestCount++;
       final reqNum = _requestCount;
 
-      if (mode == MockServerMode.eofAndRefuse && _hasDroppedOnce) {
+      if ((mode == MockServerMode.eofAndRefuse || mode == MockServerMode.p4Refuse) && _hasDroppedOnce) {
         // 持续拒绝连接：直接断开 Socket
         try {
           final sock = await request.response.detachSocket();
@@ -77,6 +98,42 @@ class MockMediaServer {
 
       final chunkLength = end - start + 1;
       final isPartial = rangeHeader != null;
+
+      request.response.statusCode = isPartial ? HttpStatus.partialContent : HttpStatus.ok;
+      request.response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
+      request.response.headers.set(HttpHeaders.contentTypeHeader, 'video/mp4');
+      request.response.headers.set(HttpHeaders.contentLengthHeader, chunkLength.toString());
+      if (isPartial) {
+        request.response.headers.set(HttpHeaders.contentRangeHeader, 'bytes $start-$end/$totalLength');
+      }
+
+      // P4 模式：标准响应头下逐步分块传输，并受控于探针通知切断
+      if (mode == MockServerMode.p4Refuse || mode == MockServerMode.p4Recover) {
+        _activeRequests.add(request);
+        const p4ChunkSize = 16 * 1024;
+        var cur = start;
+        while (cur <= end) {
+          if (_hasDroppedOnce && mode == MockServerMode.p4Refuse) {
+            break;
+          }
+          final next = min(cur + p4ChunkSize, end + 1);
+          final slice = bytes.sublist(cur, next);
+          try {
+            request.response.add(slice);
+            await request.response.flush();
+            totalBytesTransferred += slice.length;
+          } catch (_) {
+            break;
+          }
+          cur = next;
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        _activeRequests.remove(request);
+        try {
+          await request.response.close();
+        } catch (_) {}
+        return;
+      }
 
       request.response.statusCode = isPartial ? HttpStatus.partialContent : HttpStatus.ok;
       request.response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');

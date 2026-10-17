@@ -1,0 +1,88 @@
+================================================================================
+ZAKOWAY PLAYER PROBE FIXTURE LOG - P2
+================================================================================
+场景名称: P2: CS 备用线路 m3u8 (生产 mpv 配置, error 级别, 5次)
+测试日期: 2026-10-17T21:32:14.327919
+执行环境: Windows 11 Pro x64, media_kit 1.2.6, libmpv v0.36.0-403, FFmpeg n6.0, mbedTLS 3.5.0
+执行命令: flutter test tool/player_probe/run_probe_p2_cs_line.dart
+选用番剧与分集: 稀饭备用-1 - 第1集 (https://next.xifanacg.com/anime/3403/play/121397?source_id=2&source=CS)
+URL形态说明: 稀饭 CS 备用切片线路 (dl.playxf.top 的 m3u8)，每次迭代重新 resolve()
+成功定义: open 后 15 秒内 position >= 3000ms（3秒）为成功，出现 Failed to open 或 15 秒超时未达标为失败
+脱敏规则说明: 敏感参数 sign、t、token 等替换为 ...，其余保持完全原始输出
+请求头信息: 遵循源站下发 Headers (含 Referer: https://next.xifanacg.com/)
+附加说明: 生产 mpv 配置，连续 open 5 次，监控 HLS 切片加载与起播进度
+================================================================================
+
+--- Iteration #1 ---
+目标 URL: https://dl.playxf.top/新番/2607/W-无职转生S3/01/无职01.m3u8
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36, Referer: https://next.xifanacg.com/}
+结果: FAILED (耗时: 2352ms, 归因: tls_handshake_closed)
+stream.error:
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+stream.log:
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [stream] (error) Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+
+--- Iteration #2 ---
+目标 URL: https://dl.playxf.top/新番/2607/W-无职转生S3/01/无职01.m3u8
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36, Referer: https://next.xifanacg.com/}
+结果: FAILED (耗时: 4432ms, 归因: unknown_error)
+stream.error:
+  Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+stream.log:
+  [stream] (error) Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+
+--- Iteration #3 ---
+目标 URL: https://dl.playxf.top/新番/2607/W-无职转生S3/01/无职01.m3u8
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36, Referer: https://next.xifanacg.com/}
+结果: FAILED (耗时: 3644ms, 归因: tls_handshake_closed)
+stream.error:
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+stream.log:
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [stream] (error) Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+
+--- Iteration #4 ---
+目标 URL: https://dl.playxf.top/新番/2607/W-无职转生S3/01/无职01.m3u8
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36, Referer: https://next.xifanacg.com/}
+结果: FAILED (耗时: 1252ms, 归因: unknown_error)
+stream.error:
+  Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+stream.log:
+  [stream] (error) Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+
+--- Iteration #5 ---
+目标 URL: https://dl.playxf.top/新番/2607/W-无职转生S3/01/无职01.m3u8
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36, Referer: https://next.xifanacg.com/}
+结果: FAILED (耗时: 4292ms, 归因: unknown_error)
+stream.error:
+  Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+stream.log:
+  [stream] (error) Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+
+================================================================================
+SUMMARY STATS:
+总测试轮次: 5
+成功次数: 0
+失败次数: 5
+  - TLS 握手中断失败: 2
+  - HTTP/签名层失败: 0
+  - 15秒超时未达标: 0
+成功率: 0.0%
+================================================================================

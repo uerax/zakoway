@@ -1,0 +1,850 @@
+================================================================================
+TLS CLIENT MATRIX - OPENSSL S_CLIENT
+================================================================================
+目标主机: apn.moedot.net:443
+目标 IPv4: 39.173.185.37
+测试日期: 2026-10-17T21:33:37.095933
+执行环境: OpenSSL 3.x (Git for Windows)
+================================================================================
+
+--- Test Case: openssl s_client tls1_2_servername_http11 (-tls1_2 -servername apn.moedot.net -alpn http/1.1) ---
+Exit Code: 0
+Stdout / SSL Session Output:
+CONNECTED(000000B0)
+---
+Certificate chain
+ 0 s:CN=apn.moedot.net
+   i:C=CN, O=TrustAsia Technologies, Inc., CN=TrustAsia DV TLS RSA CA 2025
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Aug 26 00:00:00 2026 GMT; NotAfter: Nov 23 23:59:59 2026 GMT
+ 1 s:C=CN, O=TrustAsia Technologies, Inc., CN=TrustAsia DV TLS RSA CA 2025
+   i:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   a:PKEY: rsaEncryption, 4096 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Jan  8 00:00:00 2025 GMT; NotAfter: Jan  7 23:59:59 2035 GMT
+ 2 s:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   i:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Aug  1 12:00:00 2013 GMT; NotAfter: Jan 15 12:00:00 2038 GMT
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIGzjCCBLagAwIBAgIQB3ET2UpUPJnLMo2ZHvCfDDANBgkqhkiG9w0BAQsFADBb
+MQswCQYDVQQGEwJDTjElMCMGA1UEChMcVHJ1c3RBc2lhIFRlY2hub2xvZ2llcywg
+SW5jLjElMCMGA1UEAxMcVHJ1c3RBc2lhIERWIFRMUyBSU0EgQ0EgMjAyNTAeFw0y
+NjA4MjYwMDAwMDBaFw0yNjExMjMyMzU5NTlaMBkxFzAVBgNVBAMTDmFwbi5tb2Vk
+b3QubmV0MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxM7j/Me1a6vU
+sP2xis97eq/1gpwKBYZJMyFRVYf9HoSw90hz2/d4ymSRMqrVIcZ22+q3NzvJa+cJ
+sqWQfWTrjDPy4+3S702wa0avtFZWaQSm9+WiHNXJJt2QfNn9qc8gYeUwXqh6Qe3i
+GfPySuAYSsvMmf/vwGV8Jz7yJgXle+mQl9XOY+GLNMc7fEYPaU19AzGThmdi8ZHH
+zhvaMUCeLQqkmMgEVDSN3m61jrZap3wDOGo1BuaOVpBIHLS/MuSEyFlKsbH1aj3B
+wn/Zk7Pv0nvYZXm9Dop8C8nN88t3+mAho57bu8pVgIwzFM+le2SpKnTIQ1J8az7A
+xzWwDfyJkwIDAQABo4ICzjCCAsowHwYDVR0jBBgwFoAUtBIopbTAHZ8pcWk82RGW
+SnVpUMAwHQYDVR0OBBYEFIQmm6YxIorp4xEe0MYGgxS91LH6MBkGA1UdEQQSMBCC
+DmFwbi5tb2Vkb3QubmV0MD4GA1UdIAQ3MDUwMwYGZ4EMAQIBMCkwJwYIKwYBBQUH
+AgEWG2h0dHA6Ly93d3cuZGlnaWNlcnQuY29tL0NQUzAOBgNVHQ8BAf8EBAMCBaAw
+EwYDVR0lBAwwCgYIKwYBBQUHAwEweQYIKwYBBQUHAQEEbTBrMCQGCCsGAQUFBzAB
+hhhodHRwOi8vb2NzcC5kaWdpY2VydC5jb20wQwYIKwYBBQUHMAKGN2h0dHA6Ly9j
+YWNlcnRzLmRpZ2ljZXJ0LmNvbS9UcnVzdEFzaWFEVlRMU1JTQUNBMjAyNS5jcnQw
+DAYDVR0TAQH/BAIwADCCAX0GCisGAQQB1nkCBAIEggFtBIIBaQFnAHUAwjF+V0UZ
+o0XufzjespBB68fCIVoiv3/Vta12mtkOUs0AAAGgPCcLkgAABAMARjBEAiA001sQ
+VNpv7iOxZBnTRiHVuvbAMgXKPDyTYIDRiwuSgAIgIX8q3/UQQiiA9T7sA62AVawD
+QJuQkiTnG4IfTIBoPYkAdgDYCVU7lE96/8gWGW+UT4WrsPj8XodVJg8V0S5yu0VL
+FAAAAaA8JwuoAAAEAwBHMEUCIQDfzqF530MvNmLp8bINV32bYzKHcz9lJI/gGQk/
+T1opGgIgBZy41ErG6/1JHofeHY/rrGmhshLuRsPJNgysapN22ZUAdgCUTkOH+uzB
+74HzGSQmqBhlAcfTXzgCAT9yZ31VNy4Z2AAAAaA8JwuyAAAEAwBHMEUCIF9Nus19
+lr94q2OLw7Rl6Y1xyxMHTwH3mBbpqObcBCw7AiEAqXBqUkQDk4+96iSgzfmTB3ok
+W+pwiA8UI1nwvLIlO54wDQYJKoZIhvcNAQELBQADggIBAFGQn8/sObtCQERt31oh
+J/rwdKufV1bc+omlrzaKxHfO/dlzxoIP0B90CO1846oueK9DVlfp6pYJe1J/HsM2
+PI3BxJGWGyqtHYDwmbpWQVNuci0L3mT5Z0A+ACpoZ1obPtMKIK2OtP0FkR6eAnrN
+pVGFUnZodpS3QNPE/iwJHxC5sPQ/GZgfmulFVsxGOGkt9bg/7boLSfMax5Sp3FMG
+MyKyolErfEz+QIHa7Yg21NGhR3g17bOiTiVa2lpipGXuDjTsy+pDtrx9QJQP6V49
+fEAmWj2Skxf4NUGbMqxjPs5dPVkau2rk5g6Ibv7yU5FKzWG+HyX5UJWDvVzfa0LH
+/fw9m6jYlsyJAobzAW6SSCrkd9CpfKYhTv5xqCp8AOi3d1Gn4A5Z1a+MfAM0Jikg
+2HgZS4ArW8Qrtfcjxe3hN7xVxXUyUXKGr1eh+oOyIestYPvAN8jYJeEci6BBJptd
+Wv0865lQYf8YkwshW7xU1YQTKjW2WR9hlup8PgFj360ApViDuCvBse9hojNQrz0O
+LkYKawKmIhQNizCnEfhrv+QKkLaFu3vqJotCOhJbK/qdCmaK04XHm2B/nz1izLhD
+FmxYOej+AaZFa9TWtAxCrMXmXZ0u1HIJuFGpvKP57V7pzmMGT7yNX1Z8wBZ/vxoD
+UP73yYPnwgHOh0mLBJBSbfGu
+-----END CERTIFICATE-----
+subject=CN=apn.moedot.net
+issuer=C=CN, O=TrustAsia Technologies, Inc., CN=TrustAsia DV TLS RSA CA 2025
+---
+No client certificate CA names sent
+Peer signing digest: SHA256
+Peer signature type: RSA-PSS
+Server Temp Key: X25519, 253 bits
+---
+SSL handshake has read 4780 bytes and written 325 bytes
+Verification: OK
+---
+New, TLSv1.2, Cipher is ECDHE-RSA-AES128-GCM-SHA256
+Server public key is 2048 bit
+Secure Renegotiation IS supported
+Compression: NONE
+Expansion: NONE
+ALPN protocol: http/1.1
+SSL-Session:
+    Protocol  : TLSv1.2
+    Cipher    : ECDHE-RSA-AES128-GCM-SHA256
+    Session-ID: 95D495F4DDA6126E456BE3C16DDF8F931AB37D769627A7B6C0451026D27D9423
+    Session-ID-ctx: 
+    Master-Key: 797C89F791B03C27B543ACA564C515616574EE917F95DCB1888848094135EA22B85F830C36B8DF9BA586974244E08FD0
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket lifetime hint: 259200 (seconds)
+    TLS session ticket:
+    0000 - 6a 77 2f 56 43 63 62 6a-6e 70 53 37 39 31 2b 72   jw/VCcbjnpS791+r
+    0010 - 7e 4e 1f 73 ca 7d 10 c9-4d 14 40 ae fb cd 8a 86   ~N.s.}..M.@.....
+    0020 - 8f 79 45 dc 61 55 28 05-f9 de e1 5b 12 31 60 3d   .yE.aU(....[.1`=
+    0030 - 07 c2 ef 8b 42 48 2c f2-99 5f 00 44 4f 76 2b 93   ....BH,.._.DOv+.
+    0040 - d9 7b ca e9 de 17 99 62-fb 27 7e 3e a7 ed 42 43   .{.....b.'~>..BC
+    0050 - c5 73 60 83 ec 16 91 b9-54 04 aa f4 76 1d 70 29   .s`.....T...v.p)
+    0060 - 4c 58 fb b9 2b 24 52 e5-3e 47 c3 62 b0 03 f3 cc   LX..+$R.>G.b....
+    0070 - 82 9f 6f 35 e4 50 fa 9a-b6 8d 7a 14 c5 00 35 2f   ..o5.P....z...5/
+    0080 - 35 3b 66 7b 01 38 f0 70-e8 26 d2 9c ec 5a 6e 82   5;f{.8.p.&...Zn.
+    0090 - 07 ee 58 63 2c 89 08 90-96 3e 88 3e 51 16 dd 59   ..Xc,....>.>Q..Y
+    00a0 - 7c ff a0 3b c5 b3 2b f9-2a be a5 41 dc ef bd ea   |..;..+.*..A....
+    00b0 - e2 0a f3 1c 4a 4c 7d 66-2a 70 bb 96 28 1b e6 af   ....JL}f*p..(...
+
+    Start Time: 1792244017
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: yes
+---
+Stderr:
+Connecting to 39.173.185.37
+depth=2 C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+verify return:1
+depth=1 C=CN, O=TrustAsia Technologies, Inc., CN=TrustAsia DV TLS RSA CA 2025
+verify return:1
+depth=0 CN=apn.moedot.net
+verify return:1
+DONE
+
+--- Test Case: openssl s_client tls1_3_servername_http11 (-tls1_3 -servername apn.moedot.net -alpn http/1.1) ---
+Exit Code: 0
+Stdout / SSL Session Output:
+CONNECTED(00000174)
+---
+Certificate chain
+ 0 s:CN=apn.moedot.net
+   i:C=CN, O=TrustAsia Technologies, Inc., CN=TrustAsia DV TLS RSA CA 2025
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Aug 26 00:00:00 2026 GMT; NotAfter: Nov 23 23:59:59 2026 GMT
+ 1 s:C=CN, O=TrustAsia Technologies, Inc., CN=TrustAsia DV TLS RSA CA 2025
+   i:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   a:PKEY: rsaEncryption, 4096 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Jan  8 00:00:00 2025 GMT; NotAfter: Jan  7 23:59:59 2035 GMT
+ 2 s:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   i:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Aug  1 12:00:00 2013 GMT; NotAfter: Jan 15 12:00:00 2038 GMT
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIGzjCCBLagAwIBAgIQB3ET2UpUPJnLMo2ZHvCfDDANBgkqhkiG9w0BAQsFADBb
+MQswCQYDVQQGEwJDTjElMCMGA1UEChMcVHJ1c3RBc2lhIFRlY2hub2xvZ2llcywg
+SW5jLjElMCMGA1UEAxMcVHJ1c3RBc2lhIERWIFRMUyBSU0EgQ0EgMjAyNTAeFw0y
+NjA4MjYwMDAwMDBaFw0yNjExMjMyMzU5NTlaMBkxFzAVBgNVBAMTDmFwbi5tb2Vk
+b3QubmV0MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxM7j/Me1a6vU
+sP2xis97eq/1gpwKBYZJMyFRVYf9HoSw90hz2/d4ymSRMqrVIcZ22+q3NzvJa+cJ
+sqWQfWTrjDPy4+3S702wa0avtFZWaQSm9+WiHNXJJt2QfNn9qc8gYeUwXqh6Qe3i
+GfPySuAYSsvMmf/vwGV8Jz7yJgXle+mQl9XOY+GLNMc7fEYPaU19AzGThmdi8ZHH
+zhvaMUCeLQqkmMgEVDSN3m61jrZap3wDOGo1BuaOVpBIHLS/MuSEyFlKsbH1aj3B
+wn/Zk7Pv0nvYZXm9Dop8C8nN88t3+mAho57bu8pVgIwzFM+le2SpKnTIQ1J8az7A
+xzWwDfyJkwIDAQABo4ICzjCCAsowHwYDVR0jBBgwFoAUtBIopbTAHZ8pcWk82RGW
+SnVpUMAwHQYDVR0OBBYEFIQmm6YxIorp4xEe0MYGgxS91LH6MBkGA1UdEQQSMBCC
+DmFwbi5tb2Vkb3QubmV0MD4GA1UdIAQ3MDUwMwYGZ4EMAQIBMCkwJwYIKwYBBQUH
+AgEWG2h0dHA6Ly93d3cuZGlnaWNlcnQuY29tL0NQUzAOBgNVHQ8BAf8EBAMCBaAw
+EwYDVR0lBAwwCgYIKwYBBQUHAwEweQYIKwYBBQUHAQEEbTBrMCQGCCsGAQUFBzAB
+hhhodHRwOi8vb2NzcC5kaWdpY2VydC5jb20wQwYIKwYBBQUHMAKGN2h0dHA6Ly9j
+YWNlcnRzLmRpZ2ljZXJ0LmNvbS9UcnVzdEFzaWFEVlRMU1JTQUNBMjAyNS5jcnQw
+DAYDVR0TAQH/BAIwADCCAX0GCisGAQQB1nkCBAIEggFtBIIBaQFnAHUAwjF+V0UZ
+o0XufzjespBB68fCIVoiv3/Vta12mtkOUs0AAAGgPCcLkgAABAMARjBEAiA001sQ
+VNpv7iOxZBnTRiHVuvbAMgXKPDyTYIDRiwuSgAIgIX8q3/UQQiiA9T7sA62AVawD
+QJuQkiTnG4IfTIBoPYkAdgDYCVU7lE96/8gWGW+UT4WrsPj8XodVJg8V0S5yu0VL
+FAAAAaA8JwuoAAAEAwBHMEUCIQDfzqF530MvNmLp8bINV32bYzKHcz9lJI/gGQk/
+T1opGgIgBZy41ErG6/1JHofeHY/rrGmhshLuRsPJNgysapN22ZUAdgCUTkOH+uzB
+74HzGSQmqBhlAcfTXzgCAT9yZ31VNy4Z2AAAAaA8JwuyAAAEAwBHMEUCIF9Nus19
+lr94q2OLw7Rl6Y1xyxMHTwH3mBbpqObcBCw7AiEAqXBqUkQDk4+96iSgzfmTB3ok
+W+pwiA8UI1nwvLIlO54wDQYJKoZIhvcNAQELBQADggIBAFGQn8/sObtCQERt31oh
+J/rwdKufV1bc+omlrzaKxHfO/dlzxoIP0B90CO1846oueK9DVlfp6pYJe1J/HsM2
+PI3BxJGWGyqtHYDwmbpWQVNuci0L3mT5Z0A+ACpoZ1obPtMKIK2OtP0FkR6eAnrN
+pVGFUnZodpS3QNPE/iwJHxC5sPQ/GZgfmulFVsxGOGkt9bg/7boLSfMax5Sp3FMG
+MyKyolErfEz+QIHa7Yg21NGhR3g17bOiTiVa2lpipGXuDjTsy+pDtrx9QJQP6V49
+fEAmWj2Skxf4NUGbMqxjPs5dPVkau2rk5g6Ibv7yU5FKzWG+HyX5UJWDvVzfa0LH
+/fw9m6jYlsyJAobzAW6SSCrkd9CpfKYhTv5xqCp8AOi3d1Gn4A5Z1a+MfAM0Jikg
+2HgZS4ArW8Qrtfcjxe3hN7xVxXUyUXKGr1eh+oOyIestYPvAN8jYJeEci6BBJptd
+Wv0865lQYf8YkwshW7xU1YQTKjW2WR9hlup8PgFj360ApViDuCvBse9hojNQrz0O
+LkYKawKmIhQNizCnEfhrv+QKkLaFu3vqJotCOhJbK/qdCmaK04XHm2B/nz1izLhD
+FmxYOej+AaZFa9TWtAxCrMXmXZ0u1HIJuFGpvKP57V7pzmMGT7yNX1Z8wBZ/vxoD
+UP73yYPnwgHOh0mLBJBSbfGu
+-----END CERTIFICATE-----
+subject=CN=apn.moedot.net
+issuer=C=CN, O=TrustAsia Technologies, Inc., CN=TrustAsia DV TLS RSA CA 2025
+---
+No client certificate CA names sent
+Peer signing digest: SHA256
+Peer signature type: RSA-PSS
+Server Temp Key: X25519, 253 bits
+---
+SSL handshake has read 4683 bytes and written 354 bytes
+Verification: OK
+---
+New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384
+Server public key is 2048 bit
+This TLS version forbids renegotiation.
+Compression: NONE
+Expansion: NONE
+ALPN protocol: http/1.1
+Early data was not sent
+Verify return code: 0 (ok)
+---
+---
+Post-Handshake New Session Ticket arrived:
+SSL-Session:
+    Protocol  : TLSv1.3
+    Cipher    : TLS_AES_256_GCM_SHA384
+    Session-ID: A2DCA08E92D631886B95D3C7901C49A318D537C60777A099870D6422A3D681CC
+    Session-ID-ctx: 
+    Resumption PSK: 332BC7C816D4E7278C28047032E9A114873AFF9116F194BB3FA3F710CF5A8434B1A8DC975DDE04CDF7395A1F20DEEB56
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket lifetime hint: 259200 (seconds)
+    TLS session ticket:
+    0000 - 6a 77 2f 56 43 63 62 6a-6e 70 53 37 39 31 2b 72   jw/VCcbjnpS791+r
+    0010 - 46 ba 68 fa 88 43 ce b2-9b be b0 db 31 55 0b 81   F.h..C......1U..
+    0020 - 1c b4 1e d1 6d 2d 1b 6a-82 b9 9d c2 49 29 ab a3   ....m-.j....I)..
+    0030 - b4 fb ee 06 4b fd fe 9a-47 88 ea 3a f5 46 bc 11   ....K...G..:.F..
+    0040 - 60 21 27 7b a1 9c ab e6-4c b5 e7 cd 42 46 a7 e0   `!'{....L...BF..
+    0050 - fc 3b 48 80 54 d6 0b 7a-79 81 af 45 9e 9c aa 33   .;H.T..zy..E...3
+    0060 - 5c 26 be 35 e1 ce 45 60-6a c9 67 39 95 57 ac b2   \&.5..E`j.g9.W..
+    0070 - 25 54 ea 56 cf cc cc 12-c0 4c 02 dd 35 a2 a4 df   %T.V.....L..5...
+    0080 - 8a fc 5a 9d a6 d6 51 08-69 47 0e a7 d8 a3 38 14   ..Z...Q.iG....8.
+    0090 - 53 cb ac 7e ab 82 a9 ef-94 e1 c7 a7 fb 2d 2d 62   S..~.........--b
+    00a0 - 32 dc 20 8d f7 55 6c 3a-87 1e 7a 87 c1 64 20 83   2. ..Ul:..z..d .
+    00b0 - 02 cd 55 6a 83 06 01 87-5c e8 75 51 11 8e 85 79   ..Uj....\.uQ...y
+    00c0 - 72 0f c7 89 5b 39 b1 36-21 b7 cd 46 46 98 b6 c5   r...[9.6!..FF...
+    00d0 - a4 b2 1c a0 cf 21 c2 dc-6f 8f 16 b9 06 51 67 63   .....!..o....Qgc
+
+    Start Time: 1792244018
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: no
+    Max Early Data: 0
+---
+read R BLOCK
+---
+Post-Handshake New Session Ticket arrived:
+SSL-Session:
+    Protocol  : TLSv1.3
+    Cipher    : TLS_AES_256_GCM_SHA384
+    Session-ID: 1DC8585535DC09265F3D7D39D67B1E45484FDB2117BB33F667E01BEC1AAB5582
+    Session-ID-ctx: 
+    Resumption PSK: 60098886F5D297CECCCDA2772F3F367199E728C3582018E9DBB7BD0DF42DE5D3332F5253A9DCFE1505BFFC22C4C2A3DD
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket lifetime hint: 259200 (seconds)
+    TLS session ticket:
+    0000 - 6a 77 2f 56 43 63 62 6a-6e 70 53 37 39 31 2b 72   jw/VCcbjnpS791+r
+    0010 - a4 be e2 f3 d9 e3 4d 94-55 9d 8f 93 e4 21 b4 3c   ......M.U....!.<
+    0020 - 46 6a 13 23 8c 2a 8e 61-92 72 99 1a 18 d0 f0 e7   Fj.#.*.a.r......
+    0030 - 8c 51 4c 23 d1 9d 10 17-55 a0 95 23 04 69 88 63   .QL#....U..#.i.c
+    0040 - 33 c5 d7 83 74 7b 7c 51-0c 29 c4 47 7a b4 bc d1   3...t{|Q.).Gz...
+    0050 - c2 cd 88 6f b1 fd 16 02-98 d3 83 30 73 79 b5 60   ...o.......0sy.`
+    0060 - 40 28 86 f0 72 99 9b 94-97 37 90 93 41 fb ad af   @(..r....7..A...
+    0070 - ca f9 32 c1 83 71 ae 1d-1c ff a1 d0 66 3d 73 52   ..2..q......f=sR
+    0080 - 41 2e 0b 06 eb 45 ac 3a-ea 76 9a 8b eb d1 1e 3a   A....E.:.v.....:
+    0090 - 10 0f 1a 13 8b b4 7b 5e-56 58 2b cc 81 43 da 43   ......{^VX+..C.C
+    00a0 - a0 08 98 8d 19 03 b3 65-dc e2 c3 55 b1 63 cc 72   .......e...U.c.r
+    00b0 - b0 41 6d 6d 2d f6 6a 13-68 85 c7 e2 0e ab 17 63   .Amm-.j.h......c
+    00c0 - ca 14 71 6c e2 41 40 f1-db 11 90 d5 a9 cf 3c 23   ..ql.A@.......<#
+    00d0 - 02 4e 62 ab 00 de cc 2e-c2 dd 3c c2 2e 96 5d 85   .Nb.......<...].
+
+    Start Time: 1792244018
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: no
+    Max Early Data: 0
+---
+read R BLOCK
+Stderr:
+Connecting to 39.173.185.37
+depth=2 C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+verify return:1
+depth=1 C=CN, O=TrustAsia Technologies, Inc., CN=TrustAsia DV TLS RSA CA 2025
+verify return:1
+depth=0 CN=apn.moedot.net
+verify return:1
+DONE
+
+--- Test Case: openssl s_client tls1_2_servername_h2 (-tls1_2 -servername apn.moedot.net -alpn h2,http/1.1) ---
+Exit Code: 0
+Stdout / SSL Session Output:
+CONNECTED(00000164)
+---
+Certificate chain
+ 0 s:CN=apn.moedot.net
+   i:C=CN, O=TrustAsia Technologies, Inc., CN=TrustAsia DV TLS RSA CA 2025
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Aug 26 00:00:00 2026 GMT; NotAfter: Nov 23 23:59:59 2026 GMT
+ 1 s:C=CN, O=TrustAsia Technologies, Inc., CN=TrustAsia DV TLS RSA CA 2025
+   i:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   a:PKEY: rsaEncryption, 4096 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Jan  8 00:00:00 2025 GMT; NotAfter: Jan  7 23:59:59 2035 GMT
+ 2 s:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   i:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Aug  1 12:00:00 2013 GMT; NotAfter: Jan 15 12:00:00 2038 GMT
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIGzjCCBLagAwIBAgIQB3ET2UpUPJnLMo2ZHvCfDDANBgkqhkiG9w0BAQsFADBb
+MQswCQYDVQQGEwJDTjElMCMGA1UEChMcVHJ1c3RBc2lhIFRlY2hub2xvZ2llcywg
+SW5jLjElMCMGA1UEAxMcVHJ1c3RBc2lhIERWIFRMUyBSU0EgQ0EgMjAyNTAeFw0y
+NjA4MjYwMDAwMDBaFw0yNjExMjMyMzU5NTlaMBkxFzAVBgNVBAMTDmFwbi5tb2Vk
+b3QubmV0MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxM7j/Me1a6vU
+sP2xis97eq/1gpwKBYZJMyFRVYf9HoSw90hz2/d4ymSRMqrVIcZ22+q3NzvJa+cJ
+sqWQfWTrjDPy4+3S702wa0avtFZWaQSm9+WiHNXJJt2QfNn9qc8gYeUwXqh6Qe3i
+GfPySuAYSsvMmf/vwGV8Jz7yJgXle+mQl9XOY+GLNMc7fEYPaU19AzGThmdi8ZHH
+zhvaMUCeLQqkmMgEVDSN3m61jrZap3wDOGo1BuaOVpBIHLS/MuSEyFlKsbH1aj3B
+wn/Zk7Pv0nvYZXm9Dop8C8nN88t3+mAho57bu8pVgIwzFM+le2SpKnTIQ1J8az7A
+xzWwDfyJkwIDAQABo4ICzjCCAsowHwYDVR0jBBgwFoAUtBIopbTAHZ8pcWk82RGW
+SnVpUMAwHQYDVR0OBBYEFIQmm6YxIorp4xEe0MYGgxS91LH6MBkGA1UdEQQSMBCC
+DmFwbi5tb2Vkb3QubmV0MD4GA1UdIAQ3MDUwMwYGZ4EMAQIBMCkwJwYIKwYBBQUH
+AgEWG2h0dHA6Ly93d3cuZGlnaWNlcnQuY29tL0NQUzAOBgNVHQ8BAf8EBAMCBaAw
+EwYDVR0lBAwwCgYIKwYBBQUHAwEweQYIKwYBBQUHAQEEbTBrMCQGCCsGAQUFBzAB
+hhhodHRwOi8vb2NzcC5kaWdpY2VydC5jb20wQwYIKwYBBQUHMAKGN2h0dHA6Ly9j
+YWNlcnRzLmRpZ2ljZXJ0LmNvbS9UcnVzdEFzaWFEVlRMU1JTQUNBMjAyNS5jcnQw
+DAYDVR0TAQH/BAIwADCCAX0GCisGAQQB1nkCBAIEggFtBIIBaQFnAHUAwjF+V0UZ
+o0XufzjespBB68fCIVoiv3/Vta12mtkOUs0AAAGgPCcLkgAABAMARjBEAiA001sQ
+VNpv7iOxZBnTRiHVuvbAMgXKPDyTYIDRiwuSgAIgIX8q3/UQQiiA9T7sA62AVawD
+QJuQkiTnG4IfTIBoPYkAdgDYCVU7lE96/8gWGW+UT4WrsPj8XodVJg8V0S5yu0VL
+FAAAAaA8JwuoAAAEAwBHMEUCIQDfzqF530MvNmLp8bINV32bYzKHcz9lJI/gGQk/
+T1opGgIgBZy41ErG6/1JHofeHY/rrGmhshLuRsPJNgysapN22ZUAdgCUTkOH+uzB
+74HzGSQmqBhlAcfTXzgCAT9yZ31VNy4Z2AAAAaA8JwuyAAAEAwBHMEUCIF9Nus19
+lr94q2OLw7Rl6Y1xyxMHTwH3mBbpqObcBCw7AiEAqXBqUkQDk4+96iSgzfmTB3ok
+W+pwiA8UI1nwvLIlO54wDQYJKoZIhvcNAQELBQADggIBAFGQn8/sObtCQERt31oh
+J/rwdKufV1bc+omlrzaKxHfO/dlzxoIP0B90CO1846oueK9DVlfp6pYJe1J/HsM2
+PI3BxJGWGyqtHYDwmbpWQVNuci0L3mT5Z0A+ACpoZ1obPtMKIK2OtP0FkR6eAnrN
+pVGFUnZodpS3QNPE/iwJHxC5sPQ/GZgfmulFVsxGOGkt9bg/7boLSfMax5Sp3FMG
+MyKyolErfEz+QIHa7Yg21NGhR3g17bOiTiVa2lpipGXuDjTsy+pDtrx9QJQP6V49
+fEAmWj2Skxf4NUGbMqxjPs5dPVkau2rk5g6Ibv7yU5FKzWG+HyX5UJWDvVzfa0LH
+/fw9m6jYlsyJAobzAW6SSCrkd9CpfKYhTv5xqCp8AOi3d1Gn4A5Z1a+MfAM0Jikg
+2HgZS4ArW8Qrtfcjxe3hN7xVxXUyUXKGr1eh+oOyIestYPvAN8jYJeEci6BBJptd
+Wv0865lQYf8YkwshW7xU1YQTKjW2WR9hlup8PgFj360ApViDuCvBse9hojNQrz0O
+LkYKawKmIhQNizCnEfhrv+QKkLaFu3vqJotCOhJbK/qdCmaK04XHm2B/nz1izLhD
+FmxYOej+AaZFa9TWtAxCrMXmXZ0u1HIJuFGpvKP57V7pzmMGT7yNX1Z8wBZ/vxoD
+UP73yYPnwgHOh0mLBJBSbfGu
+-----END CERTIFICATE-----
+subject=CN=apn.moedot.net
+issuer=C=CN, O=TrustAsia Technologies, Inc., CN=TrustAsia DV TLS RSA CA 2025
+---
+No client certificate CA names sent
+Peer signing digest: SHA256
+Peer signature type: RSA-PSS
+Server Temp Key: X25519, 253 bits
+---
+SSL handshake has read 4780 bytes and written 328 bytes
+Verification: OK
+---
+New, TLSv1.2, Cipher is ECDHE-RSA-AES128-GCM-SHA256
+Server public key is 2048 bit
+Secure Renegotiation IS supported
+Compression: NONE
+Expansion: NONE
+ALPN protocol: http/1.1
+SSL-Session:
+    Protocol  : TLSv1.2
+    Cipher    : ECDHE-RSA-AES128-GCM-SHA256
+    Session-ID: E61DE1DF927CB06330B487513C359A5A64CA7ECA9ED02B729292A0268118C37E
+    Session-ID-ctx: 
+    Master-Key: 7DF6AC2777B8E45B73AB6CFA290C45905390F88DEFBD92272CF6D21BAAE0E09B298F56933647F71A1DF89BFD5A9FCD35
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket lifetime hint: 259200 (seconds)
+    TLS session ticket:
+    0000 - 6a 77 2f 56 43 63 62 6a-6e 70 53 37 39 31 2b 72   jw/VCcbjnpS791+r
+    0010 - a9 c2 b9 7a d2 55 bc a1-88 a8 ac fa e1 2b e4 fa   ...z.U.......+..
+    0020 - f2 b1 ed 3f a5 7d 8d cf-90 ea 46 29 67 90 33 f3   ...?.}....F)g.3.
+    0030 - 55 ef 68 b9 3f 31 ba 54-1c 26 02 81 75 15 c7 61   U.h.?1.T.&..u..a
+    0040 - 06 df e4 06 79 9f dc c0-5d b4 03 b8 84 31 76 e9   ....y...]....1v.
+    0050 - 31 ff 14 5b 98 21 d2 df-96 ab b9 e7 58 5d 2a 9d   1..[.!......X]*.
+    0060 - 08 3f bc 1d a3 37 cf 3b-da ac 14 48 66 40 15 40   .?...7.;...Hf@.@
+    0070 - 22 a8 67 ac ba 94 dc 9b-df 35 6d 18 94 62 5a fa   ".g......5m..bZ.
+    0080 - 15 f7 e9 ec 07 bd a9 3a-ed e4 2c 2f a8 35 ee 5c   .......:..,/.5.\
+    0090 - 20 3b 76 e1 0b 7a 95 91-05 68 d2 6f 75 f2 ce 73    ;v..z...h.ou..s
+    00a0 - b5 f8 e6 b5 c5 39 4c 91-3e e5 dd 82 43 fc ad 1a   .....9L.>...C...
+    00b0 - 98 9e 2a d8 85 77 0f 38-16 33 54 14 28 1b 2e 12   ..*..w.8.3T.(...
+
+    Start Time: 1792244020
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: yes
+---
+Stderr:
+Connecting to 39.173.185.37
+depth=2 C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+verify return:1
+depth=1 C=CN, O=TrustAsia Technologies, Inc., CN=TrustAsia DV TLS RSA CA 2025
+verify return:1
+depth=0 CN=apn.moedot.net
+verify return:1
+DONE
+
+--- Test Case: openssl s_client tls1_3_servername_h2 (-tls1_3 -servername apn.moedot.net -alpn h2,http/1.1) ---
+Exit Code: 0
+Stdout / SSL Session Output:
+CONNECTED(0000019C)
+---
+Certificate chain
+ 0 s:CN=apn.moedot.net
+   i:C=CN, O=TrustAsia Technologies, Inc., CN=TrustAsia DV TLS RSA CA 2025
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Aug 26 00:00:00 2026 GMT; NotAfter: Nov 23 23:59:59 2026 GMT
+ 1 s:C=CN, O=TrustAsia Technologies, Inc., CN=TrustAsia DV TLS RSA CA 2025
+   i:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   a:PKEY: rsaEncryption, 4096 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Jan  8 00:00:00 2025 GMT; NotAfter: Jan  7 23:59:59 2035 GMT
+ 2 s:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   i:C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Aug  1 12:00:00 2013 GMT; NotAfter: Jan 15 12:00:00 2038 GMT
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIGzjCCBLagAwIBAgIQB3ET2UpUPJnLMo2ZHvCfDDANBgkqhkiG9w0BAQsFADBb
+MQswCQYDVQQGEwJDTjElMCMGA1UEChMcVHJ1c3RBc2lhIFRlY2hub2xvZ2llcywg
+SW5jLjElMCMGA1UEAxMcVHJ1c3RBc2lhIERWIFRMUyBSU0EgQ0EgMjAyNTAeFw0y
+NjA4MjYwMDAwMDBaFw0yNjExMjMyMzU5NTlaMBkxFzAVBgNVBAMTDmFwbi5tb2Vk
+b3QubmV0MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxM7j/Me1a6vU
+sP2xis97eq/1gpwKBYZJMyFRVYf9HoSw90hz2/d4ymSRMqrVIcZ22+q3NzvJa+cJ
+sqWQfWTrjDPy4+3S702wa0avtFZWaQSm9+WiHNXJJt2QfNn9qc8gYeUwXqh6Qe3i
+GfPySuAYSsvMmf/vwGV8Jz7yJgXle+mQl9XOY+GLNMc7fEYPaU19AzGThmdi8ZHH
+zhvaMUCeLQqkmMgEVDSN3m61jrZap3wDOGo1BuaOVpBIHLS/MuSEyFlKsbH1aj3B
+wn/Zk7Pv0nvYZXm9Dop8C8nN88t3+mAho57bu8pVgIwzFM+le2SpKnTIQ1J8az7A
+xzWwDfyJkwIDAQABo4ICzjCCAsowHwYDVR0jBBgwFoAUtBIopbTAHZ8pcWk82RGW
+SnVpUMAwHQYDVR0OBBYEFIQmm6YxIorp4xEe0MYGgxS91LH6MBkGA1UdEQQSMBCC
+DmFwbi5tb2Vkb3QubmV0MD4GA1UdIAQ3MDUwMwYGZ4EMAQIBMCkwJwYIKwYBBQUH
+AgEWG2h0dHA6Ly93d3cuZGlnaWNlcnQuY29tL0NQUzAOBgNVHQ8BAf8EBAMCBaAw
+EwYDVR0lBAwwCgYIKwYBBQUHAwEweQYIKwYBBQUHAQEEbTBrMCQGCCsGAQUFBzAB
+hhhodHRwOi8vb2NzcC5kaWdpY2VydC5jb20wQwYIKwYBBQUHMAKGN2h0dHA6Ly9j
+YWNlcnRzLmRpZ2ljZXJ0LmNvbS9UcnVzdEFzaWFEVlRMU1JTQUNBMjAyNS5jcnQw
+DAYDVR0TAQH/BAIwADCCAX0GCisGAQQB1nkCBAIEggFtBIIBaQFnAHUAwjF+V0UZ
+o0XufzjespBB68fCIVoiv3/Vta12mtkOUs0AAAGgPCcLkgAABAMARjBEAiA001sQ
+VNpv7iOxZBnTRiHVuvbAMgXKPDyTYIDRiwuSgAIgIX8q3/UQQiiA9T7sA62AVawD
+QJuQkiTnG4IfTIBoPYkAdgDYCVU7lE96/8gWGW+UT4WrsPj8XodVJg8V0S5yu0VL
+FAAAAaA8JwuoAAAEAwBHMEUCIQDfzqF530MvNmLp8bINV32bYzKHcz9lJI/gGQk/
+T1opGgIgBZy41ErG6/1JHofeHY/rrGmhshLuRsPJNgysapN22ZUAdgCUTkOH+uzB
+74HzGSQmqBhlAcfTXzgCAT9yZ31VNy4Z2AAAAaA8JwuyAAAEAwBHMEUCIF9Nus19
+lr94q2OLw7Rl6Y1xyxMHTwH3mBbpqObcBCw7AiEAqXBqUkQDk4+96iSgzfmTB3ok
+W+pwiA8UI1nwvLIlO54wDQYJKoZIhvcNAQELBQADggIBAFGQn8/sObtCQERt31oh
+J/rwdKufV1bc+omlrzaKxHfO/dlzxoIP0B90CO1846oueK9DVlfp6pYJe1J/HsM2
+PI3BxJGWGyqtHYDwmbpWQVNuci0L3mT5Z0A+ACpoZ1obPtMKIK2OtP0FkR6eAnrN
+pVGFUnZodpS3QNPE/iwJHxC5sPQ/GZgfmulFVsxGOGkt9bg/7boLSfMax5Sp3FMG
+MyKyolErfEz+QIHa7Yg21NGhR3g17bOiTiVa2lpipGXuDjTsy+pDtrx9QJQP6V49
+fEAmWj2Skxf4NUGbMqxjPs5dPVkau2rk5g6Ibv7yU5FKzWG+HyX5UJWDvVzfa0LH
+/fw9m6jYlsyJAobzAW6SSCrkd9CpfKYhTv5xqCp8AOi3d1Gn4A5Z1a+MfAM0Jikg
+2HgZS4ArW8Qrtfcjxe3hN7xVxXUyUXKGr1eh+oOyIestYPvAN8jYJeEci6BBJptd
+Wv0865lQYf8YkwshW7xU1YQTKjW2WR9hlup8PgFj360ApViDuCvBse9hojNQrz0O
+LkYKawKmIhQNizCnEfhrv+QKkLaFu3vqJotCOhJbK/qdCmaK04XHm2B/nz1izLhD
+FmxYOej+AaZFa9TWtAxCrMXmXZ0u1HIJuFGpvKP57V7pzmMGT7yNX1Z8wBZ/vxoD
+UP73yYPnwgHOh0mLBJBSbfGu
+-----END CERTIFICATE-----
+subject=CN=apn.moedot.net
+issuer=C=CN, O=TrustAsia Technologies, Inc., CN=TrustAsia DV TLS RSA CA 2025
+---
+No client certificate CA names sent
+Peer signing digest: SHA256
+Peer signature type: RSA-PSS
+Server Temp Key: X25519, 253 bits
+---
+SSL handshake has read 4683 bytes and written 357 bytes
+Verification: OK
+---
+New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384
+Server public key is 2048 bit
+This TLS version forbids renegotiation.
+Compression: NONE
+Expansion: NONE
+ALPN protocol: http/1.1
+Early data was not sent
+Verify return code: 0 (ok)
+---
+---
+Post-Handshake New Session Ticket arrived:
+SSL-Session:
+    Protocol  : TLSv1.3
+    Cipher    : TLS_AES_256_GCM_SHA384
+    Session-ID: 2E0E193375C1169E147EAC1B65383E87F9869C5B75BE7CDC99EE146288F4EF8D
+    Session-ID-ctx: 
+    Resumption PSK: 0CF094BF0747B1390265F1C21DEE1E91C474B0D6AC39F115EB2895F2A79D02CE31E46315277D297BA98E2D7B89C70705
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket lifetime hint: 259200 (seconds)
+    TLS session ticket:
+    0000 - 6a 77 2f 56 43 63 62 6a-6e 70 53 37 39 31 2b 72   jw/VCcbjnpS791+r
+    0010 - 4b 67 69 c0 ee b8 37 de-d6 66 6b db 26 16 1a e5   Kgi...7..fk.&...
+    0020 - 0d 78 40 d4 77 7d 17 10-37 65 9a bf 80 18 15 70   .x@.w}..7e.....p
+    0030 - 44 cb 6d b2 ff ff 6d 92-b5 5b 7f 20 11 d3 ca d3   D.m...m..[. ....
+    0040 - 91 75 2f d5 d6 1e d5 b3-cf a5 ef 26 12 01 c5 1a   .u/........&....
+    0050 - 3b 5b 16 59 08 d3 66 0e-7f d9 ee 90 d4 37 2e 12   ;[.Y..f......7..
+    0060 - 72 c6 93 37 c1 7c 99 55-94 af 3f 54 b3 87 1b ee   r..7.|.U..?T....
+    0070 - 6e 0c 66 67 08 6e 83 fb-06 1f ea e7 c3 75 04 e9   n.fg.n.......u..
+    0080 - 46 dc df 9d fa 48 e8 a6-57 2b 28 ac 32 1c 8f 44   F....H..W+(.2..D
+    0090 - 14 e8 f2 8a 9a 45 fa 8a-87 62 ac 4e 9b d8 70 9f   .....E...b.N..p.
+    00a0 - 74 84 4d 46 33 81 bc 5d-17 4b 59 b5 b1 36 50 10   t.MF3..].KY..6P.
+    00b0 - aa 0e 87 a9 7e 62 2c f5-e1 20 c6 20 c6 5b 68 b6   ....~b,.. . .[h.
+    00c0 - b7 99 c5 34 99 ce 8f cc-87 ba 59 a2 f8 25 93 28   ...4......Y..%.(
+    00d0 - 76 17 a3 8b 32 84 5c bc-ba fb 09 3d 98 37 cd 41   v...2.\....=.7.A
+
+    Start Time: 1792244021
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: no
+    Max Early Data: 0
+---
+read R BLOCK
+---
+Post-Handshake New Session Ticket arrived:
+SSL-Session:
+    Protocol  : TLSv1.3
+    Cipher    : TLS_AES_256_GCM_SHA384
+    Session-ID: A93C43FB28959C4841337CE6359EA999B29EAF8D2377932A7A3610F8401F74B0
+    Session-ID-ctx: 
+    Resumption PSK: 2C0780336890F935574ABE1A9698AF9EFDDA2B6B35E4279F0477E3A762B4B5C748E8020C1D54F3A867F0FA00BB0D8046
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket lifetime hint: 259200 (seconds)
+    TLS session ticket:
+    0000 - 6a 77 2f 56 43 63 62 6a-6e 70 53 37 39 31 2b 72   jw/VCcbjnpS791+r
+    0010 - 41 0e 00 d1 36 59 cc c7-2f 41 85 f3 9b ca 57 cb   A...6Y../A....W.
+    0020 - ed eb e1 ce b1 fb b1 03-1e ea 77 37 d3 38 be 3e   ..........w7.8.>
+    0030 - e9 85 f1 4b e8 ea 77 35-21 58 a5 73 88 64 71 a4   ...K..w5!X.s.dq.
+    0040 - 06 75 e9 07 30 87 b3 03-6d ee 40 11 89 d7 47 a3   .u..0...m.@...G.
+    0050 - a2 5d 27 4d a3 d9 70 bc-3e a7 0b 02 fb 08 df 22   .]'M..p.>......"
+    0060 - da d3 f3 6c b2 8e 39 f6-98 2c f2 0c 6f aa 5d f2   ...l..9..,..o.].
+    0070 - 5c 77 88 66 41 2c 23 26-06 29 bd 2f 67 66 00 e3   \w.fA,#&.)./gf..
+    0080 - bd aa c5 47 a7 bb 34 f6-81 16 c2 88 ef 47 7f d5   ...G..4......G..
+    0090 - 57 2a fe e0 13 50 0e ed-7a db f7 52 38 10 70 14   W*...P..z..R8.p.
+    00a0 - 84 98 81 cf 77 b6 29 95-53 0a d6 f2 0f 4f 6b 91   ....w.).S....Ok.
+    00b0 - 27 51 2f 6a 45 1d d5 ab-d8 57 c2 32 ad 41 8c 0a   'Q/jE....W.2.A..
+    00c0 - d1 0f 3d 18 4e 33 98 b1-55 1d 88 c4 ef da 20 5b   ..=.N3..U..... [
+    00d0 - 37 02 99 ee cf 0b 05 1a-24 11 0a 61 2c f0 3c 41   7.......$..a,.<A
+
+    Start Time: 1792244021
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: no
+    Max Early Data: 0
+---
+read R BLOCK
+Stderr:
+Connecting to 39.173.185.37
+depth=2 C=US, O=DigiCert Inc, OU=www.digicert.com, CN=DigiCert Global Root G2
+verify return:1
+depth=1 C=CN, O=TrustAsia Technologies, Inc., CN=TrustAsia DV TLS RSA CA 2025
+verify return:1
+depth=0 CN=apn.moedot.net
+verify return:1
+DONE
+
+--- Test Case: openssl s_client tls1_2_noservername (-tls1_2 -noservername) ---
+Exit Code: 0
+Stdout / SSL Session Output:
+CONNECTED(00000160)
+---
+Certificate chain
+ 0 s:C=CN, ST=Jiangsu, L=Nanjing, O=Huawei Software Technologies Co., Ltd., CN=*.n.cdnhwc3.com
+   i:C=BE, O=GlobalSign nv-sa, CN=GlobalSign RSA OV SSL CA 2018
+   a:PKEY: rsaEncryption, 3072 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Jul 25 23:46:25 2026 GMT; NotAfter: Feb  9 23:46:25 2027 GMT
+ 1 s:C=BE, O=GlobalSign nv-sa, CN=GlobalSign RSA OV SSL CA 2018
+   i:OU=GlobalSign Root CA - R3, O=GlobalSign, CN=GlobalSign
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Nov 21 00:00:00 2018 GMT; NotAfter: Nov 21 00:00:00 2028 GMT
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIJcjCCCFqgAwIBAgIMHlYVOOSSpPgmj8EoMA0GCSqGSIb3DQEBCwUAMFAxCzAJ
+BgNVBAYTAkJFMRkwFwYDVQQKExBHbG9iYWxTaWduIG52LXNhMSYwJAYDVQQDEx1H
+bG9iYWxTaWduIFJTQSBPViBTU0wgQ0EgMjAxODAeFw0yNjA3MjUyMzQ2MjVaFw0y
+NzAyMDkyMzQ2MjVaMHwxCzAJBgNVBAYTAkNOMRAwDgYDVQQIEwdKaWFuZ3N1MRAw
+DgYDVQQHEwdOYW5qaW5nMS8wLQYDVQQKEyZIdWF3ZWkgU29mdHdhcmUgVGVjaG5v
+bG9naWVzIENvLiwgTHRkLjEYMBYGA1UEAwwPKi5uLmNkbmh3YzMuY29tMIIBojAN
+BgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAst9P6FkS1VvPpd2fAIXduNqQ/mhL
+esrkz2tbZiTT1oME90mI7R3b4z6vyjO5XztYWRM4mXl2O/KbQYbgVGmKqVzwMo26
+Q54ls4txMiIauHVgh1fAHkRIbmjbxkIFVD9XoNp0pUfU1oXAR4I8D0ipqyyH69my
+qDuU5I52ygj1OyNOYm1a2qg06Hyg7MQbEJU4+9AGS5FBk4bs/hUixYRX/U6pr/u5
+YI7MILe0Bm1DpvWjtwU4cvUluucjXDU2Rx+u37ZtD3mzMj5aRxmDEHF2DZd5iMtm
+WuSeF/o9PeP/fsJVZKLqTi222xEnnL7Sf1A/iWHKXn3Js17y9BLdDH5bGrXyvFzq
+ZFAlGGjzNG/Hb3bQ9uswTmT+OMiHyR2pidsov7pgMig1APLMOzpLgemZeHC3EW1s
+Wk7DBvIfcuNfg2DnTG2cu10VHbpPv5BlckYQRYaYvF0kD2ufPxNiXODWIneiXSE/
+Q1AwZIsfm0dIuMx/TeJPPBbHGKrjy4dQcnARAgMBAAGjggWeMIIFmjAOBgNVHQ8B
+Af8EBAMCBaAwDAYDVR0TAQH/BAIwADCBjgYIKwYBBQUHAQEEgYEwfzBEBggrBgEF
+BQcwAoY4aHR0cDovL3NlY3VyZS5nbG9iYWxzaWduLmNvbS9jYWNlcnQvZ3Nyc2Fv
+dnNzbGNhMjAxOC5jcnQwNwYIKwYBBQUHMAGGK2h0dHA6Ly9vY3NwLmdsb2JhbHNp
+Z24uY29tL2dzcnNhb3Zzc2xjYTIwMTgwVgYDVR0gBE8wTTBBBgkrBgEEAaAyARQw
+NDAyBggrBgEFBQcCARYmaHR0cHM6Ly93d3cuZ2xvYmFsc2lnbi5jb20vcmVwb3Np
+dG9yeS8wCAYGZ4EMAQICMD8GA1UdHwQ4MDYwNKAyoDCGLmh0dHA6Ly9jcmwuZ2xv
+YmFsc2lnbi5jb20vZ3Nyc2FvdnNzbGNhMjAxOC5jcmwwggJtBgNVHREEggJkMIIC
+YIIPKi5uLmNkbmh3YzMuY29tgg0qLmNkbmh3YzMuY29tgg8qLmh1YXdlaS5jb20u
+Y26CFiouYnVnYm91bnR5Lmh1YXdlaS5jb22CEiouY2xvdWQuaHVhd2VpLmNvbYIR
+Ki5jbG91ZC5odWF3ZWkucnWCDSouZGJhbmtjZG4uY26CDiouZGJhbmtjZG4uY29t
+gg0qLmRiYW5rY2RuLnJ1gg8qLmRiYW5rY2xvdWQuY26CECouZGJhbmtjbG91ZC5j
+b22CFiouZGV2ZWxvcGVyLmh1YXdlaS5jb22CECouZHQuaGljbG91ZC5jb22CFSou
+ZW11aS5kYmFua2Nsb3VkLmNvbYIPKi5oYXJtb255b3MuY29tgg0qLmhpY2xvdWQu
+Y29tghcqLmhpc3BhY2UuZGJhbmtjbG91ZC5jboIYKi5oaXNwYWNlLmRiYW5rY2xv
+dWQuY29tgh0qLmhvc3RpbmctZHJjbi5hZ2Nvbm5lY3QubGlua4IMKi5odWF3ZWku
+Y29tgg0qLm0udm1hbGwuY29tghAqLm9wLmhpY2xvdWQuY29tghkqLnBsYXRmb3Jt
+LmRiYW5rY2xvdWQuY29tghYqLnBsYXRmb3JtLmhpY2xvdWQuY29tghQqLnRoaW5n
+cy5oaWNsb3VkLmNvbYIKKi51b3Blcy5jboILKi52bWFsbC5jb22CDioudm1hbGxy
+ZXMuY29tgg0qLnpzZXJ2ZXkubmV0gg4qLmRpYW5waW5nLmNvbYIMKi5kcGZpbGUu
+Y29tgg0qLm1laXR1YW4ubmV0gg1uLmNkbmh3YzMuY29tMB0GA1UdJQQWMBQGCCsG
+AQUFBwMBBggrBgEFBQcDAjAfBgNVHSMEGDAWgBT473/yzXhnqN5vjySNiPGHAwKz
+6zAdBgNVHQ4EFgQULv8Kngg+CYev5TP8gVRctZL4QhcwggF+BgorBgEEAdZ5AgQC
+BIIBbgSCAWoBaAB2AByfaCzp+vBFaVD4G5aKh93bMhDYTObIsuOCUkrEz1mfAAAB
+n5usWJ4AAAQDAEcwRQIhAO7YNvC2niqLFhhpQtizS9PDSXIK0yY0TaUrTecNvVrB
+AiBmc4mXuHSxF+Z2rVyAfUwAS+P03ot/B4cOHFWD088qGgB2AExj3JjlnB2riPYe
+ij3ero+rRKM3e1+blMP7oZz8wb4mAAABn5usVakAAAQDAEcwRQIgcvuvIBVZrMjd
+mhelMZKdthErc6rW2Lg3I7hkEqyI9n4CIQDoXihrPv2PwVSjK2ABDjGcSfsa015m
+6XImxOjnmYgiGwB2AGBMmq96f3dfAdQG/JINyJnrCxx9+MlSG/r6F3c7l4vJAAAB
+n5usV6kAAAQDAEcwRQIhAJDRyxyvxs1jnveQQF9S+WLNBjlqHp0ew++LtMDqkcMU
+AiBiKRnN03qPKCk8GzJof0HI0ohde7ZOt7utq3JKYTHD8TANBgkqhkiG9w0BAQsF
+AAOCAQEASAnNBpgMlAKJ2Ed0BjR+0PtR4s2giDW2k9InM9xe66T9JI83Kz/fx7HC
+9nRQSfN1cPjm9isIl9Il6bdtDvDgOx2Ew+ZLsylT9ijglve3cgMg176n2FkTVYkk
+bjhtlpv1IsQJiEN7eUlkoEhX41qmGQilj4/kKUzUtvGKBPHOfQ/NBaysbFxWnbWp
+PVy8YIrgSowRtADpwmULdBnFe38CVn7GkhgYX3wPf2VWeG/2D94n4bV13s9AiYZe
+r4RCkjWTVMXINe9qZRG0wsgfSb3WPAkvgeZ56druOM+f6kwOfPqMA44JQN7bOKs9
+JIMzwzagPBZv78iVxMmPp+ICiN/A6w==
+-----END CERTIFICATE-----
+subject=C=CN, ST=Jiangsu, L=Nanjing, O=Huawei Software Technologies Co., Ltd., CN=*.n.cdnhwc3.com
+issuer=C=BE, O=GlobalSign nv-sa, CN=GlobalSign RSA OV SSL CA 2018
+---
+No client certificate CA names sent
+Peer signing digest: SHA256
+Peer signature type: RSA-PSS
+Server Temp Key: X25519, 253 bits
+---
+SSL handshake has read 4300 bytes and written 287 bytes
+Verification: OK
+---
+New, TLSv1.2, Cipher is ECDHE-RSA-AES128-GCM-SHA256
+Server public key is 3072 bit
+Secure Renegotiation IS supported
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+SSL-Session:
+    Protocol  : TLSv1.2
+    Cipher    : ECDHE-RSA-AES128-GCM-SHA256
+    Session-ID: 9866CD18D61070343F985A8A1147B8DF774C18E82ACEA7228D2A853717BC8711
+    Session-ID-ctx: 
+    Master-Key: 5A6C24C812FD5324782D5B1DE3334AD4B66538F6469B2F61DAFBDE9425ED453D4838220F3143C83FF03DC33C735905A0
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket lifetime hint: 259200 (seconds)
+    TLS session ticket:
+    0000 - 6a 77 2f 56 43 63 62 6a-6e 70 53 37 39 31 2b 72   jw/VCcbjnpS791+r
+    0010 - f7 97 38 50 7e bc c3 f8-ec 16 1c 66 d2 b3 9d 61   ..8P~......f...a
+    0020 - eb b1 56 9c 8b 01 91 ca-2f 48 32 ee 41 c4 9a e3   ..V...../H2.A...
+    0030 - 10 67 e7 2d c5 94 fd 3f-be 39 a7 32 20 41 38 7c   .g.-...?.9.2 A8|
+    0040 - 28 d7 7d e9 1c 22 be 33-4e 41 8a a5 3a 82 73 3f   (.}..".3NA..:.s?
+    0050 - bb 97 26 f1 bc b5 a4 1c-8f 1c a3 60 f8 27 71 18   ..&........`.'q.
+    0060 - 20 2e ab fd 22 ff 13 26-30 f1 2f 71 af fc 20 a2    ..."..&0./q.. .
+    0070 - 47 34 da 25 81 44 6b b7-94 1f f5 ec f1 57 6d 91   G4.%.Dk......Wm.
+    0080 - 67 3b 9b bf d6 7a 79 3f-cb ce d7 1b 8a 73 9d 06   g;...zy?.....s..
+    0090 - 80 6c 1f d5 29 a9 8b 26-20 a0 cb 79 1f d6 32 5a   .l..)..& ..y..2Z
+    00a0 - cd 98 16 a2 52 86 a1 e7-71 11 92 f9 61 1a 21 d8   ....R...q...a.!.
+
+    Start Time: 1792244022
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: yes
+---
+Stderr:
+Connecting to 39.173.185.37
+depth=2 OU=GlobalSign Root CA - R3, O=GlobalSign, CN=GlobalSign
+verify return:1
+depth=1 C=BE, O=GlobalSign nv-sa, CN=GlobalSign RSA OV SSL CA 2018
+verify return:1
+depth=0 C=CN, ST=Jiangsu, L=Nanjing, O=Huawei Software Technologies Co., Ltd., CN=*.n.cdnhwc3.com
+verify return:1
+DONE
+
+--- Test Case: openssl s_client tls1_3_noservername (-tls1_3 -noservername) ---
+Exit Code: 0
+Stdout / SSL Session Output:
+CONNECTED(00000168)
+---
+Certificate chain
+ 0 s:C=CN, ST=Jiangsu, L=Nanjing, O=Huawei Software Technologies Co., Ltd., CN=*.n.cdnhwc3.com
+   i:C=BE, O=GlobalSign nv-sa, CN=GlobalSign RSA OV SSL CA 2018
+   a:PKEY: rsaEncryption, 3072 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Jul 25 23:46:25 2026 GMT; NotAfter: Feb  9 23:46:25 2027 GMT
+ 1 s:C=BE, O=GlobalSign nv-sa, CN=GlobalSign RSA OV SSL CA 2018
+   i:OU=GlobalSign Root CA - R3, O=GlobalSign, CN=GlobalSign
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Nov 21 00:00:00 2018 GMT; NotAfter: Nov 21 00:00:00 2028 GMT
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIJcjCCCFqgAwIBAgIMHlYVOOSSpPgmj8EoMA0GCSqGSIb3DQEBCwUAMFAxCzAJ
+BgNVBAYTAkJFMRkwFwYDVQQKExBHbG9iYWxTaWduIG52LXNhMSYwJAYDVQQDEx1H
+bG9iYWxTaWduIFJTQSBPViBTU0wgQ0EgMjAxODAeFw0yNjA3MjUyMzQ2MjVaFw0y
+NzAyMDkyMzQ2MjVaMHwxCzAJBgNVBAYTAkNOMRAwDgYDVQQIEwdKaWFuZ3N1MRAw
+DgYDVQQHEwdOYW5qaW5nMS8wLQYDVQQKEyZIdWF3ZWkgU29mdHdhcmUgVGVjaG5v
+bG9naWVzIENvLiwgTHRkLjEYMBYGA1UEAwwPKi5uLmNkbmh3YzMuY29tMIIBojAN
+BgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAst9P6FkS1VvPpd2fAIXduNqQ/mhL
+esrkz2tbZiTT1oME90mI7R3b4z6vyjO5XztYWRM4mXl2O/KbQYbgVGmKqVzwMo26
+Q54ls4txMiIauHVgh1fAHkRIbmjbxkIFVD9XoNp0pUfU1oXAR4I8D0ipqyyH69my
+qDuU5I52ygj1OyNOYm1a2qg06Hyg7MQbEJU4+9AGS5FBk4bs/hUixYRX/U6pr/u5
+YI7MILe0Bm1DpvWjtwU4cvUluucjXDU2Rx+u37ZtD3mzMj5aRxmDEHF2DZd5iMtm
+WuSeF/o9PeP/fsJVZKLqTi222xEnnL7Sf1A/iWHKXn3Js17y9BLdDH5bGrXyvFzq
+ZFAlGGjzNG/Hb3bQ9uswTmT+OMiHyR2pidsov7pgMig1APLMOzpLgemZeHC3EW1s
+Wk7DBvIfcuNfg2DnTG2cu10VHbpPv5BlckYQRYaYvF0kD2ufPxNiXODWIneiXSE/
+Q1AwZIsfm0dIuMx/TeJPPBbHGKrjy4dQcnARAgMBAAGjggWeMIIFmjAOBgNVHQ8B
+Af8EBAMCBaAwDAYDVR0TAQH/BAIwADCBjgYIKwYBBQUHAQEEgYEwfzBEBggrBgEF
+BQcwAoY4aHR0cDovL3NlY3VyZS5nbG9iYWxzaWduLmNvbS9jYWNlcnQvZ3Nyc2Fv
+dnNzbGNhMjAxOC5jcnQwNwYIKwYBBQUHMAGGK2h0dHA6Ly9vY3NwLmdsb2JhbHNp
+Z24uY29tL2dzcnNhb3Zzc2xjYTIwMTgwVgYDVR0gBE8wTTBBBgkrBgEEAaAyARQw
+NDAyBggrBgEFBQcCARYmaHR0cHM6Ly93d3cuZ2xvYmFsc2lnbi5jb20vcmVwb3Np
+dG9yeS8wCAYGZ4EMAQICMD8GA1UdHwQ4MDYwNKAyoDCGLmh0dHA6Ly9jcmwuZ2xv
+YmFsc2lnbi5jb20vZ3Nyc2FvdnNzbGNhMjAxOC5jcmwwggJtBgNVHREEggJkMIIC
+YIIPKi5uLmNkbmh3YzMuY29tgg0qLmNkbmh3YzMuY29tgg8qLmh1YXdlaS5jb20u
+Y26CFiouYnVnYm91bnR5Lmh1YXdlaS5jb22CEiouY2xvdWQuaHVhd2VpLmNvbYIR
+Ki5jbG91ZC5odWF3ZWkucnWCDSouZGJhbmtjZG4uY26CDiouZGJhbmtjZG4uY29t
+gg0qLmRiYW5rY2RuLnJ1gg8qLmRiYW5rY2xvdWQuY26CECouZGJhbmtjbG91ZC5j
+b22CFiouZGV2ZWxvcGVyLmh1YXdlaS5jb22CECouZHQuaGljbG91ZC5jb22CFSou
+ZW11aS5kYmFua2Nsb3VkLmNvbYIPKi5oYXJtb255b3MuY29tgg0qLmhpY2xvdWQu
+Y29tghcqLmhpc3BhY2UuZGJhbmtjbG91ZC5jboIYKi5oaXNwYWNlLmRiYW5rY2xv
+dWQuY29tgh0qLmhvc3RpbmctZHJjbi5hZ2Nvbm5lY3QubGlua4IMKi5odWF3ZWku
+Y29tgg0qLm0udm1hbGwuY29tghAqLm9wLmhpY2xvdWQuY29tghkqLnBsYXRmb3Jt
+LmRiYW5rY2xvdWQuY29tghYqLnBsYXRmb3JtLmhpY2xvdWQuY29tghQqLnRoaW5n
+cy5oaWNsb3VkLmNvbYIKKi51b3Blcy5jboILKi52bWFsbC5jb22CDioudm1hbGxy
+ZXMuY29tgg0qLnpzZXJ2ZXkubmV0gg4qLmRpYW5waW5nLmNvbYIMKi5kcGZpbGUu
+Y29tgg0qLm1laXR1YW4ubmV0gg1uLmNkbmh3YzMuY29tMB0GA1UdJQQWMBQGCCsG
+AQUFBwMBBggrBgEFBQcDAjAfBgNVHSMEGDAWgBT473/yzXhnqN5vjySNiPGHAwKz
+6zAdBgNVHQ4EFgQULv8Kngg+CYev5TP8gVRctZL4QhcwggF+BgorBgEEAdZ5AgQC
+BIIBbgSCAWoBaAB2AByfaCzp+vBFaVD4G5aKh93bMhDYTObIsuOCUkrEz1mfAAAB
+n5usWJ4AAAQDAEcwRQIhAO7YNvC2niqLFhhpQtizS9PDSXIK0yY0TaUrTecNvVrB
+AiBmc4mXuHSxF+Z2rVyAfUwAS+P03ot/B4cOHFWD088qGgB2AExj3JjlnB2riPYe
+ij3ero+rRKM3e1+blMP7oZz8wb4mAAABn5usVakAAAQDAEcwRQIgcvuvIBVZrMjd
+mhelMZKdthErc6rW2Lg3I7hkEqyI9n4CIQDoXihrPv2PwVSjK2ABDjGcSfsa015m
+6XImxOjnmYgiGwB2AGBMmq96f3dfAdQG/JINyJnrCxx9+MlSG/r6F3c7l4vJAAAB
+n5usV6kAAAQDAEcwRQIhAJDRyxyvxs1jnveQQF9S+WLNBjlqHp0ew++LtMDqkcMU
+AiBiKRnN03qPKCk8GzJof0HI0ohde7ZOt7utq3JKYTHD8TANBgkqhkiG9w0BAQsF
+AAOCAQEASAnNBpgMlAKJ2Ed0BjR+0PtR4s2giDW2k9InM9xe66T9JI83Kz/fx7HC
+9nRQSfN1cPjm9isIl9Il6bdtDvDgOx2Ew+ZLsylT9ijglve3cgMg176n2FkTVYkk
+bjhtlpv1IsQJiEN7eUlkoEhX41qmGQilj4/kKUzUtvGKBPHOfQ/NBaysbFxWnbWp
+PVy8YIrgSowRtADpwmULdBnFe38CVn7GkhgYX3wPf2VWeG/2D94n4bV13s9AiYZe
+r4RCkjWTVMXINe9qZRG0wsgfSb3WPAkvgeZ56druOM+f6kwOfPqMA44JQN7bOKs9
+JIMzwzagPBZv78iVxMmPp+ICiN/A6w==
+-----END CERTIFICATE-----
+subject=C=CN, ST=Jiangsu, L=Nanjing, O=Huawei Software Technologies Co., Ltd., CN=*.n.cdnhwc3.com
+issuer=C=BE, O=GlobalSign nv-sa, CN=GlobalSign RSA OV SSL CA 2018
+---
+No client certificate CA names sent
+Peer signing digest: SHA256
+Peer signature type: RSA-PSS
+Server Temp Key: X25519, 253 bits
+---
+SSL handshake has read 4217 bytes and written 316 bytes
+Verification: OK
+---
+New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384
+Server public key is 3072 bit
+This TLS version forbids renegotiation.
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+Early data was not sent
+Verify return code: 0 (ok)
+---
+---
+Post-Handshake New Session Ticket arrived:
+SSL-Session:
+    Protocol  : TLSv1.3
+    Cipher    : TLS_AES_256_GCM_SHA384
+    Session-ID: A3774B6753E45FCC0A6CEF731EA0B22BDD55BE89D6AF27544A0018E0613B152A
+    Session-ID-ctx: 
+    Resumption PSK: 0ADFFE2F616DED01D568A5C55485AE0E8DD337D22998EFC5A51DBFA4E83C3F5CBFCD10EE6A73DA376542B8DF02C69E75
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket lifetime hint: 259200 (seconds)
+    TLS session ticket:
+    0000 - 6a 77 2f 56 43 63 62 6a-6e 70 53 37 39 31 2b 72   jw/VCcbjnpS791+r
+    0010 - 7a 46 d4 8b d5 71 22 72-aa 37 c4 34 c3 e2 a9 e2   zF...q"r.7.4....
+    0020 - 36 9e 3a d5 44 23 f0 60-8f 7d 6a 38 5a 9e bb c0   6.:.D#.`.}j8Z...
+    0030 - ed 13 8d 71 fe 8c 0c 2d-35 65 14 bf 93 8b f8 98   ...q...-5e......
+    0040 - 8b e8 43 4d 97 ab c4 3d-c8 1f fe 78 d3 52 d4 73   ..CM...=...x.R.s
+    0050 - 6f ce e2 eb 88 ea 98 f1-72 72 6c 99 10 fc da c5   o.......rrl.....
+    0060 - b0 34 bb 73 b8 b5 cf d7-e8 8f d3 31 c7 e4 9e 4d   .4.s.......1...M
+    0070 - ed da 68 09 52 56 45 84-6b 97 2b f8 f7 d2 85 ad   ..h.RVE.k.+.....
+    0080 - 3a 85 5b 16 c0 68 91 44-b6 94 ce c0 4a 63 12 99   :.[..h.D....Jc..
+    0090 - 14 6a 60 f8 62 88 45 d7-d3 d9 ac 80 54 d6 c8 7c   .j`.b.E.....T..|
+    00a0 - 7b 68 d3 42 09 5b d5 6f-24 0a 05 ad 85 98 98 b7   {h.B.[.o$.......
+    00b0 - 1d 17 1e 7a 14 fd 1c 50-af 01 3a 3a c5 50 11 68   ...z...P..::.P.h
+    00c0 - 15 bd c6 1d 5d 0b 13 18-31 6f 04 a4 c5 0b f2 d3   ....]...1o......
+    00d0 - 8d f4 ab 2a 3b 1f f8 1f-8f 54 a0 03 70 79 74 6d   ...*;....T..pytm
+
+    Start Time: 1792244024
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: no
+    Max Early Data: 16384
+---
+read R BLOCK
+---
+Post-Handshake New Session Ticket arrived:
+SSL-Session:
+    Protocol  : TLSv1.3
+    Cipher    : TLS_AES_256_GCM_SHA384
+    Session-ID: D66E8BF68D49643EE4D6069276D5F26FC80AF477F177B3C024C8909D08B4D300
+    Session-ID-ctx: 
+    Resumption PSK: 6291B0DF8F0C7C7233C4A93BFABB5E8534C1BE51F99F8009D2F9A16C77D440A1413320E07FC0E58A43EDAF2A707B67C1
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket lifetime hint: 259200 (seconds)
+    TLS session ticket:
+    0000 - 6a 77 2f 56 43 63 62 6a-6e 70 53 37 39 31 2b 72   jw/VCcbjnpS791+r
+    0010 - 8b 2a 53 93 be ce d8 56-53 80 fd b2 78 f7 38 c5   .*S....VS...x.8.
+    0020 - 2e bc 2e f8 9c 99 2a b3-c1 81 76 8d fc 71 49 70   ......*...v..qIp
+    0030 - 8c 3c b5 54 6e 3a db 4d-2e 6e 36 45 0a 2a 5b be   .<.Tn:.M.n6E.*[.
+    0040 - cc e3 93 b6 19 5e 49 26-15 61 4e ff 69 9d 43 02   .....^I&.aN.i.C.
+    0050 - 89 4d d9 e7 d1 1b 3f 97-fd 07 fd 5c 84 2a 9f 24   .M....?....\.*.$
+    0060 - 2a 54 8d 8a 7d 8a 02 e2-94 e1 84 42 53 f2 7e 3e   *T..}......BS.~>
+    0070 - 23 42 87 ae b0 e1 f5 f2-50 b0 a2 98 2a 31 8e 79   #B......P...*1.y
+    0080 - 25 b0 80 78 20 1b 90 c1-e6 cc db 95 84 07 93 96   %..x ...........
+    0090 - 52 60 7d f2 11 32 1a 75-db 3e 76 6c c9 64 08 18   R`}..2.u.>vl.d..
+    00a0 - df 25 60 ad 12 ae ed 85-b8 67 b3 76 f1 0d 48 21   .%`......g.v..H!
+    00b0 - 19 c8 94 db c2 63 cb 68-0b 7a 79 26 37 9f 42 16   .....c.h.zy&7.B.
+    00c0 - d4 c3 55 89 02 7b b7 f5-59 38 32 ea 2f 69 23 a5   ..U..{..Y82./i#.
+    00d0 - f5 e0 6a 56 b0 12 66 9b-c7 bf da bd ae 6b db 55   ..jV..f......k.U
+
+    Start Time: 1792244024
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: no
+    Max Early Data: 16384
+---
+read R BLOCK
+Stderr:
+Connecting to 39.173.185.37
+depth=2 OU=GlobalSign Root CA - R3, O=GlobalSign, CN=GlobalSign
+verify return:1
+depth=1 C=BE, O=GlobalSign nv-sa, CN=GlobalSign RSA OV SSL CA 2018
+verify return:1
+depth=0 C=CN, ST=Jiangsu, L=Nanjing, O=Huawei Software Technologies Co., Ltd., CN=*.n.cdnhwc3.com
+verify return:1
+DONE
+

@@ -1,0 +1,93 @@
+================================================================================
+ZAKOWAY PLAYER PROBE FIXTURE LOG
+================================================================================
+场景名称: P5: 打开阶段 demux 截断失败 (moov在尾部传输70KB拒连, 生产 error 级别, 观察60s)
+测试日期: 2026-10-17T21:44:51.058375
+执行环境: Windows 11 Pro x64, media_kit 1.2.6, libmpv v0.36.0-403, FFmpeg n6.0, mbedTLS 3.5.0
+执行命令: flutter test tool/player_probe/run_probe_p5_open_demux_fail_60s.dart
+URL形态说明: 本地 Mock HTTP 媒体流 (127.0.0.1:0)，sample_15s.mp4 (moov在文件尾部，传输70KB后持续拒连)
+脱敏规则说明: 敏感参数 sign、t、token 等替换为 ...，其余保持完全原始输出
+请求头信息: {}
+附加说明: 重跑旧场景 4a 并把观察窗口从 8 秒延长到 60 秒；记录 mpv 底层在 demuxer 阶段未读到 moov 且后续重连全被拒时，是否最终输出 Failed to open 或停在 buffering=true
+================================================================================
+TIMELINE EVENTS (Monotonic relative ms from T0, absolute ISO, tag, raw message):
+================================================================================
+[+    2ms] [2026-10-17T21:43:51.035890] [probe.config] logLevel=MPVLogLevel.error, mode=eofAndRefuse, eofByteThreshold=70KB, sampleSize=237756B
+[+    3ms] [2026-10-17T21:43:51.036890] [action.open.call] uri=http://127.0.0.1:59576/media.mp4, play=true, headers={}
+[+    9ms] [2026-10-17T21:43:51.042891] [stream.playing] false
+[+    9ms] [2026-10-17T21:43:51.042891] [stream.completed] false
+[+   10ms] [2026-10-17T21:43:51.043896] [stream.position] 0ms (0:00:00.000000)
+[+   10ms] [2026-10-17T21:43:51.043896] [stream.duration] 0ms (0:00:00.000000)
+[+   10ms] [2026-10-17T21:43:51.043896] [stream.buffering] false
+[+   10ms] [2026-10-17T21:43:51.043896] [stream.buffer] 0ms (0:00:00.000000)
+[+   10ms] [2026-10-17T21:43:51.043896] [stream.videoParams] w=null, h=null, dw=null, dh=null, aspect=null, pixelformat=null, hwPixelformat=null
+[+   10ms] [2026-10-17T21:43:51.043896] [stream.tracks] videoCount=2, audioCount=2, subtitleCount=2
+[+   10ms] [2026-10-17T21:43:51.043896] [stream.width] null
+[+   10ms] [2026-10-17T21:43:51.043896] [stream.height] null
+[+   18ms] [2026-10-17T21:43:51.051892] [stream.playing] true
+[+   18ms] [2026-10-17T21:43:51.051892] [action.open.future_completed] cost=15ms
+[+   18ms] [2026-10-17T21:43:51.051892] [stream.buffering] true
+[+ 1047ms] [2026-10-17T21:43:52.081178] [stream.log] [ffmpeg] (error) Seek failed (to 220096, size -40)
+[+ 2058ms] [2026-10-17T21:43:53.091144] [stream.log] [ffmpeg] (error) Seek failed (to 220096, size -40)
+[+ 2058ms] [2026-10-17T21:43:53.091144] [stream.log] [ffmpeg/demuxer] (error) mov,mp4,m4a,3gp,3g2,mj2: moov atom not found
+[+ 2058ms] [2026-10-17T21:43:53.092145] [stream.log] [lavf] (error) avformat_open_input() failed
+[+ 3074ms] [2026-10-17T21:43:54.107825] [stream.log] [ffmpeg] (error) Seek failed (to 220096, size -40)
+[+ 4087ms] [2026-10-17T21:43:55.120674] [stream.log] [ffmpeg] (error) Seek failed (to 808452959, size -40)
+[+ 5101ms] [2026-10-17T21:43:56.135313] [stream.log] [ffmpeg] (error) Seek failed (to 1703446247, size -40)
+[+ 6127ms] [2026-10-17T21:43:57.160937] [stream.log] [ffmpeg] (error) Seek failed (to 1937509722, size -40)
+[+ 7132ms] [2026-10-17T21:43:58.166743] [stream.log] [ffmpeg] (error) Seek failed (to 91702498, size -40)
+[+ 8155ms] [2026-10-17T21:43:59.189291] [stream.log] [ffmpeg] (error) Seek failed (to 3377609092, size -40)
+[+ 9169ms] [2026-10-17T21:44:00.202938] [stream.log] [ffmpeg] (error) Seek failed (to 2367542286, size -40)
+[+10194ms] [2026-10-17T21:44:01.228066] [stream.log] [ffmpeg] (error) Seek failed (to 2268619168, size -40)
+[+11210ms] [2026-10-17T21:44:02.244365] [stream.log] [ffmpeg] (error) Seek failed (to 1568968618, size -40)
+[+12234ms] [2026-10-17T21:44:03.268121] [stream.log] [ffmpeg] (error) Seek failed (to 1726919357, size -40)
+[+13247ms] [2026-10-17T21:44:04.281173] [stream.log] [ffmpeg] (error) Seek failed (to 2039314404, size -40)
+[+14262ms] [2026-10-17T21:44:05.295489] [stream.log] [ffmpeg] (error) Seek failed (to 3383680317, size -40)
+[+15278ms] [2026-10-17T21:44:06.311257] [stream.log] [ffmpeg] (error) Seek failed (to 1333331848, size -40)
+[+16290ms] [2026-10-17T21:44:07.323820] [stream.log] [ffmpeg] (error) Seek failed (to 3118283372, size -40)
+[+17306ms] [2026-10-17T21:44:08.339931] [stream.log] [ffmpeg] (error) Seek failed (to 2098812537, size -40)
+[+18321ms] [2026-10-17T21:44:09.354903] [stream.log] [ffmpeg] (error) Seek failed (to 4150358007, size -40)
+[+19324ms] [2026-10-17T21:44:10.358419] [stream.log] [ffmpeg] (error) Seek failed (to 146175427, size -40)
+[+20336ms] [2026-10-17T21:44:11.369932] [stream.log] [ffmpeg] (error) Seek failed (to 2840758346, size -40)
+[+21357ms] [2026-10-17T21:44:12.390853] [stream.log] [ffmpeg] (error) Seek failed (to 3446741876, size -40)
+[+22370ms] [2026-10-17T21:44:13.404498] [stream.log] [ffmpeg] (error) Seek failed (to 2491560, size -40)
+[+23383ms] [2026-10-17T21:44:14.417525] [stream.log] [ffmpeg] (error) Seek failed (to 1048363603, size -40)
+[+24388ms] [2026-10-17T21:44:15.421899] [stream.log] [ffmpeg] (error) Seek failed (to 30455628, size -40)
+[+25399ms] [2026-10-17T21:44:16.433225] [stream.log] [ffmpeg] (error) Seek failed (to 3084643527, size -40)
+[+26414ms] [2026-10-17T21:44:17.447716] [stream.log] [ffmpeg] (error) Seek failed (to 3977715058, size -40)
+[+27436ms] [2026-10-17T21:44:18.470653] [stream.log] [ffmpeg] (error) Seek failed (to 2472948869, size -40)
+[+28461ms] [2026-10-17T21:44:19.494187] [stream.log] [ffmpeg] (error) Seek failed (to 614806807, size -40)
+[+29477ms] [2026-10-17T21:44:20.511258] [stream.log] [ffmpeg] (error) Seek failed (to 2064327281, size -40)
+[+30492ms] [2026-10-17T21:44:21.525805] [stream.log] [ffmpeg] (error) Seek failed (to 2131643677, size -40)
+[+31508ms] [2026-10-17T21:44:22.542320] [stream.log] [ffmpeg] (error) Seek failed (to 997273111, size -40)
+[+32525ms] [2026-10-17T21:44:23.558578] [stream.log] [ffmpeg] (error) Seek failed (to 3285109703, size -40)
+[+33541ms] [2026-10-17T21:44:24.574308] [stream.log] [ffmpeg] (error) Seek failed (to 1400052275, size -40)
+[+34546ms] [2026-10-17T21:44:25.579919] [stream.log] [ffmpeg] (error) Seek failed (to 593597576, size -40)
+[+35568ms] [2026-10-17T21:44:26.602748] [stream.log] [ffmpeg] (error) Seek failed (to 2751790118, size -40)
+[+36573ms] [2026-10-17T21:44:27.607434] [stream.log] [ffmpeg] (error) Seek failed (to 2763623511, size -40)
+[+37586ms] [2026-10-17T21:44:28.620697] [stream.log] [ffmpeg] (error) Seek failed (to 29023937, size -40)
+[+38613ms] [2026-10-17T21:44:29.647607] [stream.log] [ffmpeg] (error) Seek failed (to 507585270, size -40)
+[+39618ms] [2026-10-17T21:44:30.652058] [stream.log] [ffmpeg] (error) Seek failed (to 3529495931, size -40)
+[+40635ms] [2026-10-17T21:44:31.669163] [stream.log] [ffmpeg] (error) Seek failed (to 2150335169, size -40)
+[+41639ms] [2026-10-17T21:44:32.672292] [stream.log] [ffmpeg] (error) Seek failed (to 3933918280, size -40)
+[+42649ms] [2026-10-17T21:44:33.683806] [stream.log] [ffmpeg] (error) Seek failed (to 360744953, size -40)
+[+43678ms] [2026-10-17T21:44:34.712179] [stream.log] [ffmpeg] (error) Seek failed (to 4015383826, size -40)
+[+44696ms] [2026-10-17T21:44:35.730123] [stream.log] [ffmpeg] (error) Seek failed (to 3663142343, size -40)
+[+45700ms] [2026-10-17T21:44:36.733357] [stream.log] [ffmpeg] (error) Seek failed (to 3215040591, size -40)
+[+46712ms] [2026-10-17T21:44:37.746759] [stream.log] [ffmpeg] (error) Seek failed (to 125313972, size -40)
+[+47726ms] [2026-10-17T21:44:38.760398] [stream.log] [ffmpeg] (error) Seek failed (to 2331059893, size -40)
+[+48742ms] [2026-10-17T21:44:39.775933] [stream.log] [ffmpeg] (error) Seek failed (to 4279880504, size -40)
+[+49765ms] [2026-10-17T21:44:40.798910] [stream.log] [ffmpeg] (error) Seek failed (to 1329586561, size -40)
+[+50778ms] [2026-10-17T21:44:41.812227] [stream.log] [ffmpeg] (error) Seek failed (to 1056467441, size -40)
+[+51791ms] [2026-10-17T21:44:42.824957] [stream.log] [ffmpeg] (error) Seek failed (to 4124800840, size -40)
+[+52804ms] [2026-10-17T21:44:43.837404] [stream.log] [ffmpeg] (error) Seek failed (to 811483870, size -40)
+[+53820ms] [2026-10-17T21:44:44.853722] [stream.log] [ffmpeg] (error) Seek failed (to 3048081421, size -40)
+[+54843ms] [2026-10-17T21:44:45.877225] [stream.log] [ffmpeg] (error) Seek failed (to 2725047285, size -40)
+[+55868ms] [2026-10-17T21:44:46.900984] [stream.log] [ffmpeg] (error) Seek failed (to 2225443482, size -40)
+[+56890ms] [2026-10-17T21:44:47.923929] [stream.log] [ffmpeg] (error) Seek failed (to 618285586, size -40)
+[+57903ms] [2026-10-17T21:44:48.936759] [stream.log] [ffmpeg] (error) Seek failed (to 900412265, size -40)
+[+58916ms] [2026-10-17T21:44:49.949895] [stream.log] [ffmpeg] (error) Seek failed (to 1078112084, size -40)
+[+59920ms] [2026-10-17T21:44:50.954270] [stream.log] [ffmpeg] (error) Seek failed (to 3379561539, size -40)
+================================================================================
+END OF FIXTURE LOG
+================================================================================

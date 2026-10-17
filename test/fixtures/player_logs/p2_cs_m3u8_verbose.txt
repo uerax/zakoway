@@ -1,0 +1,332 @@
+================================================================================
+ZAKOWAY PLAYER PROBE FIXTURE LOG - P2
+================================================================================
+场景名称: P2: CS 备用线路 m3u8 (生产 mpv 配置, debug 级别, 5次)
+测试日期: 2026-10-17T21:32:35.994599
+执行环境: Windows 11 Pro x64, media_kit 1.2.6, libmpv v0.36.0-403, FFmpeg n6.0, mbedTLS 3.5.0
+执行命令: flutter test tool/player_probe/run_probe_p2_cs_line.dart
+选用番剧与分集: 稀饭备用-1 - 第1集 (https://next.xifanacg.com/anime/3403/play/121397?source_id=2&source=CS)
+URL形态说明: 稀饭 CS 备用切片线路 (dl.playxf.top 的 m3u8)，每次迭代重新 resolve()
+成功定义: open 后 15 秒内 position >= 3000ms（3秒）为成功，出现 Failed to open 或 15 秒超时未达标为失败
+脱敏规则说明: 敏感参数 sign、t、token 等替换为 ...，其余保持完全原始输出
+请求头信息: 遵循源站下发 Headers (含 Referer: https://next.xifanacg.com/)
+附加说明: 生产 mpv 配置，连续 open 5 次，监控 HLS 切片加载与起播进度
+================================================================================
+
+--- Iteration #1 ---
+目标 URL: https://dl.playxf.top/新番/2607/W-无职转生S3/01/无职01.m3u8
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36, Referer: https://next.xifanacg.com/}
+结果: FAILED (耗时: 1227ms, 归因: tls_handshake_closed)
+stream.error:
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+stream.log:
+  [cplayer] (v) Set property: cache-on-disk="no" -> 1
+  [cplayer] (v) Set property: demuxer-seekable-cache="yes" -> 1
+  [cplayer] (v) Set property: force-seekable="yes" -> 1
+  [cplayer] (v) Set property: hr-seek="default" -> 1
+  [cplayer] (v) Set property: hr-seek-framedrop="yes" -> 1
+  [cplayer] (v) Set property: cache="yes" -> 1
+  [cplayer] (v) Set property: cache-pause="yes" -> 1
+  [cplayer] (v) Set property: cache-pause-initial="no" -> 1
+  [cplayer] (v) Set property: cache-pause-wait="0.2" -> 1
+  [cplayer] (v) Set property: demuxer-readahead-secs="15" -> 1
+  [cplayer] (v) Set property: cache-secs="30" -> 1
+  [cplayer] (v) Set property: demuxer-max-bytes="33554432" -> 1
+  [cplayer] (v) Set property: demuxer-max-back-bytes="16777216" -> 1
+  [cplayer] (v) Set property: network-timeout="10" -> 1
+  [cplayer] (v) Set property: volume-max="100" -> 1
+  [cplayer] (v) Set property: user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" -> 1
+  [cplayer] (v) Set property: tls-verify="no" -> 1
+  [cplayer] (v) Set property: hwdec-codecs="all" -> 1
+  [cplayer] (v) Set property: hwdec="auto" -> 1
+  [cplayer] (v) Set property: scale="spline36" -> 1
+  [cplayer] (v) Set property: cscale="spline36" -> 1
+  [cplayer] (v) Set property: sigmoid-upscaling="yes" -> 1
+  [cplayer] (v) Set property: correct-downscaling="yes" -> 1
+  [cplayer] (debug) Run command: stop, flags=64, args=[flags=""]
+  [cplayer] (debug) Run command: playlist-clear, flags=64, args=[]
+  [cplayer] (debug) Run command: playlist-play-index, flags=64, args=[index="none"]
+  [cplayer] (v) Set property: pause=true -> 1
+  [cplayer] (debug) Run command: loadlist, flags=64, args=[url="C:\\Users\\uerax\\AppData\\Local\\Temp\\1803dc80-e26b-4d5a-9b5b-07a433de22d0", flags="append"]
+  [playlist_parser] (v) Parsing playlist file C:\Users\uerax\AppData\Local\Temp\1803dc80-e26b-4d5a-9b5b-07a433de22d0...
+  [file] (v) Opening C:\Users\uerax\AppData\Local\Temp\1803dc80-e26b-4d5a-9b5b-07a433de22d0
+  [file] (debug) resize stream to 131072 bytes, drop 0 bytes
+  [file] (debug) Stream opened successfully.
+  [demux] (v) Trying demuxers for level=request.
+  [demux] (debug) Trying demuxer: playlist (force-level: request)
+  [playlist] (warn) Reading plaintext playlist.
+  [playlist] (v) demuxer read all data; closing stream
+  [demux] (v) Detected file format: txt (Playlist file)
+  [playlist_parser] (v) Playlist successfully parsed
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Set property: pause=false -> 1
+  [cplayer] (v) Set property: playlist-pos=0 -> 1
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Running hook: main/on_load
+  [cplayer] (v) Set property: http-header-fields=["User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36","Referer: https://next.xifanacg.com/"] -> 1
+  [ffmpeg] (v) Opening https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8
+  [ffmpeg] (debug) tcp: Starting connection attempt to 104.21.88.205 port 443
+  [ffmpeg] (debug) tcp: Successfully connected to 104.21.88.205 port 443
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (warn) https: Will reconnect at 0 in 0 second(s).
+  [ffmpeg] (debug) tcp: Starting connection attempt to 104.21.88.205 port 443
+  [ffmpeg] (debug) tcp: Successfully connected to 104.21.88.205 port 443
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (warn) https: Will reconnect at 0 in 1 second(s).
+  [ffmpeg] (debug) tcp: Starting connection attempt to 104.21.88.205 port 443
+  [ffmpeg] (debug) tcp: Successfully connected to 104.21.88.205 port 443
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [stream] (error) Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+  [cplayer] (v) Opening failed or was aborted: https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8
+  [cplayer] (v) Running hook: main/on_unload
+  [cplayer] (v) Set property: http-header-fields=null -> -2
+
+--- Iteration #2 ---
+目标 URL: https://dl.playxf.top/新番/2607/W-无职转生S3/01/无职01.m3u8
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36, Referer: https://next.xifanacg.com/}
+结果: FAILED (耗时: 1239ms, 归因: unknown_error)
+stream.error:
+  Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+stream.log:
+  [cplayer] (v) Set property: demuxer-seekable-cache="yes" -> 1
+  [cplayer] (v) Set property: force-seekable="yes" -> 1
+  [cplayer] (v) Set property: hr-seek="default" -> 1
+  [cplayer] (v) Set property: hr-seek-framedrop="yes" -> 1
+  [cplayer] (v) Set property: cache="yes" -> 1
+  [cplayer] (v) Set property: cache-pause="yes" -> 1
+  [cplayer] (v) Set property: cache-pause-initial="no" -> 1
+  [cplayer] (v) Set property: cache-pause-wait="0.2" -> 1
+  [cplayer] (v) Set property: demuxer-readahead-secs="15" -> 1
+  [cplayer] (v) Set property: cache-secs="30" -> 1
+  [cplayer] (v) Set property: demuxer-max-bytes="33554432" -> 1
+  [cplayer] (v) Set property: demuxer-max-back-bytes="16777216" -> 1
+  [cplayer] (v) Set property: network-timeout="10" -> 1
+  [cplayer] (v) Set property: volume-max="100" -> 1
+  [cplayer] (v) Set property: user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" -> 1
+  [cplayer] (v) Set property: tls-verify="no" -> 1
+  [cplayer] (v) Set property: hwdec-codecs="all" -> 1
+  [cplayer] (v) Set property: hwdec="auto" -> 1
+  [cplayer] (v) Set property: scale="spline36" -> 1
+  [cplayer] (v) Set property: cscale="spline36" -> 1
+  [cplayer] (v) Set property: sigmoid-upscaling="yes" -> 1
+  [cplayer] (v) Set property: correct-downscaling="yes" -> 1
+  [cplayer] (debug) Run command: stop, flags=64, args=[flags=""]
+  [cplayer] (debug) Run command: playlist-clear, flags=64, args=[]
+  [cplayer] (debug) Run command: playlist-play-index, flags=64, args=[index="none"]
+  [cplayer] (v) Set property: pause=true -> 1
+  [cplayer] (debug) Run command: loadlist, flags=64, args=[url="C:\\Users\\uerax\\AppData\\Local\\Temp\\0be89cde-72a7-449f-8d07-f908782409d5", flags="append"]
+  [playlist_parser] (v) Parsing playlist file C:\Users\uerax\AppData\Local\Temp\0be89cde-72a7-449f-8d07-f908782409d5...
+  [file] (v) Opening C:\Users\uerax\AppData\Local\Temp\0be89cde-72a7-449f-8d07-f908782409d5
+  [file] (debug) resize stream to 131072 bytes, drop 0 bytes
+  [file] (debug) Stream opened successfully.
+  [demux] (v) Trying demuxers for level=request.
+  [demux] (debug) Trying demuxer: playlist (force-level: request)
+  [playlist] (warn) Reading plaintext playlist.
+  [playlist] (v) demuxer read all data; closing stream
+  [demux] (v) Detected file format: txt (Playlist file)
+  [playlist_parser] (v) Playlist successfully parsed
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Set property: pause=false -> 1
+  [cplayer] (v) Set property: playlist-pos=0 -> 1
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Running hook: main/on_load
+  [cplayer] (v) Set property: http-header-fields=["User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36","Referer: https://next.xifanacg.com/"] -> 1
+  [ffmpeg] (v) Opening https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8
+  [stream] (error) Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+
+--- Iteration #3 ---
+目标 URL: https://dl.playxf.top/新番/2607/W-无职转生S3/01/无职01.m3u8
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36, Referer: https://next.xifanacg.com/}
+结果: FAILED (耗时: 1234ms, 归因: unknown_error)
+stream.error:
+  Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+stream.log:
+  [cplayer] (v) Set property: cache-on-disk="no" -> 1
+  [cplayer] (v) Set property: demuxer-seekable-cache="yes" -> 1
+  [cplayer] (v) Set property: force-seekable="yes" -> 1
+  [cplayer] (v) Set property: hr-seek="default" -> 1
+  [cplayer] (v) Set property: hr-seek-framedrop="yes" -> 1
+  [cplayer] (v) Set property: cache="yes" -> 1
+  [cplayer] (v) Set property: cache-pause="yes" -> 1
+  [cplayer] (v) Set property: cache-pause-initial="no" -> 1
+  [cplayer] (v) Set property: cache-pause-wait="0.2" -> 1
+  [cplayer] (v) Set property: demuxer-readahead-secs="15" -> 1
+  [cplayer] (v) Set property: cache-secs="30" -> 1
+  [cplayer] (v) Set property: demuxer-max-bytes="33554432" -> 1
+  [cplayer] (v) Set property: demuxer-max-back-bytes="16777216" -> 1
+  [cplayer] (v) Set property: network-timeout="10" -> 1
+  [cplayer] (v) Set property: volume-max="100" -> 1
+  [cplayer] (v) Set property: user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" -> 1
+  [cplayer] (v) Set property: tls-verify="no" -> 1
+  [cplayer] (v) Set property: hwdec-codecs="all" -> 1
+  [cplayer] (v) Set property: hwdec="auto" -> 1
+  [cplayer] (v) Set property: scale="spline36" -> 1
+  [cplayer] (v) Set property: cscale="spline36" -> 1
+  [cplayer] (v) Set property: sigmoid-upscaling="yes" -> 1
+  [cplayer] (v) Set property: correct-downscaling="yes" -> 1
+  [cplayer] (debug) Run command: stop, flags=64, args=[flags=""]
+  [cplayer] (debug) Run command: playlist-clear, flags=64, args=[]
+  [cplayer] (debug) Run command: playlist-play-index, flags=64, args=[index="none"]
+  [cplayer] (v) Set property: pause=true -> 1
+  [cplayer] (debug) Run command: loadlist, flags=64, args=[url="C:\\Users\\uerax\\AppData\\Local\\Temp\\89695f03-315e-45bf-8622-86371bdee045", flags="append"]
+  [playlist_parser] (v) Parsing playlist file C:\Users\uerax\AppData\Local\Temp\89695f03-315e-45bf-8622-86371bdee045...
+  [file] (v) Opening C:\Users\uerax\AppData\Local\Temp\89695f03-315e-45bf-8622-86371bdee045
+  [file] (debug) resize stream to 131072 bytes, drop 0 bytes
+  [file] (debug) Stream opened successfully.
+  [demux] (v) Trying demuxers for level=request.
+  [demux] (debug) Trying demuxer: playlist (force-level: request)
+  [playlist] (warn) Reading plaintext playlist.
+  [playlist] (v) demuxer read all data; closing stream
+  [demux] (v) Detected file format: txt (Playlist file)
+  [playlist_parser] (v) Playlist successfully parsed
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Set property: pause=false -> 1
+  [cplayer] (v) Set property: playlist-pos=0 -> 1
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Running hook: main/on_load
+  [cplayer] (v) Set property: http-header-fields=["User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36","Referer: https://next.xifanacg.com/"] -> 1
+  [ffmpeg] (v) Opening https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8
+  [stream] (error) Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+
+--- Iteration #4 ---
+目标 URL: https://dl.playxf.top/新番/2607/W-无职转生S3/01/无职01.m3u8
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36, Referer: https://next.xifanacg.com/}
+结果: FAILED (耗时: 1243ms, 归因: tls_handshake_closed)
+stream.error:
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+stream.log:
+  [cplayer] (v) Set property: demuxer-seekable-cache="yes" -> 1
+  [cplayer] (v) Set property: force-seekable="yes" -> 1
+  [cplayer] (v) Set property: hr-seek="default" -> 1
+  [cplayer] (v) Set property: hr-seek-framedrop="yes" -> 1
+  [cplayer] (v) Set property: cache="yes" -> 1
+  [cplayer] (v) Set property: cache-pause="yes" -> 1
+  [cplayer] (v) Set property: cache-pause-initial="no" -> 1
+  [cplayer] (v) Set property: cache-pause-wait="0.2" -> 1
+  [cplayer] (v) Set property: demuxer-readahead-secs="15" -> 1
+  [cplayer] (v) Set property: cache-secs="30" -> 1
+  [cplayer] (v) Set property: demuxer-max-bytes="33554432" -> 1
+  [cplayer] (v) Set property: demuxer-max-back-bytes="16777216" -> 1
+  [cplayer] (v) Set property: network-timeout="10" -> 1
+  [cplayer] (v) Set property: volume-max="100" -> 1
+  [cplayer] (v) Set property: user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" -> 1
+  [cplayer] (v) Set property: tls-verify="no" -> 1
+  [cplayer] (v) Set property: hwdec-codecs="all" -> 1
+  [cplayer] (v) Set property: hwdec="auto" -> 1
+  [cplayer] (v) Set property: scale="spline36" -> 1
+  [cplayer] (v) Set property: cscale="spline36" -> 1
+  [cplayer] (v) Set property: sigmoid-upscaling="yes" -> 1
+  [cplayer] (v) Set property: correct-downscaling="yes" -> 1
+  [cplayer] (debug) Run command: stop, flags=64, args=[flags=""]
+  [cplayer] (debug) Run command: playlist-clear, flags=64, args=[]
+  [cplayer] (debug) Run command: playlist-play-index, flags=64, args=[index="none"]
+  [cplayer] (v) Set property: pause=true -> 1
+  [cplayer] (debug) Run command: loadlist, flags=64, args=[url="C:\\Users\\uerax\\AppData\\Local\\Temp\\3ae0ee1b-bf3e-467c-b940-ca1abbf3ccba", flags="append"]
+  [playlist_parser] (v) Parsing playlist file C:\Users\uerax\AppData\Local\Temp\3ae0ee1b-bf3e-467c-b940-ca1abbf3ccba...
+  [file] (v) Opening C:\Users\uerax\AppData\Local\Temp\3ae0ee1b-bf3e-467c-b940-ca1abbf3ccba
+  [file] (debug) resize stream to 131072 bytes, drop 0 bytes
+  [file] (debug) Stream opened successfully.
+  [demux] (v) Trying demuxers for level=request.
+  [demux] (debug) Trying demuxer: playlist (force-level: request)
+  [playlist] (warn) Reading plaintext playlist.
+  [playlist] (v) demuxer read all data; closing stream
+  [demux] (v) Detected file format: txt (Playlist file)
+  [playlist_parser] (v) Playlist successfully parsed
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Set property: pause=false -> 1
+  [cplayer] (v) Set property: playlist-pos=0 -> 1
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Running hook: main/on_load
+  [cplayer] (v) Set property: http-header-fields=["User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36","Referer: https://next.xifanacg.com/"] -> 1
+  [ffmpeg] (v) Opening https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8
+  [ffmpeg] (debug) tcp: Starting connection attempt to 104.21.88.205 port 443
+  [ffmpeg] (debug) tcp: Successfully connected to 104.21.88.205 port 443
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (warn) https: Will reconnect at 0 in 0 second(s).
+  [ffmpeg] (debug) tcp: Starting connection attempt to 104.21.88.205 port 443
+  [ffmpeg] (debug) tcp: Successfully connected to 104.21.88.205 port 443
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (warn) https: Will reconnect at 0 in 1 second(s).
+  [ffmpeg] (debug) tcp: Starting connection attempt to 104.21.88.205 port 443
+  [ffmpeg] (debug) tcp: Successfully connected to 104.21.88.205 port 443
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [stream] (error) Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+  [cplayer] (v) Opening failed or was aborted: https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8
+  [cplayer] (v) Running hook: main/on_unload
+  [cplayer] (v) Set property: http-header-fields=null -> -2
+
+--- Iteration #5 ---
+目标 URL: https://dl.playxf.top/新番/2607/W-无职转生S3/01/无职01.m3u8
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36, Referer: https://next.xifanacg.com/}
+结果: FAILED (耗时: 1243ms, 归因: unknown_error)
+stream.error:
+  Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+stream.log:
+  [cplayer] (v) Set property: demuxer-seekable-cache="yes" -> 1
+  [cplayer] (v) Set property: force-seekable="yes" -> 1
+  [cplayer] (v) Set property: hr-seek="default" -> 1
+  [cplayer] (v) Set property: hr-seek-framedrop="yes" -> 1
+  [cplayer] (v) Set property: cache="yes" -> 1
+  [cplayer] (v) Set property: cache-pause="yes" -> 1
+  [cplayer] (v) Set property: cache-pause-initial="no" -> 1
+  [cplayer] (v) Set property: cache-pause-wait="0.2" -> 1
+  [cplayer] (v) Set property: demuxer-readahead-secs="15" -> 1
+  [cplayer] (v) Set property: cache-secs="30" -> 1
+  [cplayer] (v) Set property: demuxer-max-bytes="33554432" -> 1
+  [cplayer] (v) Set property: demuxer-max-back-bytes="16777216" -> 1
+  [cplayer] (v) Set property: network-timeout="10" -> 1
+  [cplayer] (v) Set property: volume-max="100" -> 1
+  [cplayer] (v) Set property: user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" -> 1
+  [cplayer] (v) Set property: tls-verify="no" -> 1
+  [cplayer] (v) Set property: hwdec-codecs="all" -> 1
+  [cplayer] (v) Set property: hwdec="auto" -> 1
+  [cplayer] (v) Set property: scale="spline36" -> 1
+  [cplayer] (v) Set property: cscale="spline36" -> 1
+  [cplayer] (v) Set property: sigmoid-upscaling="yes" -> 1
+  [cplayer] (v) Set property: correct-downscaling="yes" -> 1
+  [cplayer] (debug) Run command: stop, flags=64, args=[flags=""]
+  [cplayer] (debug) Run command: playlist-clear, flags=64, args=[]
+  [cplayer] (debug) Run command: playlist-play-index, flags=64, args=[index="none"]
+  [cplayer] (v) Set property: pause=true -> 1
+  [cplayer] (debug) Run command: loadlist, flags=64, args=[url="C:\\Users\\uerax\\AppData\\Local\\Temp\\79005013-ee17-42f0-b436-d442c70f19dc", flags="append"]
+  [playlist_parser] (v) Parsing playlist file C:\Users\uerax\AppData\Local\Temp\79005013-ee17-42f0-b436-d442c70f19dc...
+  [file] (v) Opening C:\Users\uerax\AppData\Local\Temp\79005013-ee17-42f0-b436-d442c70f19dc
+  [file] (debug) resize stream to 131072 bytes, drop 0 bytes
+  [file] (debug) Stream opened successfully.
+  [demux] (v) Trying demuxers for level=request.
+  [demux] (debug) Trying demuxer: playlist (force-level: request)
+  [playlist] (warn) Reading plaintext playlist.
+  [playlist] (v) demuxer read all data; closing stream
+  [demux] (v) Detected file format: txt (Playlist file)
+  [playlist_parser] (v) Playlist successfully parsed
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Set property: pause=false -> 1
+  [cplayer] (v) Set property: playlist-pos=0 -> 1
+  [global] (debug) state path: 'watch_later' -> '-'
+  [cplayer] (v) Running hook: main/on_load
+  [cplayer] (v) Set property: http-header-fields=["User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36","Referer: https://next.xifanacg.com/"] -> 1
+  [ffmpeg] (v) Opening https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8
+  [stream] (error) Failed to open https://dl.playxf.top/%E6%96%B0%E7%95%AA/2607/W-%E6%97%A0%E8%81%8C%E8%BD%AC%E7%94%9FS3/01/%E6%97%A0%E8%81%8C01.m3u8.
+
+================================================================================
+SUMMARY STATS:
+总测试轮次: 5
+成功次数: 0
+失败次数: 5
+  - TLS 握手中断失败: 2
+  - HTTP/签名层失败: 0
+  - 15秒超时未达标: 0
+成功率: 0.0%
+================================================================================

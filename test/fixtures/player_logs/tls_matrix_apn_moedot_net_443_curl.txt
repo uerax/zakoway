@@ -1,0 +1,114 @@
+================================================================================
+TLS CLIENT MATRIX - CURL.EXE
+================================================================================
+目标主机: apn.moedot.net:443
+测试日期: 2026-10-17T21:33:36.692170
+执行环境: Windows 11 / MinGW curl.exe
+================================================================================
+
+--- Test Case: curl --tlsv1.2 --http1.1 ---
+Exit Code: 0
+Stdout:
+HTTP/1.1 405 Method Not Allowed
+Date: Sat, 17 Oct 2026 13:33:38 GMT
+Connection: keep-alive
+Server: openresty
+X-CCDN-Origin-Time: 45
+via: CHN-ZJhangzhou-CMCC9-CACHE16[62],CHN-ZJhangzhou-CMCC9-CACHE5[59,TCP_MISS,60],CHN-JSwuxi-GLOBAL2-CACHE49[49],CHN-JSwuxi-GLOBAL2-CACHE46[45,TCP_MISS,48]
+x-hcs-proxy-type: 0
+X-CCDN-CacheTTL: 0
+Stderr (Handshake trace):
+* Host apn.moedot.net:443 was resolved.
+* IPv6: (none)
+* IPv4: 39.173.185.37
+*   Trying 39.173.185.37:443...
+* schannel: disabled automatic use of client certificate
+* ALPN: curl offers http/1.1
+* ALPN: server accepted http/1.1
+* Established connection to apn.moedot.net (39.173.185.37 port 443) from 198.18.0.1 port 54003 
+* using HTTP/1.x
+> HEAD / HTTP/1.1
+> Host: apn.moedot.net
+> User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36
+> Accept: */*
+> Referer: https://next.xifanacg.com/
+> 
+* Request completely sent off
+* schannel: remote party requests renegotiation
+* schannel: renegotiating SSL/TLS connection
+* schannel: SSL/TLS connection renegotiated
+* schannel: remote party requests renegotiation
+* schannel: renegotiating SSL/TLS connection
+* schannel: SSL/TLS connection renegotiated
+< HTTP/1.1 405 Method Not Allowed
+< Date: Sat, 17 Oct 2026 13:33:38 GMT
+< Connection: keep-alive
+< Server: openresty
+< X-CCDN-Origin-Time: 45
+< via: CHN-ZJhangzhou-CMCC9-CACHE16[62],CHN-ZJhangzhou-CMCC9-CACHE5[59,TCP_MISS,60],CHN-JSwuxi-GLOBAL2-CACHE49[49],CHN-JSwuxi-GLOBAL2-CACHE46[45,TCP_MISS,48]
+< x-hcs-proxy-type: 0
+< X-CCDN-CacheTTL: 0
+< 
+* Connection #0 to host apn.moedot.net:443 left intact
+
+--- Test Case: curl --tlsv1.3 --http1.1 ---
+Exit Code: 0
+Stdout:
+HTTP/1.1 405 Method Not Allowed
+Date: Sat, 17 Oct 2026 13:33:38 GMT
+Connection: keep-alive
+Server: openresty
+X-CCDN-Origin-Time: 46
+via: CHN-ZJhangzhou-CMCC9-CACHE2[63],CHN-ZJhangzhou-CMCC9-CACHE13[61,TCP_MISS,62],CHN-JSwuxi-GLOBAL2-CACHE66[51],CHN-JSwuxi-GLOBAL2-CACHE89[46,TCP_MISS,49]
+x-hcs-proxy-type: 0
+X-CCDN-CacheTTL: 0
+Stderr (Handshake trace):
+* Host apn.moedot.net:443 was resolved.
+* IPv6: (none)
+* IPv4: 39.173.185.37
+*   Trying 39.173.185.37:443...
+* schannel: disabled automatic use of client certificate
+* ALPN: curl offers http/1.1
+* ALPN: server accepted http/1.1
+* Established connection to apn.moedot.net (39.173.185.37 port 443) from 198.18.0.1 port 62358 
+* using HTTP/1.x
+> HEAD / HTTP/1.1
+> Host: apn.moedot.net
+> User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36
+> Accept: */*
+> Referer: https://next.xifanacg.com/
+> 
+* Request completely sent off
+* schannel: remote party requests renegotiation
+* schannel: renegotiating SSL/TLS connection
+* schannel: SSL/TLS connection renegotiated
+* schannel: remote party requests renegotiation
+* schannel: renegotiating SSL/TLS connection
+* schannel: SSL/TLS connection renegotiated
+< HTTP/1.1 405 Method Not Allowed
+< Date: Sat, 17 Oct 2026 13:33:38 GMT
+< Connection: keep-alive
+< Server: openresty
+< X-CCDN-Origin-Time: 46
+< via: CHN-ZJhangzhou-CMCC9-CACHE2[63],CHN-ZJhangzhou-CMCC9-CACHE13[61,TCP_MISS,62],CHN-JSwuxi-GLOBAL2-CACHE66[51],CHN-JSwuxi-GLOBAL2-CACHE89[46,TCP_MISS,49]
+< x-hcs-proxy-type: 0
+< X-CCDN-CacheTTL: 0
+< 
+* Connection #0 to host apn.moedot.net:443 left intact
+
+--- Test Case: curl --tlsv1.2 --http2 ---
+Exit Code: 2
+Stdout:
+
+Stderr (Handshake trace):
+curl: option --http2: the installed libcurl version does not support this
+curl: try 'curl --help' for more information
+
+--- Test Case: curl --tlsv1.3 --http2 ---
+Exit Code: 2
+Stdout:
+
+Stderr (Handshake trace):
+curl: option --http2: the installed libcurl version does not support this
+curl: try 'curl --help' for more information
+

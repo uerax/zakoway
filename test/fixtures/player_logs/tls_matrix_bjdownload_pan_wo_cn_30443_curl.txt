@@ -1,0 +1,74 @@
+================================================================================
+TLS CLIENT MATRIX - CURL.EXE
+================================================================================
+目标主机: bjdownload.pan.wo.cn:30443
+测试日期: 2026-10-17T21:33:45.872491
+执行环境: Windows 11 / MinGW curl.exe
+================================================================================
+
+--- Test Case: curl --tlsv1.2 --http1.1 ---
+Exit Code: 35
+Stdout:
+
+Stderr (Handshake trace):
+* Host bjdownload.pan.wo.cn:30443 was resolved.
+* IPv6: (none)
+* IPv4: 61.48.58.57, 61.48.58.10, 61.48.58.199
+*   Trying 61.48.58.57:30443...
+* schannel: disabled automatic use of client certificate
+* ALPN: curl offers http/1.1
+* schannel: failed to receive handshake, SSL/TLS connection failed
+* closing connection #0
+
+--- Test Case: curl --tlsv1.3 --http1.1 ---
+Exit Code: 0
+Stdout:
+HTTP/1.1 400 Bad Request
+Www-Authenticate: Basic realm="Restricted"
+Date: Sat, 17 Oct 2026 13:33:47 GMT
+Content-Length: 12
+Content-Type: text/plain; charset=utf-8
+Stderr (Handshake trace):
+* Host bjdownload.pan.wo.cn:30443 was resolved.
+* IPv6: (none)
+* IPv4: 61.48.58.57, 61.48.58.10, 61.48.58.199
+*   Trying 61.48.58.57:30443...
+* schannel: disabled automatic use of client certificate
+* ALPN: curl offers http/1.1
+* ALPN: server accepted http/1.1
+* Established connection to bjdownload.pan.wo.cn (61.48.58.57 port 30443) from 198.18.0.1 port 63952 
+* using HTTP/1.x
+> HEAD / HTTP/1.1
+> Host: bjdownload.pan.wo.cn:30443
+> User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36
+> Accept: */*
+> Referer: https://next.xifanacg.com/
+> 
+* Request completely sent off
+* schannel: remote party requests renegotiation
+* schannel: renegotiating SSL/TLS connection
+* schannel: SSL/TLS connection renegotiated
+< HTTP/1.1 400 Bad Request
+< Www-Authenticate: Basic realm="Restricted"
+< Date: Sat, 17 Oct 2026 13:33:47 GMT
+< Content-Length: 12
+< Content-Type: text/plain; charset=utf-8
+< 
+* Connection #0 to host bjdownload.pan.wo.cn:30443 left intact
+
+--- Test Case: curl --tlsv1.2 --http2 ---
+Exit Code: 2
+Stdout:
+
+Stderr (Handshake trace):
+curl: option --http2: the installed libcurl version does not support this
+curl: try 'curl --help' for more information
+
+--- Test Case: curl --tlsv1.3 --http2 ---
+Exit Code: 2
+Stdout:
+
+Stderr (Handshake trace):
+curl: option --http2: the installed libcurl version does not support this
+curl: try 'curl --help' for more information
+

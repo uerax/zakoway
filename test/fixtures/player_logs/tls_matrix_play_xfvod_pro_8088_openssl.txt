@@ -1,0 +1,334 @@
+================================================================================
+TLS CLIENT MATRIX - OPENSSL S_CLIENT
+================================================================================
+目标主机: play.xfvod.pro:8088
+目标 IPv4: 170.178.190.51
+测试日期: 2026-10-17T21:33:28.608395
+执行环境: OpenSSL 3.x (Git for Windows)
+================================================================================
+
+--- Test Case: openssl s_client tls1_2_servername_http11 (-tls1_2 -servername play.xfvod.pro -alpn http/1.1) ---
+Exit Code: 1
+Stdout / SSL Session Output:
+CONNECTED(00000170)
+---
+no peer certificate available
+---
+No client certificate CA names sent
+---
+SSL handshake has read 0 bytes and written 239 bytes
+Verification: OK
+---
+New, (NONE), Cipher is (NONE)
+Secure Renegotiation IS NOT supported
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+SSL-Session:
+    Protocol  : TLSv1.2
+    Cipher    : 0000
+    Session-ID: 
+    Session-ID-ctx: 
+    Master-Key: 
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    Start Time: 1792244008
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: no
+---
+Stderr:
+Connecting to 170.178.190.51
+7C650000:error:0A000126:SSL routines::unexpected eof while reading:../openssl-3.2.3/ssl/record/rec_layer_s3.c:689:
+
+--- Test Case: openssl s_client tls1_3_servername_http11 (-tls1_3 -servername play.xfvod.pro -alpn http/1.1) ---
+Exit Code: 1
+Stdout / SSL Session Output:
+CONNECTED(00000190)
+---
+no peer certificate available
+---
+No client certificate CA names sent
+---
+SSL handshake has read 0 bytes and written 281 bytes
+Verification: OK
+---
+New, (NONE), Cipher is (NONE)
+This TLS version forbids renegotiation.
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+Early data was not sent
+Verify return code: 0 (ok)
+---
+Stderr:
+Connecting to 170.178.190.51
+CC470000:error:0A000126:SSL routines::unexpected eof while reading:../openssl-3.2.3/ssl/record/rec_layer_s3.c:689:
+
+--- Test Case: openssl s_client tls1_2_servername_h2 (-tls1_2 -servername play.xfvod.pro -alpn h2,http/1.1) ---
+Exit Code: 1
+Stdout / SSL Session Output:
+CONNECTED(0000015C)
+---
+no peer certificate available
+---
+No client certificate CA names sent
+---
+SSL handshake has read 0 bytes and written 242 bytes
+Verification: OK
+---
+New, (NONE), Cipher is (NONE)
+Secure Renegotiation IS NOT supported
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+SSL-Session:
+    Protocol  : TLSv1.2
+    Cipher    : 0000
+    Session-ID: 
+    Session-ID-ctx: 
+    Master-Key: 
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    Start Time: 1792244009
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: no
+---
+Stderr:
+Connecting to 170.178.190.51
+CC670000:error:0A000126:SSL routines::unexpected eof while reading:../openssl-3.2.3/ssl/record/rec_layer_s3.c:689:
+
+--- Test Case: openssl s_client tls1_3_servername_h2 (-tls1_3 -servername play.xfvod.pro -alpn h2,http/1.1) ---
+Exit Code: 1
+Stdout / SSL Session Output:
+CONNECTED(00000168)
+---
+no peer certificate available
+---
+No client certificate CA names sent
+---
+SSL handshake has read 0 bytes and written 284 bytes
+Verification: OK
+---
+New, (NONE), Cipher is (NONE)
+This TLS version forbids renegotiation.
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+Early data was not sent
+Verify return code: 0 (ok)
+---
+Stderr:
+Connecting to 170.178.190.51
+CC570000:error:0A000126:SSL routines::unexpected eof while reading:../openssl-3.2.3/ssl/record/rec_layer_s3.c:689:
+
+--- Test Case: openssl s_client tls1_2_noservername (-tls1_2 -noservername) ---
+Exit Code: 0
+Stdout / SSL Session Output:
+CONNECTED(00000174)
+---
+Certificate chain
+ 0 s:CN=play.xfvod.pro
+   i:C=US, O=Google Trust Services, CN=WR1
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Sep  9 10:55:03 2026 GMT; NotAfter: Dec  8 10:55:02 2026 GMT
+ 1 s:C=US, O=Google Trust Services, CN=WR1
+   i:C=US, O=Google Trust Services LLC, CN=GTS Root R1
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Dec 13 09:00:00 2023 GMT; NotAfter: Feb 20 14:00:00 2029 GMT
+ 2 s:C=US, O=Google Trust Services LLC, CN=GTS Root R1
+   i:C=BE, O=GlobalSign nv-sa, OU=Root CA, CN=GlobalSign Root CA
+   a:PKEY: rsaEncryption, 4096 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Jun 19 00:00:42 2020 GMT; NotAfter: Jan 28 00:00:42 2028 GMT
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIE/zCCA+egAwIBAgIRANMxXI2k7k2NDsuWZ4neIHgwDQYJKoZIhvcNAQELBQAw
+OzELMAkGA1UEBhMCVVMxHjAcBgNVBAoTFUdvb2dsZSBUcnVzdCBTZXJ2aWNlczEM
+MAoGA1UEAxMDV1IxMB4XDTI2MDkwOTEwNTUwM1oXDTI2MTIwODEwNTUwMlowGTEX
+MBUGA1UEAxMOcGxheS54ZnZvZC5wcm8wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAw
+ggEKAoIBAQCZJtQ7PbAY4M24pgr/diUPC/WogcX/cBVTF8qv4KK7GBYEBEyEvOUR
+fLeyRHPsDR32Apre3GCcz0agjmF6zj+jFICuvhXr/9g/jhN362DT1YHYT2xgA6M9
+0yusotutZrcZMtienuV4Sb4cV5HkE6M0zCa9eQJPu+kayAaGHO06/4J4iQ/LkFZn
+8a7rQMWC+1I/6l+9kD0aaM+5r2fOgwyDNFC42oMXaaCIVAWZJpvWEemsBcrNVk5H
+hOdWICm4OzmQLmQTK06Ug4TAhtTe+GRU1GNc2MIcxaHgMIWEIwYt5DvQfcm095TH
+HabVP+UzNB2v804HzPc6LgJSnTd2nRW/AgMBAAGjggIeMIICGjAOBgNVHQ8BAf8E
+BAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDAYDVR0TAQH/BAIwADAdBgNVHQ4E
+FgQUpoCDGLlKS/ZHGQLa7F+fEeSCXKUwHwYDVR0jBBgwFoAUZmlJ1N4qnJEDz4kO
+JLgOMANuiC4wNQYIKwYBBQUHAQEEKTAnMCUGCCsGAQUFBzAChhlodHRwOi8vaS5w
+a2kuZ29vZy93cjEuY3J0MBkGA1UdEQQSMBCCDnBsYXkueGZ2b2QucHJvMBMGA1Ud
+IAQMMAowCAYGZ4EMAQIBMDYGA1UdHwQvMC0wK6ApoCeGJWh0dHA6Ly9jLnBraS5n
+b29nL3dyMS9vQVRldjFCUi1Icy5jcmwwggEEBgorBgEEAdZ5AgQCBIH1BIHyAPAA
+dgDYCVU7lE96/8gWGW+UT4WrsPj8XodVJg8V0S5yu0VLFAAAAaCGBYSUAAAEAwBH
+MEUCIEObF2KKcyybKfESnMV6rsIvglBWAXX4qA45GsHkj1cIAiEA96FkT6q10gTw
+G9EJJg/Vf1vttYhm7Qr3/pUEwP1A5FcAdgDCMX5XRRmjRe5/ON6ykEHrx8IhWiK/
+f9W1rXaa2Q5SzQAAAaCGBYSFAAAEAwBHMEUCIFKFSw5Uk0jdoqxx0lfW/fByP1uO
+dbrXEatuYnfe2N+JAiEAwNErai0cGp7cSvJG2JuZcutS3BpG8IlGIqiKX2x8AYkw
+DQYJKoZIhvcNAQELBQADggEBAEq6REjjhW0r9spkBsjuQTS6/GpA6PfWT2F9pbqz
+RYehXAEpztlhB0glKUr5Eftj4W0corGDqxWY0/QB1pCcnOOfxL/gYCyuC60oLDar
+jWDs5znmYh0flzboP+cpn3tG11p1QF0Df+uFZdVodA3cg9mW9dUe3TWKmo4vY1mB
+rwZTYXvtlqmwfQtxia6IsN5uCiS+sIQFI5hLcX6mKNHv8fkWol011XSxsfJvnU1N
+eYlJgYzOkfgbjTbcOcQ412ydxKeT7znmN1dFf3a/9mWjpAqlshfdZ1ondo2+zdI1
+60n67hXIwMiZ7elJykO9ExfMwQOz4a/QKLQtu/yi3OxCASA=
+-----END CERTIFICATE-----
+subject=CN=play.xfvod.pro
+issuer=C=US, O=Google Trust Services, CN=WR1
+---
+No client certificate CA names sent
+Peer signing digest: SHA256
+Peer signature type: RSA-PSS
+Server Temp Key: X25519, 253 bits
+---
+SSL handshake has read 4550 bytes and written 287 bytes
+Verification: OK
+---
+New, TLSv1.2, Cipher is ECDHE-RSA-AES128-GCM-SHA256
+Server public key is 2048 bit
+Secure Renegotiation IS supported
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+SSL-Session:
+    Protocol  : TLSv1.2
+    Cipher    : ECDHE-RSA-AES128-GCM-SHA256
+    Session-ID: 203DD04B62EB38AB38AFF5406C113231A1978F94486FDCDCEE7528591AE5E390
+    Session-ID-ctx: 
+    Master-Key: 495BE7DCB1B8E8B41431A7AE83C40FA0ED4D2354B48C71D46A29616661097D3DF9F951BB96F510CC3B914F2EE9AEF754
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket:
+    0000 - cd 29 55 3e 15 ba 49 72-86 b0 fd b7 36 70 98 e6   .)U>..Ir....6p..
+    0010 - 10 c0 e0 44 1c e2 e0 20-c8 7b db 84 26 57 6b 9b   ...D... .{..&Wk.
+    0020 - c4 40 66 0a 84 a7 27 dd-a7 3b 12 64 01 a4 8b 79   .@f...'..;.d...y
+    0030 - 25 86 34 b7 87 5f 9f d8-8b dc e1 07 66 79 74 fc   %.4.._......fyt.
+    0040 - 07 e3 96 c2 8f 71 d3 90-89 b6 08 96 bb 10 18 50   .....q.........P
+    0050 - f4 af d4 ae 4d 01 86 c3-93 5b a3 06 e0 94 0e 56   ....M....[.....V
+    0060 - ef 0f 7b 41 00 e3 58 67-ae d0 fb b1 0c b7 10 63   ..{A..Xg.......c
+    0070 - 7b 69 4c 7e 1f 64 5f f0-82                        {iL~.d_..
+
+    Start Time: 1792244011
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: yes
+---
+Stderr:
+Connecting to 170.178.190.51
+depth=2 C=US, O=Google Trust Services LLC, CN=GTS Root R1
+verify return:1
+depth=1 C=US, O=Google Trust Services, CN=WR1
+verify return:1
+depth=0 CN=play.xfvod.pro
+verify return:1
+DONE
+
+--- Test Case: openssl s_client tls1_3_noservername (-tls1_3 -noservername) ---
+Exit Code: 0
+Stdout / SSL Session Output:
+CONNECTED(00000164)
+---
+Certificate chain
+ 0 s:CN=play.xfvod.pro
+   i:C=US, O=Google Trust Services, CN=WR1
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Sep  9 10:55:03 2026 GMT; NotAfter: Dec  8 10:55:02 2026 GMT
+ 1 s:C=US, O=Google Trust Services, CN=WR1
+   i:C=US, O=Google Trust Services LLC, CN=GTS Root R1
+   a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Dec 13 09:00:00 2023 GMT; NotAfter: Feb 20 14:00:00 2029 GMT
+ 2 s:C=US, O=Google Trust Services LLC, CN=GTS Root R1
+   i:C=BE, O=GlobalSign nv-sa, OU=Root CA, CN=GlobalSign Root CA
+   a:PKEY: rsaEncryption, 4096 (bit); sigalg: RSA-SHA256
+   v:NotBefore: Jun 19 00:00:42 2020 GMT; NotAfter: Jan 28 00:00:42 2028 GMT
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIE/zCCA+egAwIBAgIRANMxXI2k7k2NDsuWZ4neIHgwDQYJKoZIhvcNAQELBQAw
+OzELMAkGA1UEBhMCVVMxHjAcBgNVBAoTFUdvb2dsZSBUcnVzdCBTZXJ2aWNlczEM
+MAoGA1UEAxMDV1IxMB4XDTI2MDkwOTEwNTUwM1oXDTI2MTIwODEwNTUwMlowGTEX
+MBUGA1UEAxMOcGxheS54ZnZvZC5wcm8wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAw
+ggEKAoIBAQCZJtQ7PbAY4M24pgr/diUPC/WogcX/cBVTF8qv4KK7GBYEBEyEvOUR
+fLeyRHPsDR32Apre3GCcz0agjmF6zj+jFICuvhXr/9g/jhN362DT1YHYT2xgA6M9
+0yusotutZrcZMtienuV4Sb4cV5HkE6M0zCa9eQJPu+kayAaGHO06/4J4iQ/LkFZn
+8a7rQMWC+1I/6l+9kD0aaM+5r2fOgwyDNFC42oMXaaCIVAWZJpvWEemsBcrNVk5H
+hOdWICm4OzmQLmQTK06Ug4TAhtTe+GRU1GNc2MIcxaHgMIWEIwYt5DvQfcm095TH
+HabVP+UzNB2v804HzPc6LgJSnTd2nRW/AgMBAAGjggIeMIICGjAOBgNVHQ8BAf8E
+BAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDAYDVR0TAQH/BAIwADAdBgNVHQ4E
+FgQUpoCDGLlKS/ZHGQLa7F+fEeSCXKUwHwYDVR0jBBgwFoAUZmlJ1N4qnJEDz4kO
+JLgOMANuiC4wNQYIKwYBBQUHAQEEKTAnMCUGCCsGAQUFBzAChhlodHRwOi8vaS5w
+a2kuZ29vZy93cjEuY3J0MBkGA1UdEQQSMBCCDnBsYXkueGZ2b2QucHJvMBMGA1Ud
+IAQMMAowCAYGZ4EMAQIBMDYGA1UdHwQvMC0wK6ApoCeGJWh0dHA6Ly9jLnBraS5n
+b29nL3dyMS9vQVRldjFCUi1Icy5jcmwwggEEBgorBgEEAdZ5AgQCBIH1BIHyAPAA
+dgDYCVU7lE96/8gWGW+UT4WrsPj8XodVJg8V0S5yu0VLFAAAAaCGBYSUAAAEAwBH
+MEUCIEObF2KKcyybKfESnMV6rsIvglBWAXX4qA45GsHkj1cIAiEA96FkT6q10gTw
+G9EJJg/Vf1vttYhm7Qr3/pUEwP1A5FcAdgDCMX5XRRmjRe5/ON6ykEHrx8IhWiK/
+f9W1rXaa2Q5SzQAAAaCGBYSFAAAEAwBHMEUCIFKFSw5Uk0jdoqxx0lfW/fByP1uO
+dbrXEatuYnfe2N+JAiEAwNErai0cGp7cSvJG2JuZcutS3BpG8IlGIqiKX2x8AYkw
+DQYJKoZIhvcNAQELBQADggEBAEq6REjjhW0r9spkBsjuQTS6/GpA6PfWT2F9pbqz
+RYehXAEpztlhB0glKUr5Eftj4W0corGDqxWY0/QB1pCcnOOfxL/gYCyuC60oLDar
+jWDs5znmYh0flzboP+cpn3tG11p1QF0Df+uFZdVodA3cg9mW9dUe3TWKmo4vY1mB
+rwZTYXvtlqmwfQtxia6IsN5uCiS+sIQFI5hLcX6mKNHv8fkWol011XSxsfJvnU1N
+eYlJgYzOkfgbjTbcOcQ412ydxKeT7znmN1dFf3a/9mWjpAqlshfdZ1ondo2+zdI1
+60n67hXIwMiZ7elJykO9ExfMwQOz4a/QKLQtu/yi3OxCASA=
+-----END CERTIFICATE-----
+subject=CN=play.xfvod.pro
+issuer=C=US, O=Google Trust Services, CN=WR1
+---
+No client certificate CA names sent
+Peer signing digest: SHA256
+Peer signature type: RSA-PSS
+Server Temp Key: X25519, 253 bits
+---
+SSL handshake has read 4510 bytes and written 300 bytes
+Verification: OK
+---
+New, TLSv1.3, Cipher is TLS_AES_128_GCM_SHA256
+Server public key is 2048 bit
+This TLS version forbids renegotiation.
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+Early data was not sent
+Verify return code: 0 (ok)
+---
+---
+Post-Handshake New Session Ticket arrived:
+SSL-Session:
+    Protocol  : TLSv1.3
+    Cipher    : TLS_AES_128_GCM_SHA256
+    Session-ID: 5AE0CA4E7B8E0544F0E86913117D8B8A2764D5D94DCDF9875CE333EE61583DAF
+    Session-ID-ctx: 
+    Resumption PSK: 709145525449A04200D6828EA6AC6C30B4AA094896F85D304577949CF11D81A7
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket lifetime hint: 604800 (seconds)
+    TLS session ticket:
+    0000 - 3a 5c ff 31 83 44 eb 96-25 eb 58 04 ec a2 a1 a7   :\.1.D..%.X.....
+    0010 - a5 b9 fe e2 cd 43 42 c7-cf 46 00 da 5b 0e 82 7e   .....CB..F..[..~
+    0020 - 8e 8c b9 ff 5f 4d 61 2f-be 07 99 61 27 77 58 b8   ...._Ma/...a'wX.
+    0030 - 30 60 dc 8f 81 e8 b1 e5-eb 60 a6 ba b8 49 09 a5   0`.......`...I..
+    0040 - f0 08 ab aa ce e6 c1 29-0f 26 d5 c6 f5 00 73 5b   .......).&....s[
+    0050 - 8c 0f d0 3e fa fe fa 47-d0 53 b0 b4 4a bb e3 1f   ...>...G.S..J...
+    0060 - db 64 eb c4 c5 73 db ba-41                        .d...s..A
+
+    Start Time: 1792244014
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: no
+    Max Early Data: 0
+---
+read R BLOCK
+Stderr:
+Connecting to 170.178.190.51
+depth=2 C=US, O=Google Trust Services LLC, CN=GTS Root R1
+verify return:1
+depth=1 C=US, O=Google Trust Services, CN=WR1
+verify return:1
+depth=0 CN=play.xfvod.pro
+verify return:1
+DONE
+

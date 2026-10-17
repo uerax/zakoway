@@ -1,0 +1,224 @@
+================================================================================
+ZAKOWAY PLAYER PROBE FIXTURE LOG
+================================================================================
+场景名称: P5: 打开阶段 demux 截断失败 (moov在尾部传输70KB拒连, 详细 debug 级别, 观察60s)
+测试日期: 2026-10-17T21:45:51.088691
+执行环境: Windows 11 Pro x64, media_kit 1.2.6, libmpv v0.36.0-403, FFmpeg n6.0, mbedTLS 3.5.0
+执行命令: flutter test tool/player_probe/run_probe_p5_open_demux_fail_60s.dart
+URL形态说明: 本地 Mock HTTP 媒体流 (127.0.0.1:0)，sample_15s.mp4 (moov在文件尾部，传输70KB后持续拒连)
+脱敏规则说明: 敏感参数 sign、t、token 等替换为 ...，其余保持完全原始输出
+请求头信息: {}
+附加说明: 重跑旧场景 4a 并把观察窗口从 8 秒延长到 60 秒；记录 mpv 底层在 demuxer 阶段未读到 moov 且后续重连全被拒时，是否最终输出 Failed to open 或停在 buffering=true
+================================================================================
+TIMELINE EVENTS (Monotonic relative ms from T0, absolute ISO, tag, raw message):
+================================================================================
+[+    0ms] [2026-10-17T21:44:51.075140] [probe.config] logLevel=MPVLogLevel.debug, mode=eofAndRefuse, eofByteThreshold=70KB, sampleSize=237756B
+[+    0ms] [2026-10-17T21:44:51.075140] [action.open.call] uri=http://127.0.0.1:49844/media.mp4, play=true, headers={}
+[+    1ms] [2026-10-17T21:44:51.076187] [stream.playing] false
+[+    1ms] [2026-10-17T21:44:51.076187] [stream.completed] false
+[+    1ms] [2026-10-17T21:44:51.076187] [stream.position] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T21:44:51.076187] [stream.duration] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T21:44:51.076187] [stream.buffering] false
+[+    1ms] [2026-10-17T21:44:51.076187] [stream.buffer] 0ms (0:00:00.000000)
+[+    1ms] [2026-10-17T21:44:51.076187] [stream.videoParams] w=null, h=null, dw=null, dh=null, aspect=null, pixelformat=null, hwPixelformat=null
+[+    1ms] [2026-10-17T21:44:51.076187] [stream.tracks] videoCount=2, audioCount=2, subtitleCount=2
+[+    1ms] [2026-10-17T21:44:51.076187] [stream.width] null
+[+    1ms] [2026-10-17T21:44:51.076187] [stream.height] null
+[+    1ms] [2026-10-17T21:44:51.076711] [stream.log] [cplayer] (v) Set property: stream-lavf-o="reconnect=1,reconnect_on_network_error=1,reconnect_delay_max=2" -> 1
+[+    1ms] [2026-10-17T21:44:51.076711] [stream.log] [cplayer] (v) Set property: cache-on-disk="no" -> 1
+[+    2ms] [2026-10-17T21:44:51.076711] [stream.log] [cplayer] (v) Set property: demuxer-seekable-cache="yes" -> 1
+[+    2ms] [2026-10-17T21:44:51.076711] [stream.log] [cplayer] (v) Set property: force-seekable="yes" -> 1
+[+    2ms] [2026-10-17T21:44:51.076711] [stream.log] [cplayer] (v) Set property: hr-seek="default" -> 1
+[+    2ms] [2026-10-17T21:44:51.076711] [stream.log] [cplayer] (v) Set property: hr-seek-framedrop="yes" -> 1
+[+    2ms] [2026-10-17T21:44:51.076711] [stream.log] [cplayer] (v) Set property: cache="yes" -> 1
+[+    2ms] [2026-10-17T21:44:51.076711] [stream.log] [cplayer] (v) Set property: cache-pause="yes" -> 1
+[+    2ms] [2026-10-17T21:44:51.076711] [stream.log] [cplayer] (v) Set property: cache-pause-initial="no" -> 1
+[+    2ms] [2026-10-17T21:44:51.076711] [stream.log] [cplayer] (v) Set property: cache-pause-wait="0.2" -> 1
+[+    2ms] [2026-10-17T21:44:51.077307] [stream.log] [cplayer] (v) Set property: demuxer-readahead-secs="15" -> 1
+[+    2ms] [2026-10-17T21:44:51.077307] [stream.log] [cplayer] (v) Set property: cache-secs="30" -> 1
+[+    2ms] [2026-10-17T21:44:51.077307] [stream.log] [cplayer] (v) Set property: demuxer-max-bytes="33554432" -> 1
+[+    2ms] [2026-10-17T21:44:51.077307] [stream.log] [cplayer] (v) Set property: demuxer-max-back-bytes="16777216" -> 1
+[+    2ms] [2026-10-17T21:44:51.077307] [stream.log] [cplayer] (v) Set property: network-timeout="10" -> 1
+[+    2ms] [2026-10-17T21:44:51.077307] [stream.log] [cplayer] (v) Set property: volume-max="100" -> 1
+[+    2ms] [2026-10-17T21:44:51.077307] [stream.log] [cplayer] (v) Set property: user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" -> 1
+[+    2ms] [2026-10-17T21:44:51.077307] [stream.log] [cplayer] (v) Set property: tls-verify="no" -> 1
+[+    2ms] [2026-10-17T21:44:51.077307] [stream.log] [cplayer] (v) Set property: hwdec-codecs="all" -> 1
+[+    2ms] [2026-10-17T21:44:51.077307] [stream.log] [cplayer] (v) Set property: hwdec="auto" -> 1
+[+    2ms] [2026-10-17T21:44:51.077845] [stream.log] [cplayer] (v) Set property: scale="spline36" -> 1
+[+    3ms] [2026-10-17T21:44:51.077845] [stream.log] [cplayer] (v) Set property: cscale="spline36" -> 1
+[+    3ms] [2026-10-17T21:44:51.077845] [stream.log] [cplayer] (v) Set property: sigmoid-upscaling="yes" -> 1
+[+    3ms] [2026-10-17T21:44:51.077845] [stream.log] [cplayer] (v) Set property: correct-downscaling="yes" -> 1
+[+    3ms] [2026-10-17T21:44:51.077845] [stream.log] [cplayer] (debug) Run command: stop, flags=64, args=[flags=""]
+[+    3ms] [2026-10-17T21:44:51.077845] [stream.log] [cplayer] (debug) Run command: playlist-clear, flags=64, args=[]
+[+    3ms] [2026-10-17T21:44:51.077845] [stream.log] [cplayer] (debug) Run command: playlist-play-index, flags=64, args=[index="none"]
+[+    3ms] [2026-10-17T21:44:51.077845] [stream.log] [cplayer] (v) Set property: pause=true -> 1
+[+    9ms] [2026-10-17T21:44:51.084795] [stream.log] [cplayer] (debug) Run command: loadlist, flags=64, args=[url="C:\\Users\\uerax\\AppData\\Local\\Temp\\912214cf-8334-44c3-833e-034049c9b763", flags="append"]
+[+   10ms] [2026-10-17T21:44:51.084795] [stream.log] [playlist_parser] (v) Parsing playlist file C:\Users\uerax\AppData\Local\Temp\912214cf-8334-44c3-833e-034049c9b763...
+[+   10ms] [2026-10-17T21:44:51.084795] [stream.log] [file] (v) Opening C:\Users\uerax\AppData\Local\Temp\912214cf-8334-44c3-833e-034049c9b763
+[+   10ms] [2026-10-17T21:44:51.084795] [stream.log] [file] (debug) resize stream to 131072 bytes, drop 0 bytes
+[+   10ms] [2026-10-17T21:44:51.085324] [stream.log] [file] (debug) Stream opened successfully.
+[+   10ms] [2026-10-17T21:44:51.085324] [stream.playing] true
+[+   10ms] [2026-10-17T21:44:51.085324] [action.open.future_completed] cost=10ms
+[+   11ms] [2026-10-17T21:44:51.085965] [stream.buffering] true
+[+   11ms] [2026-10-17T21:44:51.086555] [stream.log] [demux] (v) Trying demuxers for level=request.
+[+   11ms] [2026-10-17T21:44:51.086555] [stream.log] [demux] (debug) Trying demuxer: playlist (force-level: request)
+[+   11ms] [2026-10-17T21:44:51.086555] [stream.log] [playlist] (warn) Reading plaintext playlist.
+[+   11ms] [2026-10-17T21:44:51.086555] [stream.log] [playlist] (v) demuxer read all data; closing stream
+[+   11ms] [2026-10-17T21:44:51.086555] [stream.log] [demux] (v) Detected file format: txt (Playlist file)
+[+   12ms] [2026-10-17T21:44:51.086555] [stream.log] [playlist_parser] (v) Playlist successfully parsed
+[+   12ms] [2026-10-17T21:44:51.086555] [stream.log] [global] (debug) state path: 'watch_later' -> '-'
+[+   12ms] [2026-10-17T21:44:51.086555] [stream.log] [cplayer] (v) Set property: pause=false -> 1
+[+   12ms] [2026-10-17T21:44:51.087088] [stream.log] [cplayer] (v) Set property: playlist-pos=0 -> 1
+[+   12ms] [2026-10-17T21:44:51.087088] [stream.log] [global] (debug) state path: 'watch_later' -> '-'
+[+   12ms] [2026-10-17T21:44:51.087088] [stream.log] [cplayer] (v) Running hook: main/on_load
+[+   12ms] [2026-10-17T21:44:51.087088] [stream.log] [cplayer] (v) Set property: http-header-fields=[] -> 1
+[+   12ms] [2026-10-17T21:44:51.087088] [stream.log] [ffmpeg] (v) Opening http://127.0.0.1:49844/media.mp4
+[+   23ms] [2026-10-17T21:44:51.097175] [stream.log] [ffmpeg] (v) Could not set AVOption tls_verify='0'
+[+   23ms] [2026-10-17T21:44:51.098176] [stream.log] [ffmpeg] (debug) resize stream to 131072 bytes, drop 0 bytes
+[+   23ms] [2026-10-17T21:44:51.098176] [stream.log] [ffmpeg] (v) Mime-type: 'video/mp4'
+[+   23ms] [2026-10-17T21:44:51.098176] [stream.log] [ffmpeg] (debug) Stream opened successfully.
+[+   23ms] [2026-10-17T21:44:51.098176] [stream.log] [demux] (v) Trying demuxers for level=normal.
+[+   23ms] [2026-10-17T21:44:51.098176] [stream.log] [demux] (debug) Trying demuxer: disc (force-level: normal)
+[+   23ms] [2026-10-17T21:44:51.098176] [stream.log] [demux] (debug) Trying demuxer: edl (force-level: normal)
+[+   23ms] [2026-10-17T21:44:51.098176] [stream.log] [demux] (debug) Trying demuxer: cue (force-level: normal)
+[+   23ms] [2026-10-17T21:44:51.098176] [stream.log] [demux] (debug) Trying demuxer: rawaudio (force-level: normal)
+[+   23ms] [2026-10-17T21:44:51.098176] [stream.log] [demux] (debug) Trying demuxer: rawvideo (force-level: normal)
+[+   23ms] [2026-10-17T21:44:51.098176] [stream.log] [demux] (debug) Trying demuxer: mkv (force-level: normal)
+[+   23ms] [2026-10-17T21:44:51.098176] [stream.log] [demux] (debug) Trying demuxer: libarchive (force-level: normal)
+[+   23ms] [2026-10-17T21:44:51.098176] [stream.log] [demux] (debug) Trying demuxer: lavf (force-level: normal)
+[+   25ms] [2026-10-17T21:44:51.100174] [stream.log] [lavf] (v) Found 'mov,mp4,m4a,3gp,3g2,mj2' at score=100 size=2048.
+[+   25ms] [2026-10-17T21:44:51.100174] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 220096
+[+ 1029ms] [2026-10-17T21:44:52.104421] [stream.log] [ffmpeg] (error) Seek failed (to 220096, size -40)
+[+ 1029ms] [2026-10-17T21:44:52.104421] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 220096
+[+ 2033ms] [2026-10-17T21:44:53.108535] [stream.log] [ffmpeg] (error) Seek failed (to 220096, size -40)
+[+ 2034ms] [2026-10-17T21:44:53.108535] [stream.log] [lavf] (error) avformat_open_input() failed
+[+ 2034ms] [2026-10-17T21:44:53.108535] [stream.log] [demux] (debug) Trying demuxer: mf (force-level: normal)
+[+ 2034ms] [2026-10-17T21:44:53.109076] [stream.log] [demux] (debug) Trying demuxer: playlist (force-level: normal)
+[+ 2034ms] [2026-10-17T21:44:53.109076] [stream.log] [demux] (debug) Trying demuxer: null (force-level: normal)
+[+ 2034ms] [2026-10-17T21:44:53.109076] [stream.log] [demux] (v) Trying demuxers for level=unsafe.
+[+ 2034ms] [2026-10-17T21:44:53.109076] [stream.log] [demux] (debug) Trying demuxer: disc (force-level: unsafe)
+[+ 2034ms] [2026-10-17T21:44:53.109076] [stream.log] [demux] (debug) Trying demuxer: edl (force-level: unsafe)
+[+ 2034ms] [2026-10-17T21:44:53.109076] [stream.log] [demux] (debug) Trying demuxer: cue (force-level: unsafe)
+[+ 2034ms] [2026-10-17T21:44:53.109657] [stream.log] [demux] (debug) Trying demuxer: rawaudio (force-level: unsafe)
+[+ 2034ms] [2026-10-17T21:44:53.109657] [stream.log] [demux] (debug) Trying demuxer: rawvideo (force-level: unsafe)
+[+ 2035ms] [2026-10-17T21:44:53.109657] [stream.log] [demux] (debug) Trying demuxer: mkv (force-level: unsafe)
+[+ 2035ms] [2026-10-17T21:44:53.109657] [stream.log] [demux] (debug) Trying demuxer: libarchive (force-level: unsafe)
+[+ 2035ms] [2026-10-17T21:44:53.109657] [stream.log] [ffmpeg] (debug) resize stream to 262144 bytes, drop 0 bytes
+[+ 2035ms] [2026-10-17T21:44:53.110186] [stream.log] [demux] (debug) Trying demuxer: lavf (force-level: unsafe)
+[+ 2036ms] [2026-10-17T21:44:53.110862] [stream.log] [lavf] (v) Found 'mov,mp4,m4a,3gp,3g2,mj2' at score=100 size=2048.
+[+ 2036ms] [2026-10-17T21:44:53.111471] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 220096
+[+ 3061ms] [2026-10-17T21:44:54.136539] [stream.log] [ffmpeg] (error) Seek failed (to 220096, size -40)
+[+ 3061ms] [2026-10-17T21:44:54.136539] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 808452959
+[+ 4076ms] [2026-10-17T21:44:55.150589] [stream.log] [ffmpeg] (error) Seek failed (to 808452959, size -40)
+[+ 4076ms] [2026-10-17T21:44:55.150589] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 1703446247
+[+ 5092ms] [2026-10-17T21:44:56.167429] [stream.log] [ffmpeg] (error) Seek failed (to 1703446247, size -40)
+[+ 5092ms] [2026-10-17T21:44:56.167429] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 1937509722
+[+ 6118ms] [2026-10-17T21:44:57.192969] [stream.log] [ffmpeg] (error) Seek failed (to 1937509722, size -40)
+[+ 6118ms] [2026-10-17T21:44:57.192969] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 91702498
+[+ 7137ms] [2026-10-17T21:44:58.212270] [stream.log] [ffmpeg] (error) Seek failed (to 91702498, size -40)
+[+ 7137ms] [2026-10-17T21:44:58.212270] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 3377609092
+[+ 8154ms] [2026-10-17T21:44:59.229044] [stream.log] [ffmpeg] (error) Seek failed (to 3377609092, size -40)
+[+ 8154ms] [2026-10-17T21:44:59.229044] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 2367542286
+[+ 9173ms] [2026-10-17T21:45:00.248020] [stream.log] [ffmpeg] (error) Seek failed (to 2367542286, size -40)
+[+ 9174ms] [2026-10-17T21:45:00.248020] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 2268619168
+[+10187ms] [2026-10-17T21:45:01.262131] [stream.log] [ffmpeg] (error) Seek failed (to 2268619168, size -40)
+[+10187ms] [2026-10-17T21:45:01.262131] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 1568968618
+[+11203ms] [2026-10-17T21:45:02.278208] [stream.log] [ffmpeg] (error) Seek failed (to 1568968618, size -40)
+[+11203ms] [2026-10-17T21:45:02.278208] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 1726919357
+[+12217ms] [2026-10-17T21:45:03.292223] [stream.log] [ffmpeg] (error) Seek failed (to 1726919357, size -40)
+[+12217ms] [2026-10-17T21:45:03.292223] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 2039314404
+[+13244ms] [2026-10-17T21:45:04.319430] [stream.log] [ffmpeg] (error) Seek failed (to 2039314404, size -40)
+[+13244ms] [2026-10-17T21:45:04.319430] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 3383680317
+[+14248ms] [2026-10-17T21:45:05.323119] [stream.log] [ffmpeg] (error) Seek failed (to 3383680317, size -40)
+[+14248ms] [2026-10-17T21:45:05.323119] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 1333331848
+[+15269ms] [2026-10-17T21:45:06.343841] [stream.log] [ffmpeg] (error) Seek failed (to 1333331848, size -40)
+[+15269ms] [2026-10-17T21:45:06.343841] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 3118283372
+[+16283ms] [2026-10-17T21:45:07.358112] [stream.log] [ffmpeg] (error) Seek failed (to 3118283372, size -40)
+[+16283ms] [2026-10-17T21:45:07.358112] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 2098812537
+[+17301ms] [2026-10-17T21:45:08.376797] [stream.log] [ffmpeg] (error) Seek failed (to 2098812537, size -40)
+[+17302ms] [2026-10-17T21:45:08.376797] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 4150358007
+[+18327ms] [2026-10-17T21:45:09.402081] [stream.log] [ffmpeg] (error) Seek failed (to 4150358007, size -40)
+[+18327ms] [2026-10-17T21:45:09.402081] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 146175427
+[+19342ms] [2026-10-17T21:45:10.416264] [stream.log] [ffmpeg] (error) Seek failed (to 146175427, size -40)
+[+19342ms] [2026-10-17T21:45:10.417262] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 2840758346
+[+20374ms] [2026-10-17T21:45:11.448528] [stream.log] [ffmpeg] (error) Seek failed (to 2840758346, size -40)
+[+20374ms] [2026-10-17T21:45:11.449527] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 3446741876
+[+21379ms] [2026-10-17T21:45:12.453293] [stream.log] [ffmpeg] (error) Seek failed (to 3446741876, size -40)
+[+21379ms] [2026-10-17T21:45:12.453293] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 2491560
+[+22404ms] [2026-10-17T21:45:13.478937] [stream.log] [ffmpeg] (error) Seek failed (to 2491560, size -40)
+[+22404ms] [2026-10-17T21:45:13.478937] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 1048363603
+[+23420ms] [2026-10-17T21:45:14.494661] [stream.log] [ffmpeg] (error) Seek failed (to 1048363603, size -40)
+[+23420ms] [2026-10-17T21:45:14.495660] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 30455628
+[+24442ms] [2026-10-17T21:45:15.516974] [stream.log] [ffmpeg] (error) Seek failed (to 30455628, size -40)
+[+24442ms] [2026-10-17T21:45:15.516974] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 3084643527
+[+25455ms] [2026-10-17T21:45:16.529295] [stream.log] [ffmpeg] (error) Seek failed (to 3084643527, size -40)
+[+25455ms] [2026-10-17T21:45:16.529295] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 3977715058
+[+26466ms] [2026-10-17T21:45:17.540941] [stream.log] [ffmpeg] (error) Seek failed (to 3977715058, size -40)
+[+26466ms] [2026-10-17T21:45:17.540941] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 2472948869
+[+27490ms] [2026-10-17T21:45:18.564788] [stream.log] [ffmpeg] (error) Seek failed (to 2472948869, size -40)
+[+27490ms] [2026-10-17T21:45:18.564788] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 614806807
+[+28503ms] [2026-10-17T21:45:19.577690] [stream.log] [ffmpeg] (error) Seek failed (to 614806807, size -40)
+[+28503ms] [2026-10-17T21:45:19.577690] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 2064327281
+[+29516ms] [2026-10-17T21:45:20.590295] [stream.log] [ffmpeg] (error) Seek failed (to 2064327281, size -40)
+[+29516ms] [2026-10-17T21:45:20.590295] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 2131643677
+[+30529ms] [2026-10-17T21:45:21.603872] [stream.log] [ffmpeg] (error) Seek failed (to 2131643677, size -40)
+[+30529ms] [2026-10-17T21:45:21.603872] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 997273111
+[+31545ms] [2026-10-17T21:45:22.620134] [stream.log] [ffmpeg] (error) Seek failed (to 997273111, size -40)
+[+31545ms] [2026-10-17T21:45:22.620134] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 3285109703
+[+32572ms] [2026-10-17T21:45:23.647262] [stream.log] [ffmpeg] (error) Seek failed (to 3285109703, size -40)
+[+32572ms] [2026-10-17T21:45:23.647262] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 1400052275
+[+33594ms] [2026-10-17T21:45:24.668301] [stream.log] [ffmpeg] (error) Seek failed (to 1400052275, size -40)
+[+33594ms] [2026-10-17T21:45:24.669299] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 593597576
+[+34607ms] [2026-10-17T21:45:25.682217] [stream.log] [ffmpeg] (error) Seek failed (to 593597576, size -40)
+[+34607ms] [2026-10-17T21:45:25.682217] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 2751790118
+[+35635ms] [2026-10-17T21:45:26.710016] [stream.log] [ffmpeg] (error) Seek failed (to 2751790118, size -40)
+[+35636ms] [2026-10-17T21:45:26.711015] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 2763623511
+[+36657ms] [2026-10-17T21:45:27.732842] [stream.log] [ffmpeg] (error) Seek failed (to 2763623511, size -40)
+[+36658ms] [2026-10-17T21:45:27.732842] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 29023937
+[+37669ms] [2026-10-17T21:45:28.744522] [stream.log] [ffmpeg] (error) Seek failed (to 29023937, size -40)
+[+37669ms] [2026-10-17T21:45:28.744522] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 507585270
+[+38674ms] [2026-10-17T21:45:29.748545] [stream.log] [ffmpeg] (error) Seek failed (to 507585270, size -40)
+[+38674ms] [2026-10-17T21:45:29.748545] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 3529495931
+[+39677ms] [2026-10-17T21:45:30.752599] [stream.log] [ffmpeg] (error) Seek failed (to 3529495931, size -40)
+[+39677ms] [2026-10-17T21:45:30.752599] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 2150335169
+[+40713ms] [2026-10-17T21:45:31.787507] [stream.log] [ffmpeg] (error) Seek failed (to 2150335169, size -40)
+[+40713ms] [2026-10-17T21:45:31.787507] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 3933918280
+[+41717ms] [2026-10-17T21:45:32.791306] [stream.log] [ffmpeg] (error) Seek failed (to 3933918280, size -40)
+[+41717ms] [2026-10-17T21:45:32.792307] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 360744953
+[+42734ms] [2026-10-17T21:45:33.809021] [stream.log] [ffmpeg] (error) Seek failed (to 360744953, size -40)
+[+42734ms] [2026-10-17T21:45:33.809021] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 4015383826
+[+43748ms] [2026-10-17T21:45:34.823181] [stream.log] [ffmpeg] (error) Seek failed (to 4015383826, size -40)
+[+43748ms] [2026-10-17T21:45:34.823181] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 3663142343
+[+44781ms] [2026-10-17T21:45:35.855826] [stream.log] [ffmpeg] (error) Seek failed (to 3663142343, size -40)
+[+44781ms] [2026-10-17T21:45:35.855826] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 3215040591
+[+45785ms] [2026-10-17T21:45:36.859917] [stream.log] [ffmpeg] (error) Seek failed (to 3215040591, size -40)
+[+45785ms] [2026-10-17T21:45:36.859917] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 125313972
+[+46794ms] [2026-10-17T21:45:37.868900] [stream.log] [ffmpeg] (error) Seek failed (to 125313972, size -40)
+[+46794ms] [2026-10-17T21:45:37.868900] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 2331059893
+[+47813ms] [2026-10-17T21:45:38.887818] [stream.log] [ffmpeg] (error) Seek failed (to 2331059893, size -40)
+[+47813ms] [2026-10-17T21:45:38.887818] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 4279880504
+[+48827ms] [2026-10-17T21:45:39.901772] [stream.log] [ffmpeg] (error) Seek failed (to 4279880504, size -40)
+[+48827ms] [2026-10-17T21:45:39.901772] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 1329586561
+[+49830ms] [2026-10-17T21:45:40.904256] [stream.log] [ffmpeg] (error) Seek failed (to 1329586561, size -40)
+[+49830ms] [2026-10-17T21:45:40.905264] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 1056467441
+[+50869ms] [2026-10-17T21:45:41.943512] [stream.log] [ffmpeg] (error) Seek failed (to 1056467441, size -40)
+[+50869ms] [2026-10-17T21:45:41.944513] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 4124800840
+[+51874ms] [2026-10-17T21:45:42.949056] [stream.log] [ffmpeg] (error) Seek failed (to 4124800840, size -40)
+[+51874ms] [2026-10-17T21:45:42.949056] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 811483870
+[+52888ms] [2026-10-17T21:45:43.963002] [stream.log] [ffmpeg] (error) Seek failed (to 811483870, size -40)
+[+52888ms] [2026-10-17T21:45:43.963002] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 3048081421
+[+53921ms] [2026-10-17T21:45:44.995654] [stream.log] [ffmpeg] (error) Seek failed (to 3048081421, size -40)
+[+53921ms] [2026-10-17T21:45:44.995654] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 2725047285
+[+54925ms] [2026-10-17T21:45:45.999604] [stream.log] [ffmpeg] (error) Seek failed (to 2725047285, size -40)
+[+54925ms] [2026-10-17T21:45:45.999604] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 2225443482
+[+55951ms] [2026-10-17T21:45:47.026234] [stream.log] [ffmpeg] (error) Seek failed (to 2225443482, size -40)
+[+55951ms] [2026-10-17T21:45:47.026234] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 618285586
+[+56972ms] [2026-10-17T21:45:48.047455] [stream.log] [ffmpeg] (error) Seek failed (to 618285586, size -40)
+[+56972ms] [2026-10-17T21:45:48.047455] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 900412265
+[+57982ms] [2026-10-17T21:45:49.057717] [stream.log] [ffmpeg] (error) Seek failed (to 900412265, size -40)
+[+57983ms] [2026-10-17T21:45:49.057717] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 1078112084
+[+58999ms] [2026-10-17T21:45:50.073462] [stream.log] [ffmpeg] (error) Seek failed (to 1078112084, size -40)
+[+58999ms] [2026-10-17T21:45:50.073462] [stream.log] [ffmpeg] (v) stream level seek from 32768 to 3379561539
+================================================================================
+END OF FIXTURE LOG
+================================================================================

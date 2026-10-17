@@ -1,0 +1,160 @@
+================================================================================
+ZAKOWAY PLAYER PROBE FIXTURE LOG - P1
+================================================================================
+场景名称: P1 形态 A: xfxf1 原始域名形态 (生产 mpv 配置, error 级别, 10次)
+测试日期: 2026-10-17T21:28:24.097084
+执行环境: Windows 11 Pro x64, media_kit 1.2.6, libmpv v0.36.0-403, FFmpeg n6.0, mbedTLS 3.5.0
+执行命令: flutter test tool/player_probe/run_probe_p1_xfxf1_production.dart
+选用番剧与分集: 稀饭新番主线-1 - 第1集 (https://next.xifanacg.com/anime/3403/play/121397?source_id=4&source=xfxf1)
+URL形态说明: 直接采用 XifanNextSource().resolve() 返回的原生域名 URL 与 Headers，每次迭代获取新签名
+成功定义: open 后 15 秒内 position >= 1000ms 为成功，出现 Failed to open 或 15 秒超时未达标为失败
+脱敏规则说明: 敏感参数 sign、t、token 等替换为 ...，其余保持完全原始输出
+附加说明: 生产 mpv 配置，每次迭代重新 resolve() 获取新签名，记录实际使用 IP 与失败类型归因
+================================================================================
+
+--- Iteration #1 ---
+目标 URL: https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+实际使用 IP: domain_resolved
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36}
+结果: FAILED (耗时: 1682ms, 归因: tls_handshake_closed)
+stream.error:
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+stream.log:
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [stream] (error) Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+
+--- Iteration #2 ---
+目标 URL: https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+实际使用 IP: domain_resolved
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36}
+结果: FAILED (耗时: 1594ms, 归因: unknown_error)
+stream.error:
+  Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+stream.log:
+  [stream] (error) Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+
+--- Iteration #3 ---
+目标 URL: https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+实际使用 IP: domain_resolved
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36}
+结果: FAILED (耗时: 1643ms, 归因: unknown_error)
+stream.error:
+  Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+stream.log:
+  [stream] (error) Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+
+--- Iteration #4 ---
+目标 URL: https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+实际使用 IP: domain_resolved
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36}
+结果: FAILED (耗时: 1587ms, 归因: tls_handshake_closed)
+stream.error:
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+stream.log:
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [stream] (error) Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+
+--- Iteration #5 ---
+目标 URL: https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+实际使用 IP: domain_resolved
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36}
+结果: FAILED (耗时: 1621ms, 归因: unknown_error)
+stream.error:
+  Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+stream.log:
+  [stream] (error) Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+
+--- Iteration #6 ---
+目标 URL: https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+实际使用 IP: domain_resolved
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36}
+结果: FAILED (耗时: 1600ms, 归因: unknown_error)
+stream.error:
+  Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+stream.log:
+  [stream] (error) Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+
+--- Iteration #7 ---
+目标 URL: https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+实际使用 IP: domain_resolved
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36}
+结果: FAILED (耗时: 1570ms, 归因: tls_handshake_closed)
+stream.error:
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+stream.log:
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [stream] (error) Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+
+--- Iteration #8 ---
+目标 URL: https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+实际使用 IP: domain_resolved
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36}
+结果: FAILED (耗时: 1595ms, 归因: unknown_error)
+stream.error:
+  Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+stream.log:
+  [stream] (error) Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+
+--- Iteration #9 ---
+目标 URL: https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+实际使用 IP: domain_resolved
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36}
+结果: FAILED (耗时: 1530ms, 归因: unknown_error)
+stream.error:
+  Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+stream.log:
+  [stream] (error) Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+
+--- Iteration #10 ---
+目标 URL: https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+实际使用 IP: domain_resolved
+请求头: {User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36}
+结果: FAILED (耗时: 1546ms, 归因: tls_handshake_closed)
+stream.error:
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  tcp: ffurl_read returned 0xdfb9b0bb
+  Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+stream.log:
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [ffmpeg] (error) tcp: ffurl_read returned 0xdfb9b0bb
+  [ffmpeg] (error) tls: mbedtls_ssl_handshake returned -0x4e
+  [stream] (error) Failed to open https://apn.moedot.net/d/wo/2607/%E6%97%A0%E8%81%8C01z.mp4?sign=...
+
+================================================================================
+SUMMARY STATS:
+总测试轮次: 10
+成功次数: 0
+失败次数: 10
+  - TLS 握手中断失败: 4
+  - HTTP/签名层失败: 0
+  - 15秒超时未达标: 0
+成功率: 0.0%
+================================================================================

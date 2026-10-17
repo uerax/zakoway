@@ -1,0 +1,25 @@
+================================================================================
+TLS CLIENT MATRIX - DART SECURESOCKET
+================================================================================
+目标主机: bjdownload.pan.wo.cn:30443
+解析 IPv4: 61.48.58.57
+测试日期: 2026-10-17T21:33:45.385957
+执行命令: flutter test tool/player_probe/run_probe_p3_tls_matrix.dart
+================================================================================
+
+--- Test Case: Direct SecureSocket.connect (ALPN: [http/1.1]) ---
+TLS 握手: FAILED (耗时: 118ms)
+错误信息: HandshakeException: Connection terminated during handshake
+
+--- Test Case: Direct SecureSocket.connect (ALPN: [h2,http/1.1]) ---
+TLS 握手: FAILED (耗时: 95ms)
+错误信息: HandshakeException: Connection terminated during handshake
+
+--- Test Case: Two-Step (Socket.connect -> secure) (ALPN: [http/1.1]) ---
+TLS 握手: FAILED (耗时: 165ms)
+错误信息: HandshakeException: Connection terminated during handshake
+
+--- Test Case: Two-Step (Socket.connect -> secure) (ALPN: [h2,http/1.1]) ---
+TLS 握手: FAILED (耗时: 104ms)
+错误信息: HandshakeException: Connection terminated during handshake
+

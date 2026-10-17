@@ -1,0 +1,45 @@
+================================================================================
+TLS CLIENT MATRIX - BROWSER REFERENCE (EDGE / CHROME)
+================================================================================
+目标主机: bjdownload.pan.wo.cn:30443
+测试日期: 2026-10-17T21:33:51.053830
+说明: 探索 Edge/Chrome 自动化访问该主机的行为表现
+================================================================================
+
+检测到 Edge 安装路径: C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe
+执行测试命令: msedge.exe --headless=new --dump-dom https://bjdownload.pan.wo.cn:30443/
+Edge Exit Code: 0
+Edge Stdout: 
+Edge Stderr: [24932:5968:1017/213351.142:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_manager.cc:31] EACPolicyManager::Create C:\Users\uerax\AppData\Local\Temp\HeadlessEdge2493222254906 1
+[24932:5968:1017/213351.142:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_store.cc:164] EACPolicyStore load from disk failed: no policy file exists at C:\Users\uerax\AppData\Local\Temp\HeadlessEdge2493222254906\Policy\Machine Policy
+[24932:5968:1017/213351.142:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_store.cc:252] EACPolicyStore policy loaded: result.status=EACPolicyLoadStatusForUma(1), scope=TOKEN
+[24932:5968:1017/213351.142:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_store.cc:262] EACPolicyStore policy load failed: No policy found on disk, scope=TOKEN
+[24932:5968:1017/213351.142:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_manager.cc:31] EACPolicyManager::Create C:\Users\uerax\AppData\Local\Temp\HeadlessEdge2493222254906 1
+[24932:5968:1017/213351.142:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_store.cc:164] EACPolicyStore load from disk failed: no policy file exists at C:\Users\uerax\AppData\Local\Temp\HeadlessEdge2493222254906\Policy\Profile Machine Policy
+[24932:5968:1017/213351.142:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_store.cc:252] EACPolicyStore policy loaded: result.status=EACPolicyLoadStatusForUma(1), scope=PROFILE_MACHINE
+[24932:5968:1017/213351.142:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_store.cc:262] EACPolicyStore policy load failed: No policy found on disk, scope=PROFILE_MACHINE
+[24932:5968:1017/213351.142:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_manager.cc:31] EACPolicyManager::Create C:\Users\uerax\AppData\Local\Temp\HeadlessEdge2493222254906 1
+[24932:5968:1017/213351.143:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_store.cc:164] EACPolicyStore load from disk failed: no policy file exists at C:\Users\uerax\AppData\Local\Temp\HeadlessEdge2493222254906\Policy\Web Content Filtering Tasks
+[24932:5968:1017/213351.143:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_store.cc:252] EACPolicyStore policy loaded: result.status=EACPolicyLoadStatusForUma(1), scope=UNKNOWN
+[24932:5968:1017/213351.143:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_store.cc:262] EACPolicyStore policy load failed: No policy found on disk, scope=UNKNOWN
+[24932:5968:1017/213351.143:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_manager.cc:61] EACPolicyManager initializing, scope=TOKEN 0x7888000a4400
+[24932:5968:1017/213351.143:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_manager.cc:178] EACPolicyManager store loaded, scope=TOKEN
+[24932:5968:1017/213351.143:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_manager.cc:125] EACPolicyManager publishing policies, scope=TOKEN 0x7888000a4400
+[24932:5968:1017/213351.143:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_manager.cc:61] EACPolicyManager initializing, scope=PROFILE_MACHINE 0x7888000a4500
+[24932:5968:1017/213351.143:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_manager.cc:178] EACPolicyManager store loaded, scope=PROFILE_MACHINE
+[24932:5968:1017/213351.143:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_manager.cc:125] EACPolicyManager publishing policies, scope=PROFILE_MACHINE 0x7888000a4500
+[24932:5968:1017/213351.143:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_manager.cc:61] EACPolicyManager initializing, scope=UNKNOWN 0x7888000a4600
+[24932:5968:1017/213351.143:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_manager.cc:178] EACPolicyManager store loaded, scope=UNKNOWN
+[24932:5968:1017/213351.143:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_manager.cc:125] EACPolicyManager publishing policies, scope=UNKNOWN 0x7888000a4600
+[24932:5968:1017/213351.143:VERBOSE1:components\policy\core\common\policy_service_impl.cc:641] Taking initial snapshot of POLICY_DOMAIN_CHROME policies
+[24932:5968:1017/213351.145:VERBOSE1:components\variations\service\variations_field_trial_creator.cc:96] VariationsSeedUsage:2
+[24932:5968:1017/213351.145:VERBOSE1:components\variations\service\variations_field_trial_creator.cc:551] VariationsSetupComplete
+[24932:5968:1017/213351.153:VERBOSE1:base\allocator\scheduler_loop_quarantine_config.cc:199] No entry found for browser/global.
+[24932:5968:1017/213351.153:VERBOSE1:base\allocator\scheduler_loop_quarantine_config.cc:199] No entry found for browser/*.
+[24932:5968:1017/213351.155:WARNING:chrome\browser\chrome_browser_main_win.cc:1721] Edge is running elevated: 1
+[24932:5968:1017/213351.163:VERBOSE1:base\win\elevation_util.cc:132] RunDeElevated: Started process, PID: 19036
+[24932:5968:1017/213351.163:VERBOSE1:base\win\elevation_util.cc:136] RunDeElevated: ::AllowSetForegroundWindow failed: 鎷掔粷璁块棶銆?(0x5)
+[24932:5968:1017/213351.164:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_manager.cc:84] EACPolicyManager shutting down, scope=TOKEN
+[24932:5968:1017/213351.164:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_manager.cc:84] EACPolicyManager shutting down, scope=PROFILE_MACHINE
+[24932:5968:1017/213351.164:VERBOSE1:components\policy\core\common\edge_admin_center\eac_policy_manager.cc:84] EACPolicyManager shutting down, scope=UNKNOWN
+观测事实: 在管理员权限(Elevated)终端中执行 msedge.exe 时，Edge 触发底层安全隔离 RunDeElevated 降权派发，父进程无子进程网络事件标准输出返回。
