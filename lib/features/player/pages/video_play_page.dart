@@ -1404,7 +1404,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return PopScope(
+    final pageContent = PopScope(
       canPop: !_isFullscreen && !_isSidePanelOpen,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
@@ -1594,26 +1594,25 @@ class _VideoPlayPageState extends State<VideoPlayPage>
               },
             );
 
-            if (_isFullscreen) {
-              return Scaffold(
-                backgroundColor: Colors.black,
-                body: layoutContent,
-              );
-            }
-
+            // 特殊处理说明：
+            // 无论全屏还是普通窗口，外层始终保持严格一致的 Scaffold 与 Stack 节点树深度。
+            // 避免在全屏/应用全屏切换时外层 Widget 层级发生结构性增减，
+            // 确保内部 layoutContent 的挂载深度在整页生命周期中始终恒定不变。
             return Scaffold(
-              backgroundColor: Colors.transparent,
+              backgroundColor: _isFullscreen ? Colors.black : Colors.transparent,
               body: Stack(
                 fit: StackFit.expand,
                 children: [
                   // 0. 基础底衬
-                  Positioned.fill(
-                    child: ColoredBox(
-                      color: isDark ? const Color(0xFF141416) : Theme.of(context).scaffoldBackgroundColor,
+                  if (!_isFullscreen)
+                    Positioned.fill(
+                      child: ColoredBox(
+                        color: isDark ? const Color(0xFF141416) : Theme.of(context).scaffoldBackgroundColor,
+                      ),
                     ),
-                  ),
                   // 1. 个人专属背景壁纸层
-                  AppearanceManager.instance.buildWallpaperLayer(pageKey: 'profile'),
+                  if (!_isFullscreen)
+                    AppearanceManager.instance.buildWallpaperLayer(pageKey: 'profile'),
                   // 2. 播放页面主体流
                   Positioned.fill(
                     child: layoutContent,
@@ -1625,6 +1624,22 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         ),
       ),
     );
+
+    // 特殊处理说明：
+    // 桌面端 (Windows/macOS/Linux) 将播放页面全局排除在系统无障碍树 (Semantics) 之外。
+    // 原因：Flutter Desktop 在 Windows 平台使用 Chromium ui::AXTree，当后台存在输入法、翻译取词、
+    // 录屏或游戏浮层时会被动激活无障碍更新。播放页面包含实时 GPU 视频纹理、高频进度/弹幕刷新以及
+    // 右侧数十个分集卡片与换源 Tab，在起播、全屏及退出全屏切换时极易触发 AXTree 拓扑反序列化脱节，
+    // 进而产生海量 "Failed to update ui::AXTree, error: ... will not be in the tree" 刷屏日志，
+    // 并在特定系统事件下引发野指针崩溃。
+    // 播放页快捷键由 Focus/KeyEvent 驱动，所有点击/拖拽由 PointerEvent 处理，无障碍隔离对交互零影响。
+    if (AppPlatform.isDesktop) {
+      return ExcludeSemantics(
+        child: pageContent,
+      );
+    }
+
+    return pageContent;
   }
 
   /// 顶部播放器或未起播海报占位组件

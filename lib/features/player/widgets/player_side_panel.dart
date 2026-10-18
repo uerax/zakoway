@@ -108,8 +108,12 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
+    // 特殊处理说明：
+    // 全屏侧边浮层抽屉使用 ExcludeSemantics 排除在系统无障碍树外，
+    // 防止全屏/退出全屏切换时侧边栏海量分集与换源组件引发 Chromium AXTree 拓扑异常闪退。
+    return ExcludeSemantics(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
         final panelWidth =
             constraints.maxWidth < 360 ? constraints.maxWidth : 360.0;
         final isFullCover = constraints.maxWidth < 360;
@@ -221,7 +225,8 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
           ],
         );
       },
-    );
+    ),
+  );
   }
 
   Widget _buildHeader(Color primaryColor) {

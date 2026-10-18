@@ -51,6 +51,13 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  // Intercept WM_GETOBJECT to prevent Windows UI Automation from activating
+  // Flutter engine's AccessibilityBridge (Chromium ui::AXTree) which has known
+  // severe deserialization bugs causing crashes and console error floods on Windows.
+  if (message == WM_GETOBJECT) {
+    return 0;
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =

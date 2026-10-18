@@ -170,6 +170,11 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
     if (oldWidget.isFullscreen != widget.isFullscreen ||
         oldWidget.isTrueFullscreen != widget.isTrueFullscreen ||
         oldWidget.isAppFullscreen != widget.isAppFullscreen) {
+      // 特殊处理说明：
+      // 全屏/应用全屏切换时即刻关闭残留的悬停与浮层状态，避免跨布局重组时浮动面板漂移或残留活跃节点。
+      _showSpeedPopup = false;
+      _isVolumeHovered = false;
+      _activePanel = _DesktopActivePanel.none;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _ensureKeyboardFocus();
@@ -815,7 +820,12 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
       ),
     );
     if (tooltip != null) {
-      return Tooltip(message: tooltip, child: button);
+      // 特殊处理说明：
+      // Tooltip 必须使用 ExcludeSemantics 排除在 Windows 辅助功能树之外，
+      // 防止在鼠标悬停状态下全屏/退出全屏导致 AXTree 孤儿节点崩溃。
+      return ExcludeSemantics(
+        child: Tooltip(message: tooltip, child: button),
+      );
     }
     return button;
   }
@@ -838,7 +848,8 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
       focusNode: _keyboardFocusNode,
       autofocus: true,
       onKeyEvent: (node, event) => _handleKeyEvent(event),
-      child: LayoutBuilder(
+      child: ExcludeSemantics(
+        child: LayoutBuilder(
         builder: (context, constraints) {
           final playerWidth = constraints.maxWidth;
           final playerHeight = constraints.maxHeight;
@@ -1609,6 +1620,7 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
           );
         },
       ),
-    );
+    ),
+  );
   }
 }

@@ -110,9 +110,17 @@ class ZakowayApp extends StatelessWidget {
           ),
           themeMode: ThemeMode.system,
           builder: (context, child) {
-            return AppDesktopWindowFrame(
+            final appFrame = AppDesktopWindowFrame(
               child: child ?? const SizedBox.shrink(),
             );
+            // 特殊处理说明：
+            // 桌面端 (Windows/macOS/Linux) 将全应用根节点排除在系统无障碍语义树之外。
+            // 配合 windows runner 的 WM_GETOBJECT 拦截形成双保险，
+            // 彻底防止 Flutter 引擎在桌面端产生任何 AXTree 拓扑反序列化更新与相关报错。
+            if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+              return ExcludeSemantics(child: appFrame);
+            }
+            return appFrame;
           },
           home: MainNavigationShell(client: client),
         );
