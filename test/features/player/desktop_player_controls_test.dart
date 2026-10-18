@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zakoway/features/player/controller/playback_controller.dart';
+import 'package:zakoway/features/player/widgets/controls/popups/player_speed_popup.dart';
 import 'package:zakoway/features/player/widgets/controls/popups/player_vertical_volume_popup.dart';
 import 'package:zakoway/features/player/widgets/desktop/desktop_player_controls.dart';
 import 'package:zakoway/features/player/widgets/desktop/desktop_player_gesture_layer.dart';
 import 'package:zakoway/features/player/widgets/desktop/desktop_shortcut_help_dialog.dart';
+import 'package:zakoway/features/player/widgets/player_progress_bar.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -299,6 +301,102 @@ void main() {
       await tester.pump();
       expect(controller.timeline.value.position, const Duration(seconds: 35));
       expect(find.text('快进 5 秒'), findsNothing);
+    });
+
+    testWidgets('DesktopPlayerControls: 点击底部控制条按钮间隙与空白区域不触发播放/暂停',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      // 设置播放状态为正在播放
+      controller.play();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DesktopPlayerControls(
+              controller: controller,
+              title: '控制条间隙防误触测试',
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(controller.core.value.playing, isTrue);
+
+      // 1. 找到底部控制条内部的按钮 Row（与 PlayerProgressBar 处于同一个 Column）
+      final bottomRowFinder = find.descendant(
+        of: find.ancestor(
+          of: find.byType(PlayerProgressBar),
+          matching: find.byType(Column),
+        ),
+        matching: find.byType(Row),
+      );
+      expect(bottomRowFinder, findsOneWidget);
+      final center = tester.getCenter(bottomRowFinder);
+
+      // 2. 点击底部控制条中间空白占位 Spacer 区域
+      await tester.tapAt(center);
+      await tester.pump();
+
+      // 验证：点击控制条按钮间隙/空白处被整块拦截，视频依然在播放，绝不暂停
+      expect(controller.core.value.playing, isTrue);
+
+      // 3. 点击控制条按钮下方 padding 边距区域 (Y=595 处)
+      await tester.tapAt(const Offset(300, 595));
+      await tester.pump();
+      expect(controller.core.value.playing, isTrue);
+
+      // 4. 点击控制条上方真正的视频画面区域 (例如 Y=200 处)
+      await tester.tapAt(const Offset(500, 200));
+      await tester.pump();
+
+      // 验证：点击视频画面依然能正常触发播放/暂停
+      expect(controller.core.value.playing, isFalse);
+    });
+
+    testWidgets('DesktopPlayerControls: 倍速气泡浮层展开时与倍速按钮水平中心精准对齐',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DesktopPlayerControls(
+              controller: controller,
+              title: '倍速居中对齐测试',
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // 找到倍速按钮
+      final speedBtnFinder = find.byTooltip('播放倍速 (< 减速 / > 加速)');
+      expect(speedBtnFinder, findsOneWidget);
+      final speedBtnCenter = tester.getCenter(speedBtnFinder);
+
+      // 点击展开倍速选择气泡
+      await tester.tap(speedBtnFinder);
+      await tester.pump();
+
+      // 验证倍速气泡展开
+      final popupFinder = find.byType(PlayerSpeedPopup);
+      expect(popupFinder, findsOneWidget);
+      final popupCenter = tester.getCenter(popupFinder);
+
+      // 验证：气泡中心 X 坐标与倍速按钮中心 X 坐标精准对齐（误差 < 1px）
+      expect(popupCenter.dx, closeTo(speedBtnCenter.dx, 1.0));
+      // 验证：气泡位于倍速按钮上方
+      expect(popupCenter.dy, lessThan(speedBtnCenter.dy));
+
+      // 点击选择 1.5x
+      await tester.tap(find.text('1.5x'));
+      await tester.pump();
+
+      expect(controller.core.value.playbackRate, equals(1.5));
+      expect(find.byType(PlayerSpeedPopup), findsNothing);
     });
   });
 }

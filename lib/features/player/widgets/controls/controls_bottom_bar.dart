@@ -217,19 +217,26 @@ class PlayerControlsBottomBar extends StatelessWidget {
               platform: Theme.of(context).platform,
             );
 
-            return SafeArea(
-              top: false,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  metrics.horizontalPadding,
-                  0,
-                  metrics.horizontalPadding,
-                  metrics.bottomPadding,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
+            // 特殊处理说明：
+            // 最外层包裹 HitTestBehavior.opaque 的 GestureDetector 形成完整实体覆盖块，
+            // 吸收按钮间隙、Spacer 以及文本空白区域的点击并刷新交互状态，
+            // 严防误触穿透到底层手势层导致非预期的视频暂停或控制栏意外闪退。
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onUserInteraction,
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    metrics.horizontalPadding,
+                    0,
+                    metrics.horizontalPadding,
+                    metrics.bottomPadding,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                     // 1. 复合型全宽进度条（弹幕高能雾光波形 + OP/ED 彩色区间 + 缓冲条 + 悬停流体滑块）
                     ValueListenableBuilder<PlaybackTimelineState>(
                       valueListenable: controller.timeline,
@@ -543,7 +550,8 @@ class PlayerControlsBottomBar extends StatelessWidget {
                   ],
                 ),
               ),
-            );
+            ),
+          );
           },
         );
       },

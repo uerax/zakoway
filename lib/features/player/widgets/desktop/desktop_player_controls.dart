@@ -219,6 +219,39 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
     widget.controller.setVolume(nextVol);
   }
 
+  double _calcSpeedPopupRight(double playerWidth, double popupWidth) {
+    try {
+      final btnBox =
+          _speedButtonKey.currentContext?.findRenderObject() as RenderBox?;
+      final playerBox = context.findRenderObject() as RenderBox?;
+      if (btnBox != null && playerBox != null && btnBox.hasSize) {
+        final btnPos =
+            playerBox.globalToLocal(btnBox.localToGlobal(Offset.zero));
+        final btnCenterX = btnPos.dx + btnBox.size.width / 2;
+        final candidateLeft = btnCenterX - popupWidth / 2;
+        final clampedLeft =
+            candidateLeft.clamp(8.0, math.max(8.0, playerWidth - popupWidth - 8.0));
+        return math.max(0.0, playerWidth - clampedLeft - popupWidth);
+      }
+    } catch (_) {}
+    return 140.0;
+  }
+
+  double _calcSpeedPopupBottom(double playerHeight) {
+    try {
+      final btnBox =
+          _speedButtonKey.currentContext?.findRenderObject() as RenderBox?;
+      final playerBox = context.findRenderObject() as RenderBox?;
+      if (btnBox != null && playerBox != null && btnBox.hasSize && playerBox.hasSize) {
+        final btnPos =
+            playerBox.globalToLocal(btnBox.localToGlobal(Offset.zero));
+        return (playerHeight - btnPos.dy + 6.0)
+            .clamp(0.0, math.max(0.0, playerHeight - 60.0));
+      }
+    } catch (_) {}
+    return 46.0;
+  }
+
   double _calcVolumePopupRight(double playerWidth) {
     try {
       final btnBox =
@@ -808,8 +841,10 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final playerWidth = constraints.maxWidth;
+          final playerHeight = constraints.maxHeight;
           final isNarrow = playerWidth < 600;
           final isUltraNarrow = playerWidth < 460;
+          final speedPopupWidth = isUltraNarrow ? 82.0 : 86.0;
           final btnSpacing = isUltraNarrow ? 2.5 : (isNarrow ? 4.0 : 6.0);
           final barHorizontalPadding =
               isUltraNarrow ? 8.0 : (isNarrow ? 10.0 : 16.0);
@@ -971,17 +1006,27 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                       ),
 
                       // 底部控制行与全宽进度条
+                      // 特殊处理说明：
+                      // 最外层包裹 HitTestBehavior.opaque 的 GestureDetector 形成完整实体覆盖块，
+                      // 吸收按钮间隙、Spacer 以及文本空白区域的点击并刷新交互状态，
+                      // 严防误触穿透到底层 DesktopPlayerGestureLayer 导致非预期的视频暂停/播放。
                       Positioned(
                         bottom: 0,
                         left: 0,
                         right: 0,
-                        child: Padding(
-                          padding: EdgeInsets.fromLTRB(
-                              barHorizontalPadding, 0, barHorizontalPadding, 8),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            _ensureKeyboardFocus();
+                            _handleUserActivity();
+                          },
+                          child: Padding(
+                            padding: EdgeInsets.fromLTRB(
+                                barHorizontalPadding, 0, barHorizontalPadding, 8),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
                               // 全宽进度条
                               ValueListenableBuilder<PlaybackTimelineState>(
                                 valueListenable: widget.controller.timeline,
@@ -1372,6 +1417,7 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                           ),
                         ),
                       ),
+                    ),
                     ],
                   ),
                 ),
@@ -1390,11 +1436,12 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                   ),
                 ),
                 Positioned(
-                  right: 140,
-                  bottom: 46,
+                  right: _calcSpeedPopupRight(playerWidth, speedPopupWidth),
+                  bottom: _calcSpeedPopupBottom(playerHeight),
                   child: PlayerSpeedPopup(
                     controller: widget.controller,
                     primaryColor: primaryColor,
+                    compact: isUltraNarrow,
                     onSelectSpeed: (speed) {
                       widget.controller.setPlaybackRate(speed);
                       setState(() => _showSpeedPopup = false);
