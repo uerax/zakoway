@@ -144,6 +144,9 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                 record.toBangumiItem(),
                 initialPosition: Duration(seconds: record.position.toInt()),
                 currentEpisode: record.episode,
+                preferredSourceId: record.pluginName,
+                initialPageUrl: record.pageUrl,
+                initialRoad: record.road,
               );
             },
             onViewAllHistory: () {

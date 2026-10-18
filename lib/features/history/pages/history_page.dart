@@ -4,6 +4,7 @@ import '../../../core/models/history/watch_history_item.dart';
 import '../../../core/services/watch_history_service.dart';
 import '../../../core/theme/m3_surface.dart';
 import '../../../core/utils/appearance_manager.dart';
+import '../../../core/utils/font_manager.dart';
 import '../../common/widgets/anime_card.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
 import '../../common/widgets/cached_anime_image.dart';
@@ -22,11 +23,13 @@ class HistoryPage extends StatefulWidget {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
-  bool _isLoading = true;
+  late bool _isLoading;
 
   @override
   void initState() {
     super.initState();
+    // 特殊处理说明：若内存中已有历史记录快照，初始直接展示，消除首帧空白与顶部统计栏跳动
+    _isLoading = WatchHistoryService.instance.items.isEmpty;
     _loadHistory();
   }
 
@@ -56,19 +59,43 @@ class _HistoryPageState extends State<HistoryPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('清空播放历史'),
-        content: const Text('确定要清空全部播放历史记录吗？此操作不可撤销。'),
+        title: Text(
+          '清空播放历史',
+          style: TextStyle(
+            fontFamily: FontManager.instance.activeFontFamily,
+            fontFamilyFallback: FontManager.fallbackFontFamilies,
+          ),
+        ),
+        content: Text(
+          '确定要清空全部播放历史记录吗？此操作不可撤销。',
+          style: TextStyle(
+            fontFamily: FontManager.instance.activeFontFamily,
+            fontFamilyFallback: FontManager.fallbackFontFamilies,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('取消'),
+            child: Text(
+              '取消',
+              style: TextStyle(
+                fontFamily: FontManager.instance.activeFontFamily,
+                fontFamilyFallback: FontManager.fallbackFontFamilies,
+              ),
+            ),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(ctx).colorScheme.error,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('确认清空'),
+            child: Text(
+              '确认清空',
+              style: TextStyle(
+                fontFamily: FontManager.instance.activeFontFamily,
+                fontFamilyFallback: FontManager.fallbackFontFamilies,
+              ),
+            ),
           ),
         ],
       ),
@@ -174,35 +201,46 @@ class _HistoryPageState extends State<HistoryPage> {
                     ],
                   );
 
-        return Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            title: const Text(
-              '播放历史',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-            ),
-            centerTitle: true,
-            actions: [
-              if (items.isNotEmpty)
-                IconButton(
-                  icon: const Icon(Icons.delete_sweep_rounded),
-                  tooltip: '清空历史',
-                  onPressed: _confirmClearAll,
-                ),
-            ],
-          ),
-          body: Stack(
+        // 特殊处理说明：
+        // 1. 最外层包裹 100% 不透明的 ColoredBox(color: theme.scaffoldBackgroundColor)，
+        //    从物理层面杜绝任何路由推入期间或 AppBar 背后漏出底层页面内容；
+        // 2. 第二层铺满专属个人壁纸层，使壁纸从屏幕最顶端自然延伸至 AppBar 背后；
+        // 3. 内部 Scaffold 保持 transparent，AppBar 背景透明且 elevation: 0、scrolledUnderElevation: 0，
+        //    使标题栏与全屏壁纸柔和相融，同时 body 内容天然在 AppBar 下方正常流淌，零溢出与遮挡风险。
+        return ColoredBox(
+          color: theme.scaffoldBackgroundColor,
+          child: Stack(
             fit: StackFit.expand,
             children: [
-              // 0. 底衬背景色
-              Positioned.fill(
-                child: ColoredBox(color: theme.scaffoldBackgroundColor),
-              ),
-              // 1. 个人专属背景壁纸层
+              // 0. 个人专属背景壁纸层 (全景铺满，涵盖 AppBar 背后)
               AppearanceManager.instance.buildWallpaperLayer(pageKey: 'profile'),
-              // 2. 内容层
-              Positioned.fill(
-                child: content,
+              // 1. 历史页面主脚手架
+              Scaffold(
+                backgroundColor: Colors.transparent,
+                appBar: AppBar(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  title: Text(
+                    '播放历史',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                      fontFamily: FontManager.instance.activeFontFamily,
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                    ),
+                  ),
+                  centerTitle: true,
+                  actions: [
+                    if (items.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.delete_sweep_rounded),
+                        tooltip: '清空历史',
+                        onPressed: _confirmClearAll,
+                      ),
+                  ],
+                ),
+                body: content,
               ),
             ],
           ),
@@ -329,6 +367,9 @@ class _HistoryPageState extends State<HistoryPage> {
           item.toBangumiItem(),
           initialPosition: Duration(seconds: item.position.toInt()),
           currentEpisode: item.episode,
+          preferredSourceId: item.pluginName,
+          initialPageUrl: item.pageUrl,
+          initialRoad: item.road,
         ),
         child: Container(
           padding: const EdgeInsets.all(9),

@@ -34,15 +34,21 @@ class VideoPlayerInitialPlaceholder extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         // 1. 底层：超大半径环境高斯散焦流光 (Ambient Backdrop Glow)
+        // 特殊处理说明：
+        // 1. 挂载 RepaintBoundary 建立独立光栅化图层，彻底阻断上方加载圈或操作浮层每帧重绘波及全屏高斯模糊；
+        // 2. 纯散焦背景图片注入 resizeWidth: 160 降采样解码，显存与模糊计算耗时暴降，视觉效果无差别。
         if (coverUrl.isNotEmpty) ...[
           Positioned.fill(
-            child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 42, sigmaY: 42),
-              child: Transform.scale(
-                scale: 1.15,
-                child: CachedAnimeImage(
-                  imageUrl: coverUrl,
-                  fit: BoxFit.cover,
+            child: RepaintBoundary(
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 38, sigmaY: 38),
+                child: Transform.scale(
+                  scale: 1.15,
+                  child: CachedAnimeImage(
+                    imageUrl: coverUrl,
+                    fit: BoxFit.cover,
+                    resizeWidth: 160,
+                  ),
                 ),
               ),
             ),
@@ -485,6 +491,8 @@ class VideoPlayerHudToast extends StatelessWidget {
                       color: Colors.white,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
+                      fontFamily: 'MiSans',
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                     ),
                   ),
                 ],

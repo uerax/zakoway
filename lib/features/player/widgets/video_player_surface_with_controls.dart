@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:zakoway/core/services/bangumi_oped_service.dart';
 import 'package:zakoway/core/utils/responsive.dart';
@@ -31,6 +32,7 @@ class VideoPlayerSurfaceWithControls extends StatelessWidget {
     this.onPrevEpisode,
     this.opedSegment,
     this.hudToast,
+    this.hudToastListenable,
     this.resolveError,
     required this.primaryColor,
     required this.onRetryResolve,
@@ -59,6 +61,7 @@ class VideoPlayerSurfaceWithControls extends StatelessWidget {
   final VoidCallback? onPrevEpisode;
   final EpisodeOpedSegment? opedSegment;
   final String? hudToast;
+  final ValueListenable<String?>? hudToastListenable;
   final String? resolveError;
   final Color primaryColor;
   final VoidCallback onRetryResolve;
@@ -126,8 +129,16 @@ class VideoPlayerSurfaceWithControls extends StatelessWidget {
           overlay: controlsWidget,
         ),
 
-        // HUD Toast 悬浮提示胶囊
-        if (hudToast != null)
+        // HUD Toast 悬浮提示胶囊 (优先使用局部 ValueListenable 驱动，0 全页 Rebuild)
+        if (hudToastListenable != null)
+          ValueListenableBuilder<String?>(
+            valueListenable: hudToastListenable!,
+            builder: (context, msg, _) {
+              if (msg == null || msg.isEmpty) return const SizedBox.shrink();
+              return VideoPlayerHudToast(message: msg);
+            },
+          )
+        else if (hudToast != null)
           VideoPlayerHudToast(message: hudToast!),
 
         // iOS 风格解析失败提示磨砂卡片

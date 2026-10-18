@@ -61,6 +61,9 @@ class VideoPlayPage extends StatefulWidget {
     this.episodeCount = 12,
     this.currentEpisode,
     this.onEpisodeSelected,
+    this.preferredSourceId,
+    this.initialPageUrl,
+    this.initialRoad,
   });
 
   /// 视频/番剧标题
@@ -83,6 +86,12 @@ class VideoPlayPage extends StatefulWidget {
   final int? currentEpisode;
   /// 切集回调
   final ValueChanged<int>? onEpisodeSelected;
+  /// 偏好或历史指定的视频源 ID (用于“继续追番”精准直开)
+  final String? preferredSourceId;
+  /// 历史指定的直链播放页地址
+  final String? initialPageUrl;
+  /// 历史指定的线路索引
+  final int? initialRoad;
 
   @override
   State<VideoPlayPage> createState() => _VideoPlayPageState();
@@ -120,7 +129,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   bool _isLoadingChapters = false;
   String? _resolveError;
   String? _sourceNotice;
-  String? _hudToast;
+  late final ValueNotifier<String?> _hudToastNotifier;
   Timer? _hudToastTimer;
   bool _defaultSearchEmpty = false;
 
@@ -216,9 +225,22 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   @override
   void initState() {
     super.initState();
+    _hudToastNotifier = ValueNotifier<String?>(null);
     _autoPlayNextNotifier =
         ValueNotifier<bool>(PlayerPreferencesService.instance.autoPlayNext);
     _activeEpisode = widget.currentEpisode;
+
+    // 若通过“继续追番”等入口显式指定了历史源与线路，优先对齐历史上下文
+    if (widget.preferredSourceId != null && widget.preferredSourceId!.isNotEmpty) {
+      _selectedSourceId = widget.preferredSourceId!;
+    }
+    if (widget.initialRoad != null && widget.initialRoad! >= 0) {
+      _selectedRoadIndex = widget.initialRoad!;
+    }
+    if (widget.initialPageUrl != null && widget.initialPageUrl!.isNotEmpty) {
+      _currentPlayingPageUrl = widget.initialPageUrl;
+    }
+
     _danmakuController = DanmakuController();
     _danmakuCoordinator = DanmakuSessionCoordinator(
       danmakuController: _danmakuController,
@@ -316,42 +338,68 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     _fetchBangumiAuthorityData();
 
     // 待首帧构建完成后安全启动起播或检索
-    // 工业级标准优化：等待路由平滑推入动画（约 350ms）定格完成后，再启动重度视频源网络检索与起播，
-    // 保证从点击番剧卡片到播放页滑入屏幕的全程享有 100% 独立主线程算力，彻底消除页面跳转时的第一下掉帧卡顿
+    // 特殊处理说明：
+    // 网络检索、历史持久化绑定提取与分集请求属于纯后台异步 I/O，绝不占用 UI 渲染算力。
+    // 在首帧后立即无延迟并发发起检索（抢跑网络 RTT，缩短首帧出画耗时约 350ms）；
+    // 仅在拿到直链、准备向底层硬件解码器推送媒体流（_playbackController.open）时，
+    // 若路由推入动画未定格才挂起等待，实现“网络并行 + 渲染防掉帧”的最优解。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // 预先后台初始化持久化绑定服务
+      SourceBindingService.instance.initialize().ignore();
 
-      void startPlaybackFlow() {
-        if (!mounted) return;
-        // 预先后台初始化持久化绑定服务
-        SourceBindingService.instance.initialize().ignore();
-
-        // 若有显式传入的固定 URL 则直接起播
-        if (_activeEpisode != null &&
-            widget.videoUrl != null &&
-            widget.videoUrl!.isNotEmpty) {
-          _hasStartedPlayback = true;
-          _initPlayback();
-        } else {
-          // 启动主流程：先查绑定，再查默认源，未命中则后台探测保底源
-          _startDefaultSourceSearch(autoPlayFirst: _activeEpisode != null);
-        }
-      }
-
-      final route = ModalRoute.of(context);
-      if (route != null && route.animation != null && !route.animation!.isCompleted) {
-        void onAnimationFinished(AnimationStatus status) {
-          if (status == AnimationStatus.completed) {
-            route.animation?.removeStatusListener(onAnimationFinished);
-            startPlaybackFlow();
-          }
-        }
-
-        route.animation!.addStatusListener(onAnimationFinished);
+      // 若有显式传入的固定 URL 则直接起播
+      if (_activeEpisode != null &&
+          widget.videoUrl != null &&
+          widget.videoUrl!.isNotEmpty) {
+        _hasStartedPlayback = true;
+        _initPlayback();
       } else {
-        startPlaybackFlow();
+        // 启动主流程：先查绑定，再查指定/默认源，未命中则后台探测保底源
+        _startDefaultSourceSearch(autoPlayFirst: _activeEpisode != null);
       }
     });
+  }
+
+  /// 特殊处理说明：
+  /// 若转场路由推入动画仍在执行（如 iOS/Android 侧滑 250~350ms），在真正向底层 mpv 播放器
+  /// 挂载硬件解码视频纹理（_playbackController.open）前挂起等待动画定格。
+  /// 使得网络检索、绑定解析在动画期间 100% 异步并发，而将高开销的硬件纹理挂载平滑移至动画终点，
+  /// 既不掉帧，又为首帧出画抢回 300ms+ 网络 RTT。
+  Future<void> _waitForRouteAnimationIfNeeded() async {
+    final route = ModalRoute.of(context);
+    final anim = route?.animation;
+    if (anim != null && !anim.isCompleted) {
+      final completer = Completer<void>();
+      void listener(AnimationStatus status) {
+        if (status == AnimationStatus.completed || status == AnimationStatus.dismissed) {
+          anim.removeStatusListener(listener);
+          if (!completer.isCompleted) completer.complete();
+        }
+      }
+      anim.addStatusListener(listener);
+      await completer.future.timeout(
+        const Duration(milliseconds: 450),
+        onTimeout: () {
+          anim.removeStatusListener(listener);
+        },
+      );
+    }
+  }
+
+  /// 统一安全起播辅助方法：确保硬件解码纹理挂载与路由动画安全解耦
+  Future<void> _safeOpenPlayback(
+    String url, {
+    Map<String, String>? httpHeaders,
+    Duration? start,
+  }) async {
+    await _waitForRouteAnimationIfNeeded();
+    if (!mounted) return;
+    await _playbackController.open(
+      url,
+      httpHeaders: httpHeaders,
+      start: start,
+    );
   }
 
   void _onAggregatorUpdated() {
@@ -371,11 +419,9 @@ class _VideoPlayPageState extends State<VideoPlayPage>
 
   void _showHudToast(String message, {Duration duration = const Duration(milliseconds: 2200)}) {
     _hudToastTimer?.cancel();
-    setState(() => _hudToast = message);
+    _hudToastNotifier.value = message;
     _hudToastTimer = Timer(duration, () {
-      if (mounted) {
-        setState(() => _hudToast = null);
-      }
+      _hudToastNotifier.value = null;
     });
   }
 
@@ -532,7 +578,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       _resetPlaybackStats();
       _loadDanmakuForCurrentEpisode();
       final start = _resolveInitialResumePosition(_currentCanonicalEp);
-      await _playbackController.open(
+      await _safeOpenPlayback(
         widget.videoUrl!,
         httpHeaders: widget.httpHeaders,
         start: start,
@@ -646,7 +692,11 @@ class _VideoPlayPageState extends State<VideoPlayPage>
             if (!mounted) return;
             setState(() {
               _chapterRoads = roads;
-              _selectedRoadIndex = 0;
+              _selectedRoadIndex = (widget.initialRoad != null &&
+                      widget.initialRoad! >= 0 &&
+                      widget.initialRoad! < roads.length)
+                  ? widget.initialRoad!
+                  : 0;
               _isLoadingChapters = false;
               _defaultSearchEmpty = false;
             });
@@ -709,7 +759,11 @@ class _VideoPlayPageState extends State<VideoPlayPage>
           if (!mounted) return;
           setState(() {
             _chapterRoads = roads;
-            _selectedRoadIndex = 0;
+            _selectedRoadIndex = (widget.initialRoad != null &&
+                    widget.initialRoad! >= 0 &&
+                    widget.initialRoad! < roads.length)
+                ? widget.initialRoad!
+                : 0;
             _isLoadingChapters = false;
             _defaultSearchEmpty = false;
           });
@@ -966,7 +1020,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
 
     // 1. 若有预置直接流地址 (或单测环境测试流)
     if (widget.videoUrl != null && widget.videoUrl!.isNotEmpty) {
-      await _playbackController.open(
+      await _safeOpenPlayback(
         widget.videoUrl!,
         httpHeaders: widget.httpHeaders,
         start: startPos,
@@ -975,7 +1029,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     }
 
     if (Platform.environment.containsKey('FLUTTER_TEST')) {
-      await _playbackController.open(slot.pageUrl, start: startPos);
+      await _safeOpenPlayback(slot.pageUrl, start: startPos);
       return;
     }
 
@@ -988,7 +1042,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         throw Exception('视频源未能生成有效媒体地址');
       }
 
-      await _playbackController.open(
+      await _safeOpenPlayback(
         result.url,
         httpHeaders: result.headers,
         start: startPos,
@@ -1058,7 +1112,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
 
     // 1. 若有预置直接流地址 (或单测环境测试流)
     if (widget.videoUrl != null && widget.videoUrl!.isNotEmpty) {
-      await _playbackController.open(
+      await _safeOpenPlayback(
         widget.videoUrl!,
         httpHeaders: widget.httpHeaders,
         start: startPos,
@@ -1067,7 +1121,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     }
 
     if (Platform.environment.containsKey('FLUTTER_TEST')) {
-      await _playbackController.open(targetEp.url, start: startPos);
+      await _safeOpenPlayback(targetEp.url, start: startPos);
       return;
     }
 
@@ -1080,7 +1134,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         throw Exception('视频源未能生成有效媒体地址');
       }
 
-      await _playbackController.open(
+      await _safeOpenPlayback(
         result.url,
         httpHeaders: result.headers,
         start: startPos,
@@ -1179,6 +1233,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     SourceBundleManager.instance.removeListener(_onSourceBundleChanged);
     AppPreferences.serverModeNotifier.removeListener(_onServerModeChanged);
     _playbackController.dispose();
+    _hudToastNotifier.dispose();
     _autoPlayNextNotifier.dispose();
     _danmakuCoordinator.dispose();
     _danmakuController.dispose();
@@ -1635,7 +1690,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       bangumiId: _effectiveBangumiId,
       canonicalEpisode: _currentCanonicalEp,
       officialDurationSeconds: _currentOfficialDurationSeconds,
-      hudToast: _hudToast,
+      hudToastListenable: _hudToastNotifier,
       resolveError: _resolveError,
       primaryColor: primaryColor,
       onRetryResolve: () {

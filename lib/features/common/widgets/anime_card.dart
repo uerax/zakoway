@@ -13,6 +13,9 @@ void navigateToVideoPlayer(
   BangumiItem item, {
   Duration? initialPosition,
   int? currentEpisode,
+  String? preferredSourceId,
+  String? initialPageUrl,
+  int? initialRoad,
 }) {
   Navigator.of(context).push(
     AdaptivePageRoute.build<void>(
@@ -24,6 +27,9 @@ void navigateToVideoPlayer(
         episodeCount: item.eps > 0 ? item.eps : 12,
         currentEpisode: currentEpisode,
         initialPosition: initialPosition,
+        preferredSourceId: preferredSourceId,
+        initialPageUrl: initialPageUrl,
+        initialRoad: initialRoad,
       ),
     ),
   );
