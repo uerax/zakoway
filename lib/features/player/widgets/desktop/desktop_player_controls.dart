@@ -798,9 +798,8 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
     required VoidCallback? onTap,
     required double size,
     Key? key,
-    String? tooltip,
   }) {
-    final button = Material(
+    return Material(
       key: key,
       color: Colors.transparent,
       child: InkResponse(
@@ -819,15 +818,6 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
         ),
       ),
     );
-    if (tooltip != null) {
-      // 特殊处理说明：
-      // Tooltip 必须使用 ExcludeSemantics 排除在 Windows 辅助功能树之外，
-      // 防止在鼠标悬停状态下全屏/退出全屏导致 AXTree 孤儿节点崩溃。
-      return ExcludeSemantics(
-        child: Tooltip(message: tooltip, child: button),
-      );
-    }
-    return button;
   }
 
   static String _formatDuration(Duration duration, {bool showHours = false}) {
@@ -1088,9 +1078,6 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                           size: mainIconSize + 2,
                                         ),
                                         size: mainBtnSize,
-                                        tooltip: coreState.playing
-                                            ? '暂停 (Space)'
-                                            : '播放 (Space)',
                                         onTap: () {
                                           _handleUserActivity();
                                           widget.controller.togglePlay();
@@ -1108,7 +1095,6 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                           color: Colors.white,
                                           size: mainIconSize),
                                       size: mainBtnSize,
-                                      tooltip: '上一集 ([)',
                                       onTap: () {
                                         _handleUserActivity();
                                         widget.onPrevEpisode?.call();
@@ -1123,7 +1109,6 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                           color: Colors.white,
                                           size: mainIconSize),
                                       size: mainBtnSize,
-                                      tooltip: '下一集 (])',
                                       onTap: () {
                                         _handleUserActivity();
                                         widget.onNextEpisode?.call();
@@ -1217,7 +1202,6 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                             checkColor: primaryColor,
                                           ),
                                           size: mainBtnSize,
-                                          tooltip: isEnabled ? '关闭弹幕 (D)' : '开启弹幕 (D)',
                                           onTap: () {
                                             _handleUserActivity();
                                             final current =
@@ -1239,7 +1223,6 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                             : Colors.white,
                                       ),
                                       size: mainBtnSize,
-                                      tooltip: '弹幕设置',
                                       onTap: () =>
                                           _togglePanel(_DesktopActivePanel.danmaku),
                                     ),
@@ -1253,44 +1236,43 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                       final rate = coreState.playbackRate;
                                       final rateLabel =
                                           rate == 1.0 ? '倍速' : '${rate}x';
-                                      return Tooltip(
-                                        message: '播放倍速 (< 减速 / > 加速)',
-                                        child: Material(
-                                          key: _speedButtonKey,
-                                          color: Colors.transparent,
-                                          child: InkWell(
-                                            borderRadius:
-                                                BorderRadius.circular(16),
-                                            onTap: () {
-                                              _ensureKeyboardFocus();
-                                              _toggleSpeedPopup();
-                                            },
-                                            child: Container(
-                                              height: isUltraNarrow ? 26 : 28,
-                                              padding: EdgeInsets.symmetric(
-                                                  horizontal: isUltraNarrow ? 6 : 8,
-                                                  vertical: 2),
-                                              alignment: Alignment.center,
-                                              decoration: BoxDecoration(
+                                      return Material(
+                                        key: _speedButtonKey,
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          borderRadius:
+                                              BorderRadius.circular(16),
+                                          onTap: () {
+                                            _ensureKeyboardFocus();
+                                            _toggleSpeedPopup();
+                                          },
+                                          child: Container(
+                                            height: isUltraNarrow ? 26 : 28,
+                                            padding: EdgeInsets.symmetric(
+                                                horizontal: isUltraNarrow ? 6 : 8,
+                                                vertical: 2),
+                                            alignment: Alignment.center,
+                                            decoration: BoxDecoration(
+                                              color: _showSpeedPopup
+                                                  ? primaryColor
+                                                      .withValues(alpha: 0.25)
+                                                  : Colors.transparent,
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                            ),
+                                            child: Text(
+                                              rateLabel,
+                                              style: TextStyle(
                                                 color: _showSpeedPopup
                                                     ? primaryColor
-                                                        .withValues(alpha: 0.25)
-                                                    : Colors.transparent,
-                                                borderRadius:
-                                                    BorderRadius.circular(16),
-                                              ),
-                                              child: Text(
-                                                rateLabel,
-                                                style: TextStyle(
-                                                  color: _showSpeedPopup
-                                                      ? primaryColor
-                                                      : Colors.white,
-                                                  fontSize: isUltraNarrow
-                                                      ? 11.0
-                                                      : 12.0,
-                                                  fontWeight: FontWeight.w600,
-                                                  fontFamily: 'MiSans',
-                                                ),
+                                                    : Colors.white,
+                                                fontSize: isUltraNarrow
+                                                    ? 11.0
+                                                    : 12.0,
+                                                fontWeight: FontWeight.w600,
+                                                fontFamily: 'MiSans',
+                                                fontFamilyFallback:
+                                                    FontManager.fallbackFontFamilies,
                                               ),
                                             ),
                                           ),
@@ -1312,7 +1294,6 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                       size: mainIconSize,
                                     ),
                                     size: mainBtnSize,
-                                    tooltip: '播放设置',
                                     onTap: () => _togglePanel(
                                         _DesktopActivePanel.settings),
                                   ),
@@ -1348,9 +1329,6 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                               size: mainIconSize,
                                             ),
                                             size: mainBtnSize,
-                                            tooltip: isMuted
-                                                ? '取消静音 (M)'
-                                                : '静音 (M) / 悬停调音量',
                                             onTap: () {
                                               _handleUserActivity();
                                               widget.controller.toggleMute();
@@ -1377,9 +1355,6 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                         size: mainIconSize,
                                       ),
                                       size: mainBtnSize,
-                                      tooltip: widget.isAppFullscreen
-                                          ? '退出应用全屏'
-                                          : '应用全屏',
                                       onTap: () {
                                         _handleUserActivity();
                                         widget.onToggleAppFullscreen?.call();
@@ -1395,9 +1370,6 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                         size: mainIconSize,
                                       ),
                                       size: mainBtnSize,
-                                      tooltip: widget.isTrueFullscreen
-                                          ? '退出全屏 (F / Enter)'
-                                          : '全屏 (F / Enter)',
                                       onTap: () {
                                         _handleUserActivity();
                                         widget.onToggleTrueFullscreen?.call();
@@ -1413,9 +1385,6 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                         size: mainIconSize,
                                       ),
                                       size: mainBtnSize,
-                                      tooltip: widget.isFullscreen
-                                          ? '退出全屏 (F / Enter)'
-                                          : '全屏 (F / Enter)',
                                       onTap: () {
                                         _handleUserActivity();
                                         widget.onToggleFullscreen?.call();

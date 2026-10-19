@@ -85,7 +85,7 @@ void main() {
       await gesture.addPointer(location: Offset.zero);
       addTearDown(gesture.removePointer);
 
-      final volumeBtnFinder = find.byTooltip('静音 (M) / 悬停调音量');
+      final volumeBtnFinder = find.byIcon(Icons.volume_down_rounded);
       expect(volumeBtnFinder, findsOneWidget);
 
       await gesture.moveTo(tester.getCenter(volumeBtnFinder));
@@ -223,7 +223,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final settingsBtn = find.byTooltip('播放设置');
+      final settingsBtn = find.byIcon(Icons.tune_rounded);
       expect(settingsBtn, findsOneWidget);
       // 验证控制条已移除快捷键指南按钮
       expect(find.byTooltip('快捷键指南 (?)'), findsNothing);
@@ -288,7 +288,7 @@ void main() {
       expect(find.text('快进 5 秒'), findsNothing);
 
       // 3. 打开播放设置弹窗
-      final settingsBtn = find.byTooltip('播放设置');
+      final settingsBtn = find.byIcon(Icons.tune_rounded);
       await tester.tap(settingsBtn);
       await tester.pumpAndSettle();
       expect(find.text('播放设置'), findsOneWidget);
@@ -373,7 +373,7 @@ void main() {
       await tester.pump();
 
       // 找到倍速按钮
-      final speedBtnFinder = find.byTooltip('播放倍速 (< 减速 / > 加速)');
+      final speedBtnFinder = find.text('倍速');
       expect(speedBtnFinder, findsOneWidget);
       final speedBtnCenter = tester.getCenter(speedBtnFinder);
 
