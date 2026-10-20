@@ -13,15 +13,19 @@ import 'backend_event.dart';
 
 /// 底层音视频播放引擎核心抽象契约（最小集）
 abstract class PlayerBackend {
+  /// 同步自增并分配新底层 open 的全局单调自增物理代际 [generationId]
+  int beginOpen();
+
   /// 打开媒体流并起播
   ///
-  /// 返回值为本次底层 open 分配的全局单调自增物理代际 [generationId]。
+  /// 传入由 [beginOpen] 分配的物理代际 [generationId]。
   /// 耗时仅约 11~36ms（仅代表向底层 IPC 派发，不代表已建联）。
-  Future<int> open(
+  Future<void> open(
     String uri, {
     Map<String, String>? headers,
     Duration? start,
     bool autoplay = true,
+    required int generationId,
   });
 
   /// 恢复播放（底层保证幂等）

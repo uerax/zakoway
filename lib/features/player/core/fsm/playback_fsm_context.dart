@@ -29,6 +29,8 @@ class PlaybackFsmContext {
     this.eofRecoveryCount = 0,
     this.lastFailure,
     this.firstFrameRendered = false,
+    this.hasValidDimensions = false,
+    this.hasPositionAdvanced = false,
   });
 
   /// Dart 异步调度 Attempt ID
@@ -85,6 +87,12 @@ class PlaybackFsmContext {
   /// 首帧是否已出画
   final bool firstFrameRendered;
 
+  /// 底层画面尺寸是否有效 (width > 0 && height > 0)
+  final bool hasValidDimensions;
+
+  /// 底层播放进度是否已推进 (position > 0)
+  final bool hasPositionAdvanced;
+
   /// 是否为纯音频媒体
   bool get isAudioOnly => realVideoTrackCount == 0;
 
@@ -109,6 +117,8 @@ class PlaybackFsmContext {
     int? eofRecoveryCount,
     PlaybackFailure? lastFailure,
     bool? firstFrameRendered,
+    bool? hasValidDimensions,
+    bool? hasPositionAdvanced,
   }) {
     return PlaybackFsmContext(
       attemptId: attemptId ?? this.attemptId,
@@ -134,6 +144,8 @@ class PlaybackFsmContext {
       eofRecoveryCount: eofRecoveryCount ?? this.eofRecoveryCount,
       lastFailure: lastFailure ?? this.lastFailure,
       firstFrameRendered: firstFrameRendered ?? this.firstFrameRendered,
+      hasValidDimensions: hasValidDimensions ?? this.hasValidDimensions,
+      hasPositionAdvanced: hasPositionAdvanced ?? this.hasPositionAdvanced,
     );
   }
 

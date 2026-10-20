@@ -276,6 +276,20 @@ class BackendEventGate {
       }
     }
 
+    // 路径比对（用 BackendError.cleanUrl 提取路径）
+    // 特殊处理说明：
+    // 若错误携带目标 cleanUrl，则进一步比对 URL 路径是否与当前 Session 一致。
+    // 注意：若针对同一 URL（相同 host、port、path）发起重试，底层报错因标识完全一致无法通过 URL 区分代际，
+    // 这属于残余风险（已在 04 第 4.1 节残余风险规范中详述），由时间窗口与双重证据门禁兜底。
+    if (error.cleanUrl != null && error.cleanUrl!.isNotEmpty) {
+      final errorUri = Uri.tryParse(error.cleanUrl!);
+      if (errorUri != null && errorUri.path.isNotEmpty && _targetUri!.path.isNotEmpty) {
+        if (errorUri.path != _targetUri!.path) {
+          return GatedErrorDisposition.discard;
+        }
+      }
+    }
+
     return GatedErrorDisposition.passFatal;
   }
 

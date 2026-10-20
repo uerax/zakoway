@@ -41,9 +41,11 @@ class PlaybackFsm {
     BackendEventGate? gate,
     Clock? clock,
     TimerFactory? timerFactory,
+    Duration? resolvingTimeout,
   })  : _gate = gate ?? BackendEventGate(),
         _clock = clock ?? DateTime.now,
-        _timerFactory = timerFactory ?? Timer.new {
+        _timerFactory = timerFactory ?? Timer.new,
+        _resolvingTimeout = resolvingTimeout ?? kResolvingTimeout {
     _initSubscriptions();
   }
 
@@ -56,6 +58,7 @@ class PlaybackFsm {
   final BackendEventGate _gate;
   final Clock _clock;
   final TimerFactory _timerFactory;
+  final Duration _resolvingTimeout;
 
   // ===== 状态机核心状态 =====
   PlaybackState _state = PlaybackState.idle;
@@ -65,12 +68,13 @@ class PlaybackFsm {
   bool _isDisposed = false;
   DateTime? _requestStartTime;
 
-  // ===== 5 大核心定时器 =====
+  // ===== 6 大核心定时器 =====
   Timer? _resolvingTimeoutTimer;
   Timer? _coverPromptTimer;
   Timer? _firstFrameTimeoutTimer;
   Timer? _totalBudgetTimer;
   Timer? _recoveryBackoffTimer;
+  Timer? _rebufferingTimeoutTimer;
 
   // ===== 底层流订阅列表 =====
   final List<StreamSubscription> _subscriptions = [];
@@ -137,14 +141,20 @@ class PlaybackFsm {
         if (_isDisposed) return;
         if (!_gate.canPassPosition(event)) return;
 
-        _context = _context.copyWith(currentPosition: event.data);
+        final isAdvanced = event.data > Duration.zero;
+        if (isAdvanced) {
+          _context = _context.copyWith(
+            currentPosition: event.data,
+            hasPositionAdvanced: true,
+          );
+        } else {
+          _context = _context.copyWith(currentPosition: event.data);
+        }
         _timelineNotifier.value =
             _timelineNotifier.value.copyWith(position: event.data);
 
-        // prebuffering 阶段若时钟推进且非暂停意图，亦可作为出画存活证据触发首帧完成
-        if (_state == PlaybackState.prebuffering &&
-            event.data > Duration.zero &&
-            _context.targetPhaseAfterFirstFrame != PlaybackState.paused) {
+        // prebuffering 阶段若时钟推进，检查首帧条件（由转移函数研判）
+        if (_state == PlaybackState.prebuffering && isAdvanced) {
           dispatch(const FirstFrameRenderedEvent());
         }
       }),
@@ -177,6 +187,7 @@ class PlaybackFsm {
         if (!_gate.canPassDimensions(event)) return;
 
         if (event.data.hasValidSize) {
+          _context = _context.copyWith(hasValidDimensions: true);
           if (_state == PlaybackState.prebuffering) {
             dispatch(const FirstFrameRenderedEvent());
           }
@@ -255,8 +266,31 @@ class PlaybackFsm {
       _recoveryBackoffTimer = null;
     }
 
+    // 状态退出 rebuffering 时撤销重缓冲定时器 (F3)
+    if (previousState == PlaybackState.rebuffering &&
+        _state != PlaybackState.rebuffering) {
+      _rebufferingTimeoutTimer?.cancel();
+      _rebufferingTimeoutTimer = null;
+    }
+
+    // 状态进入 rebuffering 时启动 30s 重缓冲超时定时器 (F3)
+    if (_state == PlaybackState.rebuffering &&
+        previousState != PlaybackState.rebuffering) {
+      _startRebufferingTimeoutTimer();
+    }
+
     // 执行纯转移函数产出的副作用意图列表
     _executeSideEffects(result.sideEffects, previousState: previousState);
+  }
+
+  void _startRebufferingTimeoutTimer() {
+    _rebufferingTimeoutTimer?.cancel();
+    _rebufferingTimeoutTimer = _timerFactory(kRebufferingTimeout, () {
+      if (_isDisposed || _state != PlaybackState.rebuffering) {
+        return;
+      }
+      dispatch(const BufferingTimeoutEvent());
+    });
   }
 
   void _syncCoreNotifier() {
@@ -286,6 +320,8 @@ class PlaybackFsm {
           _resolvingTimeoutTimer = null;
           _recoveryBackoffTimer?.cancel();
           _recoveryBackoffTimer = null;
+          _rebufferingTimeoutTimer?.cancel();
+          _rebufferingTimeoutTimer = null;
 
         case CallBackendOpenEffect(
             :final url,
@@ -379,14 +415,16 @@ class PlaybackFsm {
     }
   }
 
-  /// 启动 2.5s 直链解析超时定时器
+  /// 启动直链解析超时定时器 (默认 3.5s，支持构造注入)
   void _startResolvingTimeout(int scheduledAttemptId) {
     _resolvingTimeoutTimer?.cancel();
-    _resolvingTimeoutTimer = _timerFactory(kResolvingTimeout, () {
+    _resolvingTimeoutTimer = _timerFactory(_resolvingTimeout, () {
       if (_isDisposed || _context.attemptId != scheduledAttemptId) {
         return;
       }
-      dispatch(const ResolveFailureEvent('直链解析超时 (2.5s)'));
+      dispatch(ResolveFailureEvent(
+        '直链解析超时 (${_resolvingTimeout.inMilliseconds / 1000}s)',
+      ));
     });
   }
 
@@ -400,35 +438,33 @@ class PlaybackFsm {
     final currentAttemptId = _context.attemptId;
 
     try {
-      final genId = await backend.open(
-        url,
-        headers: headers,
-        start: start,
-        autoplay: autoplay,
-      );
+      // 1. 同步自增并分配新代际 ID (F1)
+      final genId = backend.beginOpen();
 
-      if (_isDisposed || _context.attemptId != currentAttemptId) {
-        return;
-      }
-
-      // 打开新代际门禁
+      // 2. 立即以新代际初始化事件门禁，早于底层 open 派发以捕获 6~7ms 内的重置标记 (F1)
       _gate.resetForNewOpen(
         generationId: genId,
         targetUri: Uri.parse(url),
         openTime: _clock(),
       );
 
-      // 通知底层 open 派发成功，若处于 preparing 则转入 prebuffering
-      dispatch(BackendDispatchedEvent(genId));
+      // 3. 异步派发底层 open
+      await backend.open(
+        url,
+        headers: headers,
+        start: start,
+        autoplay: autoplay,
+        generationId: genId,
+      );
 
-      // 若在 recovering 阶段触发断点重开，底层 open 派发成功后切入 prebuffering
-      if (_state == PlaybackState.recovering) {
-        _state = PlaybackState.prebuffering;
-        _context = _context.copyWith(generationId: genId);
-        _syncCoreNotifier();
+      if (_isDisposed || _context.attemptId != currentAttemptId) {
+        return;
       }
 
-      // 启动首帧出画 12s 看门狗与 5s 换线提示定时器
+      // 4. 通知底层 open 派发成功，若处于 preparing 或 recovering 则由 evaluateTransition 转入 prebuffering (F4)
+      dispatch(BackendDispatchedEvent(genId));
+
+      // 5. 启动首帧出画 12s 看门狗与 5s 换线提示定时器
       if (_state == PlaybackState.prebuffering) {
         _startPrebufferingTimers(currentAttemptId, genId);
       }
@@ -672,6 +708,8 @@ class PlaybackFsm {
     _resolvingTimeoutTimer = null;
     _recoveryBackoffTimer?.cancel();
     _recoveryBackoffTimer = null;
+    _rebufferingTimeoutTimer?.cancel();
+    _rebufferingTimeoutTimer = null;
     _totalBudgetTimer?.cancel();
     _totalBudgetTimer = null;
 

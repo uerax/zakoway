@@ -4,8 +4,11 @@
 /// 严格集中管理所有时间预算、超时阈值与完成容差常量，杜绝代码中出现硬编码魔数。
 library;
 
-/// 直链解析单次超时上限 (2.5 秒)
-const Duration kResolvingTimeout = Duration(milliseconds: 2500);
+/// 直链解析单次超时上限 (3.5 秒，与 04 预算表对齐)
+const Duration kResolvingTimeout = Duration(milliseconds: 3500);
+
+/// 中途卡顿重缓冲超时上限 (30 秒，待评审)
+const Duration kRebufferingTimeout = Duration(seconds: 30);
 
 /// UI 换线提示条弹出等待时长 (5.0 秒)
 ///

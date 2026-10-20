@@ -138,6 +138,8 @@ TransitionResult _onIdle(PlaybackFsmContext context, PlaybackEvent event) {
           recoveryAttempts: 0,
           eofRecoveryCount: 0,
           firstFrameRendered: false,
+          hasValidDimensions: false,
+          hasPositionAdvanced: false,
         ),
         sideEffects: const [
           CancelTimersEffect(),
@@ -180,6 +182,8 @@ TransitionResult _onResolving(
           autoplay: autoplay,
           headers: headers,
           firstFrameRendered: false,
+          hasValidDimensions: false,
+          hasPositionAdvanced: false,
         ),
         sideEffects: const [
           CancelTimersEffect(),
@@ -277,6 +281,8 @@ TransitionResult _onPreparing(
           autoplay: autoplay,
           headers: headers,
           firstFrameRendered: false,
+          hasValidDimensions: false,
+          hasPositionAdvanced: false,
         ),
         sideEffects: const [
           CancelTimersEffect(),
@@ -296,7 +302,11 @@ TransitionResult _onPreparing(
     BackendDispatchedEvent(:final generationId) => TransitionResult(
         targetState: PlaybackState.prebuffering,
         disposition: TransitionDisposition.exec,
-        nextContext: context.copyWith(generationId: generationId),
+        nextContext: context.copyWith(
+          generationId: generationId,
+          hasValidDimensions: false,
+          hasPositionAdvanced: false,
+        ),
       ),
     FatalErrorReceivedEvent(:final error) => _handleFatalError(
         PlaybackState.preparing,
@@ -334,6 +344,8 @@ TransitionResult _onPrebuffering(
           autoplay: autoplay,
           headers: headers,
           firstFrameRendered: false,
+          hasValidDimensions: false,
+          hasPositionAdvanced: false,
         ),
         sideEffects: const [
           CancelTimersEffect(),
@@ -350,7 +362,7 @@ TransitionResult _onPrebuffering(
         PlaybackState.prebuffering,
         context.copyWith(pendingSeekPosition: position),
       ),
-    FirstFrameRenderedEvent() => _onFirstFrameSuccess(context),
+    FirstFrameRenderedEvent() => _evaluateFirstFrameRendered(context),
     FirstFrameTimeoutEvent(:final hasLivenessProof) => hasLivenessProof
         ? _onFirstFrameSuccess(context)
         : _onWatchdogOrStallTriggered(
@@ -395,6 +407,8 @@ TransitionResult _onPlaying(
           autoplay: autoplay,
           headers: headers,
           firstFrameRendered: false,
+          hasValidDimensions: false,
+          hasPositionAdvanced: false,
         ),
         sideEffects: const [
           CancelTimersEffect(),
@@ -463,6 +477,8 @@ TransitionResult _onPaused(PlaybackFsmContext context, PlaybackEvent event) {
           autoplay: autoplay,
           headers: headers,
           firstFrameRendered: false,
+          hasValidDimensions: false,
+          hasPositionAdvanced: false,
         ),
         sideEffects: const [
           CancelTimersEffect(),
@@ -522,6 +538,8 @@ TransitionResult _onSeeking(PlaybackFsmContext context, PlaybackEvent event) {
           autoplay: autoplay,
           headers: headers,
           firstFrameRendered: false,
+          hasValidDimensions: false,
+          hasPositionAdvanced: false,
         ),
         sideEffects: const [
           CancelTimersEffect(),
@@ -591,6 +609,8 @@ TransitionResult _onRebuffering(
           autoplay: autoplay,
           headers: headers,
           firstFrameRendered: false,
+          hasValidDimensions: false,
+          hasPositionAdvanced: false,
         ),
         sideEffects: const [
           CancelTimersEffect(),
@@ -669,6 +689,8 @@ TransitionResult _onRecovering(
           autoplay: autoplay,
           headers: headers,
           firstFrameRendered: false,
+          hasValidDimensions: false,
+          hasPositionAdvanced: false,
         ),
         sideEffects: const [
           CancelTimersEffect(),
@@ -733,6 +755,15 @@ TransitionResult _onRecovering(
           ),
         ],
       ),
+    BackendDispatchedEvent(:final generationId) => TransitionResult(
+        targetState: PlaybackState.prebuffering,
+        disposition: TransitionDisposition.exec,
+        nextContext: context.copyWith(
+          generationId: generationId,
+          hasValidDimensions: false,
+          hasPositionAdvanced: false,
+        ),
+      ),
     BufferingStartedEvent() ||
     BufferingEndedEvent() ||
     FirstFrameRenderedEvent() ||
@@ -740,7 +771,6 @@ TransitionResult _onRecovering(
     DisposeRequestEvent() ||
     ResolveSuccessEvent() ||
     ResolveFailureEvent() ||
-    BackendDispatchedEvent() ||
     FirstFrameTimeoutEvent() ||
     OpenDemuxWatchdogTimeoutEvent() ||
     BufferingTimeoutEvent() ||
@@ -763,6 +793,8 @@ TransitionResult _onCompleted(
           autoplay: autoplay,
           headers: headers,
           firstFrameRendered: false,
+          hasValidDimensions: false,
+          hasPositionAdvanced: false,
         ),
         sideEffects: const [
           CancelTimersEffect(),
@@ -823,6 +855,8 @@ TransitionResult _onError(PlaybackFsmContext context, PlaybackEvent event) {
           autoplay: autoplay,
           headers: headers,
           firstFrameRendered: false,
+          hasValidDimensions: false,
+          hasPositionAdvanced: false,
         ),
         sideEffects: const [
           CancelTimersEffect(),
@@ -864,6 +898,33 @@ TransitionResult _onError(PlaybackFsmContext context, PlaybackEvent event) {
 // =============================================================================
 // 辅助决策逻辑
 // =============================================================================
+
+/// 首帧条件评估（对齐 03 第五节规范：F2 修复）
+/// 1. 播放意图：尺寸有效 且 位置推进 (>0)；
+/// 2. 暂停意图：解码出物理首帧后被底层暂停定格，时钟保持在 0ms，尺寸有效即可；
+/// 3. 纯音频媒体：realVideoTrackCount == 0，无视频尺寸事件，位置推进即可。
+TransitionResult _evaluateFirstFrameRendered(PlaybackFsmContext context) {
+  final isPausedIntent = !context.autoplay ||
+      context.targetPhaseAfterFirstFrame == PlaybackState.paused;
+
+  final bool canTrigger;
+  if (context.realVideoTrackCount == 0) {
+    // 纯音频媒体：仅要求位置推进
+    canTrigger = context.hasPositionAdvanced;
+  } else if (isPausedIntent) {
+    // 暂停意图：解码出物理首帧后被挂起，时钟停在 0ms，仅需尺寸有效
+    canTrigger = context.hasValidDimensions;
+  } else {
+    // 播放意图：必须同时满足尺寸有效且位置推进（产生物理出画位移）
+    canTrigger = context.hasValidDimensions && context.hasPositionAdvanced;
+  }
+
+  if (canTrigger) {
+    return _onFirstFrameSuccess(context);
+  } else {
+    return TransitionResult.ignore(PlaybackState.prebuffering, context);
+  }
+}
 
 /// 首帧物理渲染或有证据放行时的状态决断
 TransitionResult _onFirstFrameSuccess(PlaybackFsmContext context) {
