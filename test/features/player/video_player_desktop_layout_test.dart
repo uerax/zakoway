@@ -176,5 +176,60 @@ void main() {
       await tester.pumpAndSettle();
       expect(backPressedCount, equals(1));
     });
+
+    testWidgets('剧场模式 (isTheaterMode: true)：播放器脱离分栏水平居中，下方双栏流式呈现', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1920, 1080));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const keyPlayer = Key('player_widget_theater');
+      const keyIntro = Key('intro_section_theater');
+      const keyComments = Key('comments_section_theater');
+      const keyEpisodes = Key('episodes_picker_theater');
+      const keyRecommend = Key('recommend_section_theater');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DefaultTabController(
+            length: 2,
+            child: Builder(
+              builder: (context) {
+                return VideoPlayerDesktopLayout(
+                  title: '剧场模式番剧',
+                  currentEpisode: 1,
+                  isTheaterMode: true,
+                  onBackPressed: () {},
+                  playerWidget: const SizedBox(key: keyPlayer),
+                  introSection: const SizedBox(key: keyIntro),
+                  commentsSection: const SizedBox(key: keyComments),
+                  rightTabController: DefaultTabController.of(context),
+                  episodePickerSection: const SizedBox(key: keyEpisodes),
+                  recommendSection: const SizedBox(key: keyRecommend),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final playerBox = tester.getRect(find.byKey(keyPlayer));
+      final introBox = tester.getRect(find.byKey(keyIntro));
+
+      // 验证播放器水平中心对齐窗口中线 (1920 / 2 = 960)
+      expect(playerBox.center.dx, closeTo(960.0, 1.0));
+
+      // 验证播放器宽度远大于原分栏模式下的左侧可用宽度 (普通模式下约为 1531，剧场模式下接近 1563~1888 左右且自适应居中)
+      expect(playerBox.width, greaterThan(1500.0));
+
+      // 验证播放器高度受限于视口合理比例，绝不超出 1080 视口
+      expect(playerBox.height, lessThan(1080.0));
+
+      // 验证下方内容在播放器正下方：introTop > playerBottom
+      expect(introBox.top, greaterThan(playerBox.bottom));
+
+      // 验证下方右侧选集与推荐正常挂载
+      expect(find.byKey(keyEpisodes), findsOneWidget);
+      expect(find.byKey(keyRecommend), findsOneWidget);
+    });
   });
 }

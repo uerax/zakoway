@@ -17,6 +17,7 @@ class DesktopShortcutHelpDialog extends StatelessWidget {
   static const List<(String, String)> _shortcuts = [
     ('Space / K', '播放 / 暂停'),
     ('F / Enter', '切换全屏'),
+    ('T', '切换剧场模式'),
     ('Esc', '关闭面板 / 退出全屏 / 返回'),
     ('← / →', '快退 / 快进 5 秒'),
     ('J / L', '快退 / 快进 10 秒'),

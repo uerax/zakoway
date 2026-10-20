@@ -114,6 +114,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   bool _isAppFullscreen = false;
   bool _isTrueFullscreen = false;
   bool get _isFullscreen => _isAppFullscreen || _isTrueFullscreen;
+  bool _isTheaterMode = false;
   bool _isSidePanelOpen = false;
   PlayerSidePanelTab _sidePanelInitialTab = PlayerSidePanelTab.episodes;
   int? _activeEpisode;
@@ -1339,6 +1340,13 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   void _toggleFullscreen() =>
       _isFullscreen ? _exitFullscreen() : _enterTrueFullscreen();
 
+  void _toggleTheaterMode() {
+    setState(() {
+      _isTheaterMode = !_isTheaterMode;
+    });
+    _showHudToast(_isTheaterMode ? '已开启剧场模式' : '已退出剧场模式');
+  }
+
   void _handleBackPressed() {
     if (_isSidePanelOpen) {
       setState(() => _isSidePanelOpen = false);
@@ -1350,6 +1358,10 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     }
     if (_isAppFullscreen) {
       _exitAppFullscreen();
+      return;
+    }
+    if (_isTheaterMode) {
+      _toggleTheaterMode();
       return;
     }
     // 进度统一由 dispose 落盘（系统返回键 / 手势返回也走这条路径），这里不再重复写入：
@@ -1405,13 +1417,15 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final pageContent = PopScope(
-      canPop: !_isFullscreen && !_isSidePanelOpen,
+      canPop: !_isFullscreen && !_isSidePanelOpen && !_isTheaterMode,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
           if (_isSidePanelOpen) {
             setState(() => _isSidePanelOpen = false);
           } else if (_isFullscreen) {
             _exitFullscreen();
+          } else if (_isTheaterMode) {
+            _toggleTheaterMode();
           }
         }
       },
@@ -1499,6 +1513,14 @@ class _VideoPlayPageState extends State<VideoPlayPage>
           if (key == LogicalKeyboardKey.keyF || key == LogicalKeyboardKey.enter) {
             _toggleFullscreen();
             return KeyEventResult.handled;
+          }
+
+          // 6.1. 剧场模式切换 (T)
+          if (key == LogicalKeyboardKey.keyT) {
+            if (!_isFullscreen) {
+              _toggleTheaterMode();
+              return KeyEventResult.handled;
+            }
           }
 
           // 7. 切集 ([ / ])
@@ -1676,10 +1698,12 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       isFullscreen: isFullscreen,
       isAppFullscreen: _isAppFullscreen,
       isTrueFullscreen: _isTrueFullscreen,
+      isTheaterMode: _isTheaterMode,
       isDesktop: effectiveIsDesktop,
       onToggleFullscreen: _toggleFullscreen,
       onToggleAppFullscreen: (effectiveIsDesktop || isFullscreen) ? _toggleAppFullscreen : null,
       onToggleTrueFullscreen: (effectiveIsDesktop || isFullscreen) ? _toggleTrueFullscreen : null,
+      onToggleTheaterMode: effectiveIsDesktop ? _toggleTheaterMode : null,
       onBackPressed: _handleBackPressed,
       onOpenEpisodePicker: isFullscreen
           ? () => setState(() {
@@ -1981,6 +2005,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     return VideoPlayerDesktopLayout(
       title: widget.title,
       currentEpisode: _activeEpisode,
+      isTheaterMode: _isTheaterMode,
       onBackPressed: _handleBackPressed,
       playerWidget: KeyedSubtree(
         key: _playerSubtreeKey,

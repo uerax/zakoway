@@ -26,6 +26,7 @@ class DesktopVideoPlayerLayout extends StatelessWidget {
     this.episodePickerSection,
     this.sourceViewSection,
     this.recommendSection,
+    this.isTheaterMode = false,
   });
 
   final String title;
@@ -39,6 +40,7 @@ class DesktopVideoPlayerLayout extends StatelessWidget {
   final Widget? episodePickerSection;
   final Widget? sourceViewSection;
   final Widget? recommendSection;
+  final bool isTheaterMode;
 
   @override
   Widget build(BuildContext context) {
@@ -60,9 +62,134 @@ class DesktopVideoPlayerLayout extends StatelessWidget {
 
           final Widget mainContent;
 
-          // 1. 全新桌面端分块布局（左右顶格水平对齐）
+          // 1. 全新桌面端分块布局
           if (isNewDesktopDesign) {
-            mainContent = Row(
+            if (isTheaterMode) {
+              // 方案 A 剧场模式：顶部全宽居中大屏播放器，下方双栏沉降（左简介/评论，右选集/换源）
+              final maxPlayerH =
+                  (constraints.maxHeight - 32.0).clamp(240.0, double.infinity) * 0.82;
+              final maxPlayerW = totalWidth - 32.0;
+              double targetW = maxPlayerW;
+              double targetH = targetW / (16 / 9);
+              if (targetH > maxPlayerH) {
+                targetH = maxPlayerH;
+                targetW = targetH * (16 / 9);
+              }
+
+              mainContent = SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // 顶部居中 16:9 大屏播放器卡片
+                    Center(
+                      child: SizedBox(
+                        width: targetW,
+                        height: targetH,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: primaryColor.withValues(
+                                    alpha: isDark ? 0.22 : 0.12),
+                                blurRadius: 28,
+                                spreadRadius: -2,
+                                offset: const Offset(0, 8),
+                              ),
+                              BoxShadow(
+                                color: Colors.black.withValues(
+                                    alpha: isDark ? 0.35 : 0.15),
+                                blurRadius: 18,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            clipBehavior: Clip.antiAliasWithSaveLayer,
+                            child: playerWidget,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // 下方双栏沉降内容区（左侧简介+评论，右侧选集+换源/推荐）
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 左侧内容区：简介 + 吐槽评论
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ?introSection,
+                              if (commentsSection != null) ...[
+                                const SizedBox(height: 12),
+                                commentsSection!,
+                              ],
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(width: 16),
+
+                        // 右侧控制轨：选集 + 推荐 / 原版视频源看板
+                        SizedBox(
+                          width: railWidth,
+                          child: rightTabController != null
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // 胶囊分段切换栏
+                                    VideoPlaySegmentedTabBar(
+                                      tabController: rightTabController!,
+                                      tabs: const ['选集', '视频源'],
+                                      maxWidth: 220,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    ListenableBuilder(
+                                      listenable: rightTabController!,
+                                      builder: (context, _) {
+                                        if (rightTabController!.index == 1) {
+                                          return sourceViewSection ??
+                                              const SizedBox.shrink();
+                                        }
+                                        return Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            ?episodePickerSection,
+                                            if (recommendSection != null) ...[
+                                              const SizedBox(height: 12),
+                                              recommendSection!,
+                                            ],
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    ?episodePickerSection,
+                                    if (recommendSection != null) ...[
+                                      const SizedBox(height: 12),
+                                      recommendSection!,
+                                    ],
+                                  ],
+                                ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            } else {
+              mainContent = Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 左侧主内容区：播放器 -> 简介（正下方） -> 吐槽评论（简介正下方）
@@ -178,6 +305,7 @@ class DesktopVideoPlayerLayout extends StatelessWidget {
                 ),
               ],
             );
+            }
           } else {
             // 2. 兼容旧版单一 tabSection 的降级分支
             mainContent = Row(

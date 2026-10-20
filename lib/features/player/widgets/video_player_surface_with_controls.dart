@@ -21,10 +21,12 @@ class VideoPlayerSurfaceWithControls extends StatelessWidget {
     this.isFullscreen = false,
     this.isAppFullscreen = false,
     this.isTrueFullscreen = false,
+    this.isTheaterMode = false,
     this.isDesktop,
     required this.onToggleFullscreen,
     this.onToggleAppFullscreen,
     this.onToggleTrueFullscreen,
+    this.onToggleTheaterMode,
     required this.onBackPressed,
     this.onOpenEpisodePicker,
     this.onOpenSidePanel,
@@ -50,10 +52,12 @@ class VideoPlayerSurfaceWithControls extends StatelessWidget {
   final bool isFullscreen;
   final bool isAppFullscreen;
   final bool isTrueFullscreen;
+  final bool isTheaterMode;
   final bool? isDesktop;
   final VoidCallback onToggleFullscreen;
   final VoidCallback? onToggleAppFullscreen;
   final VoidCallback? onToggleTrueFullscreen;
+  final VoidCallback? onToggleTheaterMode;
   final VoidCallback onBackPressed;
   final VoidCallback? onOpenEpisodePicker;
   final ValueChanged<PlayerSidePanelTab>? onOpenSidePanel;
@@ -93,9 +97,11 @@ class VideoPlayerSurfaceWithControls extends StatelessWidget {
               isFullscreen: isFullscreen,
               isAppFullscreen: isAppFullscreen,
               isTrueFullscreen: isTrueFullscreen,
+              isTheaterMode: isTheaterMode,
               onToggleFullscreen: onToggleFullscreen,
               onToggleAppFullscreen: onToggleAppFullscreen,
               onToggleTrueFullscreen: onToggleTrueFullscreen,
+              onToggleTheaterMode: onToggleTheaterMode,
               onBackPressed: onBackPressed,
               onOpenEpisodePicker: onOpenEpisodePicker,
               onOpenSidePanel: onOpenSidePanel,

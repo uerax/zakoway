@@ -398,5 +398,41 @@ void main() {
       expect(controller.core.value.playbackRate, equals(1.5));
       expect(find.byType(PlayerSpeedPopup), findsNothing);
     });
+
+    testWidgets('DesktopPlayerControls: 剧场模式按钮渲染且点击/按T键响应 onToggleTheaterMode',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      var theaterToggleCount = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DesktopPlayerControls(
+              controller: controller,
+              title: '剧场模式按键测试',
+              isTheaterMode: false,
+              onToggleTheaterMode: () => theaterToggleCount++,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // 验证剧场模式图标存在（非剧场模式时为 rectangle_outlined）
+      final theaterBtnFinder = find.byIcon(Icons.rectangle_outlined);
+      expect(theaterBtnFinder, findsOneWidget);
+
+      // 点击剧场模式按钮
+      await tester.tap(theaterBtnFinder);
+      await tester.pump();
+      expect(theaterToggleCount, equals(1));
+
+      // 按下键盘 T 键
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyT);
+      await tester.pump();
+      expect(theaterToggleCount, equals(2));
+    });
   });
 }

@@ -45,9 +45,11 @@ class DesktopPlayerControls extends StatefulWidget {
     this.isFullscreen = false,
     this.isAppFullscreen = false,
     this.isTrueFullscreen = false,
+    this.isTheaterMode = false,
     this.onToggleFullscreen,
     this.onToggleAppFullscreen,
     this.onToggleTrueFullscreen,
+    this.onToggleTheaterMode,
     this.onBackPressed,
     this.onOpenEpisodePicker,
     this.onNextEpisode,
@@ -68,9 +70,11 @@ class DesktopPlayerControls extends StatefulWidget {
   final bool isFullscreen;
   final bool isAppFullscreen;
   final bool isTrueFullscreen;
+  final bool isTheaterMode;
   final VoidCallback? onToggleFullscreen;
   final VoidCallback? onToggleAppFullscreen;
   final VoidCallback? onToggleTrueFullscreen;
+  final VoidCallback? onToggleTheaterMode;
   final VoidCallback? onBackPressed;
   final VoidCallback? onOpenEpisodePicker;
   final VoidCallback? onNextEpisode;
@@ -631,6 +635,15 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
         widget.onToggleFullscreen?.call();
       }
       return KeyEventResult.handled;
+    }
+
+    // 2.1. 剧场模式切换 (T)
+    if (key == LogicalKeyboardKey.keyT) {
+      if (widget.onToggleTheaterMode != null && !widget.isFullscreen) {
+        widget.onToggleTheaterMode?.call();
+        _triggerSkipToast(widget.isTheaterMode ? '已退出剧场模式' : '已开启剧场模式');
+        return KeyEventResult.handled;
+      }
     }
 
     // 3. 快退/快进 5秒 (方向键) 与 10秒 (J/L)
@@ -1340,6 +1353,28 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                   ),
 
                                   SizedBox(width: btnSpacing),
+
+                                  // 剧场模式切换 (T)
+                                  if (widget.onToggleTheaterMode != null &&
+                                      !widget.isFullscreen) ...[
+                                    _buildBarButton(
+                                      icon: Icon(
+                                        widget.isTheaterMode
+                                            ? Icons.view_sidebar_rounded
+                                            : Icons.rectangle_outlined,
+                                        color: widget.isTheaterMode
+                                            ? primaryColor
+                                            : Colors.white,
+                                        size: mainIconSize,
+                                      ),
+                                      size: mainBtnSize,
+                                      onTap: () {
+                                        _handleUserActivity();
+                                        widget.onToggleTheaterMode?.call();
+                                      },
+                                    ),
+                                    SizedBox(width: btnSpacing),
+                                  ],
 
                                   // 全屏切换
                                   if (widget.onToggleAppFullscreen != null &&
