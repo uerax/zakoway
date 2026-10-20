@@ -4,26 +4,72 @@ import 'package:flutter/services.dart';
 /// 仿 iOS 实体卡片物理按压弹性微交互包装器：
 /// 1. 采用“单向单状态机 + 操作序列号 (Action ID) + 最小下压时间锁 (Min-Hold Time)”机制；
 /// 2. 彻底杜绝极速鼠标点击（10ms~30ms）或手势冲突导致的 Ticker 掐灭与卡死问题；
-/// 3. 无论单击、长按还是在列表滚动划过（Cancel），终点唯一且绝对保证以 Curves.easeOutBack 回弹至 1.0。
+/// 3. 终点唯一且以 Curves.easeOutBack 回弹至 1.0，兼顾清脆物理质感与敏捷响应。
 class BouncingScaleCard extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
   final double scaleDown;
 
-  /// 是否在松手（TapUp）时立即无延迟触发 [onTap]，回弹动效在后台异步并发播放。
+  /// 是否开启敏捷跳转模式。
+  ///
   /// 特殊处理说明：
-  /// 默认开启 (true)。保证页面跳转、功能按钮等场景在手指/鼠标松开瞬间 0ms 即刻响应，彻底消除
-  /// 传统模式下“等待 95ms 最小按压 + 等待 140ms 回弹动画”导致的约 215ms~235ms 严重跳页迟钝感。
-  /// 内部具备路由感知（新页面 push 覆盖后自动静默重置控制器）与后台并发补齐回弹机制；
+  /// 默认开启 (true)。松手时启动物理 Q 弹回弹，并在微延迟感知窗口 [tapDelayMs]（默认 70ms）后触发 [onTap]。
+  /// 既消除旧版等待 200ms+ 全量动画的发粘迟缓感，又彻底解决 0ms 秒切导致动效被 100% 吞没的问题。
   /// 若特定弹窗场景确实必须等卡片完全回弹定格后再弹出，可显式指定为 false。
   final bool immediateTap;
+
+  /// 单独覆盖松手微延迟时长（毫秒），为 null 时使用全局默认值 [defaultTapDelayMs]
+  final int? tapDelayMs;
+
+  /// 单独覆盖极速点击最小下压保底时长（毫秒），为 null 时使用全局默认值 [defaultMinHoldMs]
+  final int? minHoldMs;
+
+  // ==============================================================================
+  // 🎯【微交互物理动效 & 延迟微调参数集中配置区】
+  // 方便针对不同手感偏好直接修改以下数值进行测试微调：
+  // ==============================================================================
+
+  /// 1. 【核心】松手后到触发跳转的微延迟窗口 (毫秒)
+  /// - 作用：松手瞬间立即启动 Q 弹回弹，在此微延迟结束后触发 onTap 路由跳转。
+  /// - 0ms: 原先逻辑（秒切，动画在桌面端 0 帧被覆盖，完全看不到动效）；
+  /// - 60ms ~ 75ms【推荐默认值 70ms】：黄金平衡点，人脑感知为瞬时响应，但肉眼能清晰捕捉到 Q 弹爆发过冲；
+  /// - 100ms+: 会开始产生可感知的停顿粘手感。
+  static const int defaultTapDelayMs = 70;
+
+  /// 2. 极速点击最小下压保底时间 (毫秒)
+  /// - 作用：鼠标机械微动或触控极快抬起（如 10ms~20ms）时，强制等待补齐的时间，
+  ///   确保卡片在屏幕上有充分的物理下压形变，消除“单点吃动效”问题。
+  /// - 推荐：35ms ~ 55ms【推荐默认值 45ms】
+  static const int defaultMinHoldMs = 45;
+
+  /// 3. 紧凑下压动画时长 (毫秒)
+  /// - 作用：卡片从 1.0 缩放到 scaleDown 的动画耗时。
+  /// - 推荐：50ms ~ 70ms【推荐默认值 60ms】（越短越清脆利落）
+  static const int defaultPressDurationMs = 60;
+
+  /// 4. 物理弹性回弹总时长 (毫秒)
+  /// - 作用：Curves.easeOutBack Q 弹回弹曲线的完整周期时长。
+  /// - 推荐：120ms ~ 150ms【推荐默认值 140ms】
+  static const int defaultReverseDurationMs = 140;
+
+  /// 5. 快速滑动判定阈值 (毫秒)
+  /// - 作用：在列表滚动中手指掠过卡片触发 Cancel 时，平滑复原的等待阈值。
+  /// - 推荐：50ms ~ 70ms【推荐默认值 60ms】
+  static const int defaultCancelHoldMs = 60;
+
+  /// 6. 默认按压缩放系数
+  /// - 作用：按下时卡片缩放到的比例（1.0 -> 0.95）。
+  /// - 推荐：0.92 ~ 0.96【推荐默认值 0.95】
+  static const double defaultScaleDown = 0.95;
 
   const BouncingScaleCard({
     super.key,
     required this.child,
     this.onTap,
-    this.scaleDown = 0.95,
+    this.scaleDown = defaultScaleDown,
     this.immediateTap = true,
+    this.tapDelayMs,
+    this.minHoldMs,
   });
 
   @override
@@ -45,8 +91,8 @@ class _BouncingScaleCardState extends State<BouncingScaleCard>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 70), // 紧凑下压 70ms，快速见效
-      reverseDuration: const Duration(milliseconds: 140), // 物理弹性回弹 140ms
+      duration: const Duration(milliseconds: BouncingScaleCard.defaultPressDurationMs),
+      reverseDuration: const Duration(milliseconds: BouncingScaleCard.defaultReverseDurationMs),
     );
 
     _scaleAnimation = Tween<double>(
@@ -85,59 +131,47 @@ class _BouncingScaleCardState extends State<BouncingScaleCard>
 
   void _handleTapUp(TapUpDetails _) async {
     final currentAction = ++_actionId;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final heldDuration = now - _lastTapDownTime;
+
+    // 1. 保底下压形变：若按压时间极短（如 Windows 鼠标快速轻点仅 10ms~20ms），
+    // 强制等待补齐最小下压时间，让缩放形变在屏幕上能被视觉清晰捕捉
+    final minHold = widget.minHoldMs ?? BouncingScaleCard.defaultMinHoldMs;
+    if (heldDuration < minHold) {
+      await Future.delayed(Duration(milliseconds: minHold - heldDuration));
+      if (!mounted || currentAction != _actionId) return;
+    }
+
+    // 2. 0ms 瞬间触发触觉反馈
+    HapticFeedback.lightImpact();
+
+    // 3. 坚决启动回弹动效（Curves.easeOutBack Q 弹过冲）
+    _controller.reverse();
 
     if (widget.immediateTap) {
-      // 1. 0ms 瞬间响应：立刻触发触觉反馈与业务回调
-      HapticFeedback.lightImpact();
+      // 4. 【微延迟跳转窗口】：让回弹动效在屏幕上释放出黄金过冲段（默认 70ms）
+      final delayMs = widget.tapDelayMs ?? BouncingScaleCard.defaultTapDelayMs;
+      if (delayMs > 0) {
+        await Future.delayed(Duration(milliseconds: delayMs));
+        if (!mounted || currentAction != _actionId) return;
+      }
+
+      // 5. 唤起业务回调（如路由跳转）
       widget.onTap?.call();
 
       if (!mounted) return;
 
-      // 2. 路由感知检查：若点击触发了页面跳转（当前路由已被新页面覆盖），立即静默重置控制器
+      // 6. 路由感知检查：若跳转打开了新页面，静默重置控制器，防止从新页面返回时处于中间状态
       final route = ModalRoute.of(context);
       if (route != null && !route.isCurrent) {
         _controller.reset();
-        return;
-      }
-
-      // 3. 脉冲完整性保障：若未切换页面（如点击展示弹窗/提示），保证走完下压到底再弹性回弹
-      if (_controller.status == AnimationStatus.completed) {
-        _controller.reverse();
-      } else {
-        _controller.forward().then((_) {
-          if (mounted && currentAction == _actionId) {
-            final activeRoute = ModalRoute.of(context);
-            if (activeRoute != null && !activeRoute.isCurrent) {
-              _controller.reset();
-            } else {
-              _controller.reverse();
-            }
-          }
-        });
       }
       return;
     }
 
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final heldDuration = now - _lastTapDownTime;
-
-    // 核心保证：若按压时间不足 95ms（如 Windows 鼠标机械微动仅触发 10ms~20ms），
-    // 强制等待剩余毫秒数，让下压动作在屏幕上完整渲染呈现，彻底消除“单点吃动效”问题
-    const minHoldTime = 95;
-    if (heldDuration < minHoldTime) {
-      await Future.delayed(Duration(milliseconds: minHoldTime - heldDuration));
-    }
-
-    // 生命周期安全防护：若等待期间组件已卸载或用户触发了新的手势，则终止当前执行线
-    if (!mounted || currentAction != _actionId) return;
-
-    // 触发触觉反馈并 100% 坚决执行回弹
-    HapticFeedback.lightImpact();
+    // 传统全量等待模式 (immediateTap == false)：等待完整回弹定格
     await _controller.reverse();
-
     if (!mounted || currentAction != _actionId) return;
-
-    // 回弹动作完整呈现定格后唤起业务回调，避免模态弹窗过早弹出遮挡回弹视效
     widget.onTap?.call();
   }
 
@@ -147,8 +181,9 @@ class _BouncingScaleCardState extends State<BouncingScaleCard>
     final heldDuration = now - _lastTapDownTime;
 
     // 若用户在滚动列表中快速划过卡片（触发 Cancel），确保平滑恢复原状，不卡在缩小态
-    if (heldDuration < 60) {
-      await Future.delayed(Duration(milliseconds: 60 - heldDuration));
+    final cancelHold = BouncingScaleCard.defaultCancelHoldMs;
+    if (heldDuration < cancelHold) {
+      await Future.delayed(Duration(milliseconds: cancelHold - heldDuration));
     }
 
     if (!mounted || currentAction != _actionId) return;

@@ -41,12 +41,16 @@ class AnimeCard extends StatelessWidget {
   final bool compact;
   final int loadDelayMs;
 
+  /// 松手后触发跳转的微延迟时长（毫秒），默认为 null（自动继承 [BouncingScaleCard.defaultTapDelayMs]）
+  final int? tapDelayMs;
+
   const AnimeCard({
     super.key,
     required this.item,
     this.onTap,
     this.compact = false,
     this.loadDelayMs = 0,
+    this.tapDelayMs,
   });
 
   @override
@@ -60,6 +64,7 @@ class AnimeCard extends StatelessWidget {
 
     return BouncingScaleCard(
       immediateTap: true,
+      tapDelayMs: tapDelayMs,
       onTap: onTap ?? () => navigateToVideoPlayer(context, item),
       child: Container(
         decoration: BoxDecoration(
