@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/m3_surface.dart';
 import '../../../core/utils/adaptive_page_route.dart';
+import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../collection/pages/my_collection_page.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
@@ -28,24 +29,6 @@ class UserActionControlBar extends ConsumerWidget {
     this.onAnalyticsTap,
     this.onDownloadTap,
   });
-
-  void _showTip(BuildContext context, String message) {
-    HapticFeedback.lightImpact();
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: TextStyle(
-            fontFamily: FontManager.instance.activeFontFamily,
-            fontFamilyFallback: FontManager.fallbackFontFamilies,
-          ),
-        ),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -151,7 +134,7 @@ class UserActionControlBar extends ConsumerWidget {
                   ? const Color(0xFF81C784)
                   : const Color(0xFF388E3C),
               onTap: onDownloadTap ??
-                  () => _showTip(context, '暂无离线缓存任务'),
+                  () => AppToast.info('暂无离线缓存任务', context: context),
             ),
           ),
         ],

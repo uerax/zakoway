@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/utils/appearance_manager.dart';
+import '../../../core/utils/app_toast.dart';
 import 'm3_settings_card.dart';
 import 'tg_action_sheet.dart';
 
@@ -10,25 +11,13 @@ class AppIconTile extends StatelessWidget {
     final success = await AppearanceManager.instance.pickAndSetCustomIcon();
     if (!context.mounted) return;
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('应用图标已替换'),
-          duration: Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.success('应用图标已替换', context: context);
     }
   }
 
   void _resetDefaultIcon(BuildContext context) {
     AppearanceManager.instance.resetDefaultIcon();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('已恢复为默认图标'),
-        duration: Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppToast.info('已恢复为默认图标', context: context);
   }
 
   void _showIconModalSheet(BuildContext context) {

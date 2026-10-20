@@ -5,6 +5,7 @@ import '../../../core/network/bangumi_client.dart';
 import '../../../core/network/bangumi_data_disk_cache_manager.dart';
 import '../../../core/network/player_media_disk_cache_manager.dart';
 import '../../../core/services/app_prewarm_coordinator.dart';
+import '../../../core/utils/app_toast.dart';
 import '../../player/danmaku/source/bilibili_danmaku_client.dart';
 import '../../player/danmaku/source/dandan_client.dart';
 import '../../player/source/source_bundle_manager.dart';
@@ -59,22 +60,10 @@ class _CacheSettingsCardState extends State<CacheSettingsCard> {
       AppPrewarmCoordinator.instance.invalidateCacheSizes();
       await _updateCacheSizes(forceRefresh: true);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('已清空图片缓存'),
-          duration: Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.success('已清空图片缓存', context: context);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('清理图片缓存失败: $e'),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.error('清理图片缓存失败: $e', context: context);
     }
   }
 
@@ -91,22 +80,10 @@ class _CacheSettingsCardState extends State<CacheSettingsCard> {
       AppPrewarmCoordinator.instance.invalidateCacheSizes();
       await _updateCacheSizes(forceRefresh: true);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('已清空数据与媒体缓存'),
-          duration: Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.success('已清空数据与媒体缓存', context: context);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('清理数据缓存失败: $e'),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.error('清理数据缓存失败: $e', context: context);
     }
   }
 

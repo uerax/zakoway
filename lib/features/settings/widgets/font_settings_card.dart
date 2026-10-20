@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/m3_surface.dart';
+import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../common/widgets/ios_swipe_action_tile.dart';
 import 'm3_settings_card.dart';
@@ -27,32 +28,14 @@ class _FontSettingsCardState extends State<FontSettingsCard> {
         if (!mounted) return;
         if (success) {
           setState(() {});
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('已导入字体：${FontManager.instance.customFontName}'),
-              duration: const Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppToast.success('已导入字体：${FontManager.instance.customFontName}', context: context);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('字体解析失败，请检查文件格式'),
-              duration: Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppToast.error('字体解析失败，请检查文件格式', context: context);
         }
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('选择字体失败: $e'),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.error('选择字体失败: $e', context: context);
     }
   }
 
@@ -65,13 +48,7 @@ class _FontSettingsCardState extends State<FontSettingsCard> {
     if (confirmed) {
       fontMgr.clearCustomFont();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('已移除自定义字体'),
-          duration: Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.info('已移除自定义字体', context: context);
     }
   }
 

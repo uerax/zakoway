@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zakoway/core/utils/app_toast.dart';
 import 'package:zakoway/features/player/danmaku/source/dandan_config_manager.dart';
 import 'm3_settings_card.dart';
 import 'tg_action_sheet.dart';
@@ -56,12 +57,11 @@ class _DanmakuSettingsCardState extends State<DanmakuSettingsCard> {
         Navigator.of(currentSheetContext!).pop();
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_config.isCustomCredentials
-                ? '已启用自定义弹弹 play 开放平台凭证'
-                : '已保存（使用内置通用凭据）'),
-          ),
+        AppToast.success(
+          _config.isCustomCredentials
+              ? '已启用自定义弹弹 play 开放平台凭证'
+              : '已保存（使用内置通用凭据）',
+          context: context,
         );
       }
     }
@@ -106,9 +106,7 @@ class _DanmakuSettingsCardState extends State<DanmakuSettingsCard> {
                 await _config.resetToDefault();
                 if (sheetCtx.mounted) Navigator.of(sheetCtx).pop();
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('已恢复为内置默认弹弹凭证')),
-                  );
+                  AppToast.success('已恢复为内置默认弹弹凭证', context: context);
                 }
               }
             }

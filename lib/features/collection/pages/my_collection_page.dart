@@ -7,6 +7,7 @@ import '../../../core/collection/providers/collection_providers.dart';
 import '../../../core/models/bangumi/bangumi_collection.dart';
 import '../../../core/theme/m3_surface.dart';
 import '../../../core/utils/appearance_manager.dart';
+import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
 import '../../auth/widgets/auth_login_sheet.dart';
@@ -78,20 +79,6 @@ class _MyCollectionPageState extends ConsumerState<MyCollectionPage>
     );
   }
 
-  void _showToast(String message) {
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: _safeStyle(fontSize: 13, color: Colors.white),
-        ),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
   Future<void> _handleSync() async {
     final isLoggedIn = ref.read(isLoggedInProvider);
     if (!isLoggedIn) {
@@ -130,7 +117,7 @@ class _MyCollectionPageState extends ConsumerState<MyCollectionPage>
     final notifier = ref.read(collectionControllerProvider.notifier);
     final count = await notifier.syncWithRemote();
     if (!mounted) return;
-    _showToast('追番同步完成，更新了 $count 部番剧数据');
+    AppToast.success('追番同步完成，更新了 $count 部番剧数据', context: context);
   }
 
   void _showItemActionSheet(AnimeCollectionItem item) {
@@ -148,7 +135,7 @@ class _MyCollectionPageState extends ConsumerState<MyCollectionPage>
                     bangumiItem: item.toBangumiItem(),
                     type: t,
                   );
-              _showToast('已移至【${t.label}】');
+              AppToast.success('已移至【${t.label}】', context: context);
             },
           ),
         );
@@ -162,7 +149,7 @@ class _MyCollectionPageState extends ConsumerState<MyCollectionPage>
         onTap: () {
           Navigator.of(context).pop();
           ref.read(collectionControllerProvider.notifier).removeStatus(item.subjectId);
-          _showToast('已取消追番');
+          AppToast.info('已取消追番', context: context);
         },
       ),
     );

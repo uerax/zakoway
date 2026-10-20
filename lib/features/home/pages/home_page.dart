@@ -8,6 +8,7 @@ import '../../../core/models/home/recommend_item.dart';
 import '../../../core/network/bangumi_client.dart';
 import '../../../core/services/daily_recommend_service.dart';
 import '../../../core/services/watch_history_service.dart';
+import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/responsive.dart';
 import '../../common/widgets/anime_card.dart';
 import '../../common/widgets/shimmer_loading.dart';
@@ -90,14 +91,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
 
       // 特殊处理说明：当屏幕上已有旧数据时，刷新失败绝不清空列表，仅弹出轻量提醒告知用户
       if (_homeData != null) {
-        ScaffoldMessenger.of(context).removeCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('刷新失败: 网络连接异常，已为您保留当前数据'),
-            duration: Duration(seconds: 3),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppToast.error('刷新失败: 网络连接异常，已为您保留当前数据', context: context);
       }
     }
   }

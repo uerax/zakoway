@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:zakoway/core/services/app_preferences.dart';
+import 'package:zakoway/core/utils/app_toast.dart';
 import 'package:zakoway/core/utils/font_manager.dart';
 import 'package:zakoway/features/player/source/server/animaku_server_client.dart';
 import 'm3_settings_card.dart';
@@ -50,18 +51,11 @@ class _AnimakuServerSettingsCardState extends State<AnimakuServerSettingsCard> {
       }
       if (mounted) {
         setState(() {});
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              effectiveUrl == AppPreferences.defaultServerModeApiUrl
-                  ? '已恢复并启用默认官方节点 (bakasine.eu.org)'
-                  : '已保存自定义服务端地址',
-              style: const TextStyle(
-                fontFamily: 'MiSans',
-                fontFamilyFallback: FontManager.fallbackFontFamilies,
-              ),
-            ),
-          ),
+        AppToast.success(
+          effectiveUrl == AppPreferences.defaultServerModeApiUrl
+              ? '已恢复并启用默认官方节点 (bakasine.eu.org)'
+              : '已保存自定义服务端地址',
+          context: context,
         );
       }
     }

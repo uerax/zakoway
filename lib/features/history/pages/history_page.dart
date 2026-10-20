@@ -4,6 +4,7 @@ import '../../../core/models/history/watch_history_item.dart';
 import '../../../core/services/watch_history_service.dart';
 import '../../../core/theme/m3_surface.dart';
 import '../../../core/utils/appearance_manager.dart';
+import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../common/widgets/anime_card.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
@@ -46,12 +47,7 @@ class _HistoryPageState extends State<HistoryPage> {
     HapticFeedback.lightImpact();
     await WatchHistoryService.instance.remove(item.id);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('已移除《${item.title}》播放记录'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      AppToast.info('已移除《${item.title}》播放记录', context: context);
     }
   }
 
@@ -105,9 +101,7 @@ class _HistoryPageState extends State<HistoryPage> {
       HapticFeedback.mediumImpact();
       await WatchHistoryService.instance.clear();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('播放历史已清空')),
-        );
+        AppToast.success('播放历史已清空', context: context);
       }
     }
   }

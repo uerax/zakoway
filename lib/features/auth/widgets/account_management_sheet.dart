@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/auth/models/auth_user.dart';
 import '../../../core/auth/providers/auth_providers.dart';
 import '../../../core/theme/m3_surface.dart';
+import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
@@ -95,17 +96,7 @@ class _AccountManagementSheetState
     await ref.read(authControllerProvider.notifier).refreshUserInfo();
     if (!mounted) return;
     setState(() => _isRefreshing = false);
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '个人信息已更新 ( ╹▽╹ )',
-          style: _safeStyle(fontSize: 13, color: Colors.white),
-        ),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    AppToast.success('个人信息已更新 ( ╹▽╹ )', context: context);
   }
 
   Future<void> _handleLogout() async {
@@ -141,17 +132,7 @@ class _AccountManagementSheetState
       await ref.read(authControllerProvider.notifier).logout();
       if (!mounted) return;
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '已安全退出，当前已恢复为游客模式',
-            style: _safeStyle(fontSize: 13, color: Colors.white),
-          ),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      AppToast.info('已安全退出，当前已恢复为游客模式', context: context);
     }
   }
 

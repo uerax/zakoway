@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/network/bangumi_client.dart';
 import '../../../core/services/app_preferences.dart';
+import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/image_utils.dart';
 import '../../common/widgets/ios_swipe_action_tile.dart';
 import 'm3_settings_card.dart';
@@ -66,17 +67,10 @@ class _NetworkSettingsCardState extends State<NetworkSettingsCard> {
     );
 
     if (showSnack) {
-      ScaffoldMessenger.of(context)
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              preset == BangumiSourcePreset.mirror ? '已切换至镜像加速' : '已切换至官方直连',
-            ),
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      AppToast.info(
+        preset == BangumiSourcePreset.mirror ? '已切换至镜像加速' : '已切换至官方直连',
+        context: context,
+      );
     }
   }
 
@@ -95,15 +89,7 @@ class _NetworkSettingsCardState extends State<NetworkSettingsCard> {
       '【网络线路切换成功】生效自定义线路: ${route.name}, URL: ${route.url}, 当前图片Host: $currentBangumiImageHost',
     );
 
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('已切换至自定义线路【${route.name}】'),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    AppToast.info('已切换至自定义线路【${route.name}】', context: context);
   }
 
   Future<void> _confirmDeleteRoute(CustomNetworkRoute route) async {
@@ -129,15 +115,10 @@ class _NetworkSettingsCardState extends State<NetworkSettingsCard> {
       _handlePresetChanged(context, BangumiSourcePreset.mirror, showSnack: false);
     }
 
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(wasActive ? '已移除线路【${route.name}】，并恢复至镜像加速' : '已移除线路【${route.name}】'),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    AppToast.info(
+      wasActive ? '已移除线路【${route.name}】，并恢复至镜像加速' : '已移除线路【${route.name}】',
+      context: context,
+    );
   }
 
   void _showAddRouteDialog() {
@@ -148,13 +129,7 @@ class _NetworkSettingsCardState extends State<NetworkSettingsCard> {
     Future<void> submit() async {
       var rawUrl = urlController.text.trim();
       if (rawUrl.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('请输入反代 URL 或链接'),
-            duration: Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppToast.warning('请输入反代 URL 或链接', context: context);
         return;
       }
 
@@ -220,15 +195,7 @@ class _NetworkSettingsCardState extends State<NetworkSettingsCard> {
 
         if (parsedRoutes.isEmpty) {
           if (mounted) {
-            ScaffoldMessenger.of(context)
-              ..clearSnackBars()
-              ..showSnackBar(
-                const SnackBar(
-                  content: Text('解析仓库链接失败，未找到有效节点'),
-                  duration: Duration(seconds: 2),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+            AppToast.error('解析仓库链接失败，未找到有效节点', context: context);
           }
           return;
         }
@@ -244,15 +211,7 @@ class _NetworkSettingsCardState extends State<NetworkSettingsCard> {
         });
         AppPreferences.saveCustomNetworkRoutes(_customRoutes);
 
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(
-            SnackBar(
-              content: Text('已成功从仓库导入 ${parsedRoutes.length} 条线路'),
-              duration: const Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+        AppToast.success('已成功从仓库导入 ${parsedRoutes.length} 条线路', context: context);
       } else {
         // 分支 B：普通反代 Base URL（如 https://my-proxy.com）
         final displayName = rawName.isNotEmpty
@@ -276,15 +235,7 @@ class _NetworkSettingsCardState extends State<NetworkSettingsCard> {
         });
         AppPreferences.saveCustomNetworkRoutes(_customRoutes);
 
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(
-            SnackBar(
-              content: Text('已添加线路【$displayName】'),
-              duration: const Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+        AppToast.success('已添加线路【$displayName】', context: context);
       }
     }
 

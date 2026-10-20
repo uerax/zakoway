@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../../core/utils/appearance_manager.dart';
+import '../../../core/utils/app_toast.dart';
 import '../../common/widgets/wallpaper_crop_dialog.dart';
 import 'm3_settings_card.dart';
 import 'tg_action_sheet.dart';
@@ -54,13 +55,7 @@ class _WallpaperSettingsTileState extends State<WallpaperSettingsTile> {
         'profile' => '个人',
         _ => '',
       };
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('已设置【$scopeName】背景壁纸'),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.success('已设置【$scopeName】背景壁纸', context: context);
     } catch (e) {
       debugPrint('上传壁纸失败: $e');
     }
@@ -88,13 +83,7 @@ class _WallpaperSettingsTileState extends State<WallpaperSettingsTile> {
         scale: cropResult.scale,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('已更新壁纸取景'),
-          duration: Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.success('已更新壁纸取景', context: context);
     }
   }
 
@@ -119,13 +108,7 @@ class _WallpaperSettingsTileState extends State<WallpaperSettingsTile> {
 
   void _performClearWallpaper(String scopeName) {
     AppearanceManager.instance.clearWallpaper(pageKey: _wallpaperScope);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('已清除【$scopeName】'),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppToast.info('已清除【$scopeName】', context: context);
   }
 
   bool _hasCurrentScopeWallpaper(AppearanceManager appMgr) {

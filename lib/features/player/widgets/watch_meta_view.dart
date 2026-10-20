@@ -5,6 +5,7 @@ import '../../../core/auth/providers/auth_providers.dart';
 import '../../../core/collection/providers/collection_providers.dart';
 import '../../../core/models/bangumi/bangumi_collection.dart';
 import '../../../core/models/bangumi/bangumi_item.dart';
+import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../common/widgets/cached_anime_image.dart';
 
@@ -67,25 +68,6 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
         totalEpisodes: widget.episodeCount,
       );
 
-  void _showTip(String message) {
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: TextStyle(
-            fontFamily: FontManager.instance.activeFontFamily,
-            fontFamilyFallback: FontManager.fallbackFontFamilies,
-            fontSize: 13,
-            color: Colors.white,
-          ),
-        ),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
   void _handleCollectTap(CollectType type) {
     final item = _effectiveItem;
 
@@ -97,7 +79,7 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
     if (currentType == type) {
       // 再次点击同一项：取消追番状态
       notifier.removeStatus(item.id);
-      _showTip('已取消追番');
+      AppToast.info('已取消追番', context: context);
     } else {
       // 设为新追番状态
       _lastCollectIndex = _collectTypes.indexOf(type);
@@ -106,7 +88,7 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
         type: type,
       );
       final syncSuffix = isLoggedIn ? ' · 已同步至 Bangumi' : ' · 本地已保存';
-      _showTip('已标记为【${type.label}】$syncSuffix');
+      AppToast.success('已标记为【${type.label}】$syncSuffix', context: context);
     }
   }
 

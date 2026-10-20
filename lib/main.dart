@@ -13,6 +13,7 @@ import 'core/services/watch_history_service.dart';
 import 'core/services/watched_episodes_service.dart';
 import 'core/theme/m3_expressive_theme.dart';
 import 'core/utils/appearance_manager.dart';
+import 'core/utils/app_toast.dart';
 import 'core/utils/font_manager.dart';
 import 'core/utils/scroll_behavior.dart';
 import 'features/common/widgets/app_desktop_title_bar.dart';
@@ -95,6 +96,7 @@ class ZakowayApp extends StatelessWidget {
         return MaterialApp(
           title: 'Zakoway 动漫',
           debugShowCheckedModeBanner: false,
+          scaffoldMessengerKey: AppToast.scaffoldMessengerKey,
           scrollBehavior: const AppScrollBehavior(),
           theme: M3ExpressiveTheme.build(
             primaryColor: primaryColor,

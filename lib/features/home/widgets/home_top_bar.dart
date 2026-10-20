@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/utils/appearance_manager.dart';
+import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/responsive.dart';
 
 /// 现代响应式顶部导航栏：
@@ -280,13 +281,7 @@ class HomeTopBar extends StatelessWidget {
             if (onAvatarTap != null) {
               onAvatarTap!();
             } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('用户登录功能暂未开放'),
-                  duration: Duration(seconds: 1),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              AppToast.info('用户登录功能暂未开放', context: context);
             }
           },
           borderRadius: BorderRadius.circular(22),

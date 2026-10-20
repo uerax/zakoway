@@ -5,6 +5,7 @@ import '../../../core/auth/models/auth_credentials.dart';
 import '../../../core/auth/models/auth_provider_type.dart';
 import '../../../core/auth/providers/auth_providers.dart';
 import '../../../core/theme/m3_surface.dart';
+import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
@@ -94,7 +95,9 @@ class _AuthLoginSheetState extends ConsumerState<AuthLoginSheet> {
       });
       _focusNode.requestFocus();
     } else {
-      _showToast('剪贴板中未检测到文本');
+      if (mounted) {
+        AppToast.warning('剪贴板中未检测到文本', context: context);
+      }
     }
   }
 
@@ -102,21 +105,9 @@ class _AuthLoginSheetState extends ConsumerState<AuthLoginSheet> {
     HapticFeedback.lightImpact();
     const url = 'https://next.bgm.tv/demo/access-token';
     await Clipboard.setData(const ClipboardData(text: url));
-    _showToast('已复制获取网址: $url');
-  }
-
-  void _showToast(String message) {
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: _safeStyle(fontSize: 13, color: Colors.white),
-        ),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    if (mounted) {
+      AppToast.success('已复制获取网址: $url', context: context);
+    }
   }
 
   Future<void> _handleSubmit() async {
@@ -140,7 +131,7 @@ class _AuthLoginSheetState extends ConsumerState<AuthLoginSheet> {
 
     if (success) {
       HapticFeedback.mediumImpact();
-      _showToast('登录成功！已连接 Bangumi 账号 ( ╹▽╹ )');
+      AppToast.success('登录成功！已连接 Bangumi 账号 ( ╹▽╹ )', context: context);
       Navigator.of(context).pop(true);
     } else {
       HapticFeedback.heavyImpact();
@@ -274,7 +265,7 @@ class _AuthLoginSheetState extends ConsumerState<AuthLoginSheet> {
                     isActive: _selectedProvider == AuthProviderType.zakoway,
                     isDisabled: true,
                     onTap: () {
-                      _showToast('Zakoway 自建账号服务正在研发中，敬请期待！');
+                      AppToast.info('Zakoway 自建账号服务正在研发中，敬请期待！', context: context);
                     },
                   ),
                 ),
