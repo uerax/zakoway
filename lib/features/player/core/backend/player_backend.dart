@@ -13,6 +13,12 @@ import 'backend_event.dart';
 
 /// 底层音视频播放引擎核心抽象契约（最小集）
 abstract class PlayerBackend {
+  /// 初始化播放器底层引擎并配置原生属性参数
+  ///
+  /// 调用时机：在创建播放器实例后、第一次调用 [open] 之前显式调用。
+  /// 若未显式调用，具体实现可在 [open] 时执行兜底初始化。
+  Future<void> initialize({required bool isMeteredNetwork});
+
   /// 同步自增并分配新底层 open 的全局单调自增物理代际 [generationId]
   int beginOpen();
 

@@ -32,6 +32,9 @@ class StreamResetTracker {
   }
 }
 
+/// 底层 原生属性写入接口（便于离线单元测试与依赖注入）
+typedef NativePropertyWriter = Future<void> Function(String key, String value);
+
 /// media_kit 与 libmpv 播放引擎适配器实现
 ///
 /// 遵循 docs/player-rewrite/09-adapter-plan.md (v1.0)
@@ -46,6 +49,7 @@ class MediaKitPlayerBackend implements PlayerBackend {
     Player? player,
     NativeMpvPolicy? policy,
     ShaderQueueManager? shaderQueueManager,
+    this.propertyWriter,
   })  : _player = player ??
             Player(
               configuration: const PlayerConfiguration(
@@ -65,12 +69,26 @@ class MediaKitPlayerBackend implements PlayerBackend {
 
   final ShaderQueueManager _shaderQueueManager;
   final StreamResetTracker _resetTracker = StreamResetTracker();
+  final NativePropertyWriter? propertyWriter;
+
+  bool _isInitialized = false;
+
+  /// 底层 mpv 属性是否已完成初始化
+  bool get isInitialized => _isInitialized;
 
   int _currentGenerationId = 0;
   DateTime? _openTime;
   PlayerLogClassifier? _classifier;
+  bool _hasEmittedErrorForCurrentOpen = false;
   int _cachedRealVideoTrackCount = 1;
   bool _isDisposed = false;
+
+  int? _streamWidth;
+  int? _streamHeight;
+  int? _videoParamsDw;
+  int? _videoParamsDh;
+  int? _lastEmittedWidth = -1;
+  int? _lastEmittedHeight = -1;
 
   final List<StreamSubscription<dynamic>> _subscriptions = [];
 
@@ -98,6 +116,31 @@ class MediaKitPlayerBackend implements PlayerBackend {
   // PlayerBackend 抽象契约实现
   // ===========================================================================
 
+  Future<void> _setProperty(String key, String value) async {
+    if (propertyWriter != null) {
+      await propertyWriter!(key, value);
+      return;
+    }
+    final platform = _player.platform;
+    if (platform is NativePlayer) {
+      await platform.setProperty(key, value);
+    }
+  }
+
+  /// 初始化播放器底层引擎并配置原生属性
+  ///
+  /// 调用时机：在创建 [PlayerBackend] 之后、第一次调用 [open] 之前显式调用。
+  /// 若上层未显式调用，[open] 内部将在第一次打开媒体前自动以非计量网络（[isMeteredNetwork] = false）完成兜底初始化。
+  @override
+  Future<void> initialize({required bool isMeteredNetwork}) async {
+    await _player.platform?.waitForPlayerInitialization;
+    final props = policy.toMpvProperties(isMeteredNetwork: isMeteredNetwork);
+    for (final entry in props.entries) {
+      await _setProperty(entry.key, entry.value);
+    }
+    _isInitialized = true;
+  }
+
   @override
   int beginOpen() {
     _currentGenerationId++;
@@ -112,8 +155,20 @@ class MediaKitPlayerBackend implements PlayerBackend {
     bool autoplay = true,
     required int generationId,
   }) async {
+    // 若尚未显式初始化，兜底执行初始化（默认非计量网络）
+    if (!_isInitialized) {
+      await initialize(isMeteredNetwork: false);
+    }
+
     _currentGenerationId = generationId;
+    _hasEmittedErrorForCurrentOpen = false;
     _resetTracker.reset();
+    _streamWidth = null;
+    _streamHeight = null;
+    _videoParamsDw = null;
+    _videoParamsDh = null;
+    _lastEmittedWidth = -1;
+    _lastEmittedHeight = -1;
 
     final targetUri = Uri.tryParse(uri);
     _openTime = DateTime.now();
@@ -274,21 +329,27 @@ class MediaKitPlayerBackend implements PlayerBackend {
     );
 
     _subscriptions.add(
+      _player.stream.width.listen((w) {
+        if (_isDisposed) return;
+        _streamWidth = w;
+        _updateDimensions();
+      }),
+    );
+
+    _subscriptions.add(
+      _player.stream.height.listen((h) {
+        if (_isDisposed) return;
+        _streamHeight = h;
+        _updateDimensions();
+      }),
+    );
+
+    _subscriptions.add(
       _player.stream.videoParams.listen((params) {
         if (_isDisposed) return;
-        final w = params.w;
-        final h = params.h;
-        final isReset = !_resetTracker.dimensionsResetCaptured &&
-            (w == null && h == null);
-        if (isReset) {
-          _resetTracker.dimensionsResetCaptured = true;
-          _classifier?.reset();
-        }
-        _dimensionsController.add(BackendEvent<VideoDimensions>(
-          VideoDimensions(w, h),
-          generationId: _currentGenerationId,
-          isResetMarker: isReset,
-        ));
+        _videoParamsDw = params.dw;
+        _videoParamsDh = params.dh;
+        _updateDimensions();
       }),
     );
 
@@ -337,7 +398,8 @@ class MediaKitPlayerBackend implements PlayerBackend {
             relativeTime: relativeTime,
           );
           final err = _classifier!.evaluate(relativeTime);
-          if (err != null) {
+          if (err != null && !_hasEmittedErrorForCurrentOpen) {
+            _hasEmittedErrorForCurrentOpen = true;
             _errorController.add(err);
           }
         }
@@ -369,12 +431,35 @@ class MediaKitPlayerBackend implements PlayerBackend {
             relativeTime: relativeTime,
           );
           final err = _classifier!.evaluate(relativeTime);
-          if (err != null) {
+          if (err != null && !_hasEmittedErrorForCurrentOpen) {
+            _hasEmittedErrorForCurrentOpen = true;
             _errorController.add(err);
           }
         }
       }),
     );
+  }
+
+  void _updateDimensions() {
+    if (_isDisposed) return;
+    // 渲染尺寸优先：优先 stream.width / stream.height 非空，其次 videoParams 的 dw/dh 非空；不再使用容器尺寸 w/h
+    final w = _streamWidth ?? _videoParamsDw;
+    final h = _streamHeight ?? _videoParamsDh;
+    final isReset = !_resetTracker.dimensionsResetCaptured &&
+        (w == null && h == null);
+    if (isReset) {
+      _resetTracker.dimensionsResetCaptured = true;
+      _classifier?.reset();
+    } else if (w == _lastEmittedWidth && h == _lastEmittedHeight) {
+      return;
+    }
+    _lastEmittedWidth = w;
+    _lastEmittedHeight = h;
+    _dimensionsController.add(BackendEvent<VideoDimensions>(
+      VideoDimensions(w, h),
+      generationId: _currentGenerationId,
+      isResetMarker: isReset,
+    ));
   }
 
   // ===========================================================================
@@ -407,14 +492,11 @@ class MediaKitPlayerBackend implements PlayerBackend {
     required bool isMeteredNetwork,
   }) async {
     try {
-      final platform = _player.platform;
-      if (platform is NativePlayer) {
-        final props = policy.getDemuxerWatermarkProperties(
-          isMeteredNetwork: isMeteredNetwork,
-        );
-        for (final entry in props.entries) {
-          await platform.setProperty(entry.key, entry.value);
-        }
+      final props = policy.getDemuxerWatermarkProperties(
+        isMeteredNetwork: isMeteredNetwork,
+      );
+      for (final entry in props.entries) {
+        await _setProperty(entry.key, entry.value);
       }
     } catch (_) {}
   }

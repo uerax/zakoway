@@ -52,6 +52,7 @@ class PlayerLogClassifier {
   String? _lastSource;
   String? _lastText;
   Duration? _lastRelativeTime;
+  bool _errorEmitted = false;
 
   /// 接收单条底层日志事件并提取证据
   void onLogReceived({
@@ -177,10 +178,17 @@ class PlayerLogClassifier {
   /// 2. 匹配当前主机的 DNS 失败致命行到达；
   /// 3. 若均未到达（如慢起播正常出画、或单纯 demux seek 失败），返回 null。
   BackendError? evaluate(Duration now) {
+    // 保证单次 open 只产出一个错误，杜绝 stream.log 与 stream.error 重复发射导致的多重错误产出
+    if (_errorEmitted) {
+      return null;
+    }
+
     // 若既没有收到匹配的 Failed to open，也没有匹配的 DNS 失败行，尚未达到判定时机
     if (!_failedToOpenReceived && !_hasDnsFailure) {
       return null;
     }
+
+    _errorEmitted = true;
 
     final effectiveRelativeTime = _failedToOpenRelativeTime ?? _dnsRelativeTime ?? now;
     final cleanUrl = _cleanUrl(expectedUrl);
@@ -264,6 +272,7 @@ class PlayerLogClassifier {
     _lastSource = null;
     _lastText = null;
     _lastRelativeTime = null;
+    _errorEmitted = false;
   }
 
   /// 剥离查询参数（如 sign、t 等），保留干净的协议、主机、端口和路径
