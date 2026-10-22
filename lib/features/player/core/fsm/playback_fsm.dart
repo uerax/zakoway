@@ -67,12 +67,14 @@ class PlaybackFsm {
   bool _showLineSwitchPrompt = false;
   bool _isDisposed = false;
   DateTime? _requestStartTime;
+  DateTime? _recoveryStartTime;
 
-  // ===== 6 大核心定时器 =====
+  // ===== 核心定时器 =====
   Timer? _resolvingTimeoutTimer;
   Timer? _coverPromptTimer;
   Timer? _firstFrameTimeoutTimer;
   Timer? _totalBudgetTimer;
+  Timer? _midStreamBudgetTimer;
   Timer? _recoveryBackoffTimer;
   Timer? _rebufferingTimeoutTimer;
 
@@ -249,7 +251,21 @@ class PlaybackFsm {
     // 同步更新 UI 只读状态
     _syncCoreNotifier();
 
-    // 状态迁移若达到确定性终态，撤销总预算看门狗
+    // 状态迁移若进入 recovering，检查是否从中途状态触发
+    final isEnteringRecoveringFromMidStream =
+        _state == PlaybackState.recovering &&
+            previousState != PlaybackState.recovering &&
+            (previousState == PlaybackState.playing ||
+                previousState == PlaybackState.rebuffering ||
+                previousState == PlaybackState.seeking ||
+                previousState == PlaybackState.paused);
+
+    if (isEnteringRecoveringFromMidStream) {
+      _recoveryStartTime = _clock();
+      _startMidStreamBudgetTimer(_context.attemptId);
+    }
+
+    // 状态迁移若达到确定性终态，撤销起播总预算与中途自愈总预算看门狗
     if (_state == PlaybackState.playing ||
         _state == PlaybackState.paused ||
         _state == PlaybackState.error ||
@@ -257,6 +273,11 @@ class PlaybackFsm {
         _state == PlaybackState.disposed) {
       _totalBudgetTimer?.cancel();
       _totalBudgetTimer = null;
+      _requestStartTime = null;
+
+      _midStreamBudgetTimer?.cancel();
+      _midStreamBudgetTimer = null;
+      _recoveryStartTime = null;
     }
 
     // 状态退出 recovering 时撤销退避定时器
@@ -536,11 +557,22 @@ class PlaybackFsm {
   }) {
     _recoveryBackoffTimer?.cancel();
 
-    // 依据 04 第五节动态剩余预算准则：remaining = 13.0s - elapsed < 5.0s 时不再重试
-    final elapsed = _requestStartTime != null
-        ? _clock().difference(_requestStartTime!)
-        : Duration.zero;
-    final remaining = kTotalBudget - elapsed;
+    // 依据 04 第五节动态剩余预算准则：
+    // 若从中途状态触发自愈，以本次自愈开始时刻为起点计算剩余预算 (kMidStreamRecoveryBudget)；
+    // 若在起播阶段触发自愈，以会话请求时刻为起点计算剩余预算 (kTotalBudget)。
+    final Duration budget;
+    final Duration elapsed;
+    if (_recoveryStartTime != null) {
+      budget = kMidStreamRecoveryBudget;
+      elapsed = _clock().difference(_recoveryStartTime!);
+    } else {
+      budget = kTotalBudget;
+      elapsed = _requestStartTime != null
+          ? _clock().difference(_requestStartTime!)
+          : Duration.zero;
+    }
+
+    final remaining = budget - elapsed;
 
     if (remaining < kMinRemainingBudgetForRecovery) {
       // 剩余自愈预算不足 5 秒，强行重试必定超期被暴力截断，立即转入 error
@@ -577,6 +609,32 @@ class PlaybackFsm {
       } else {
         dispatch(const RecoveryTimerExpiredEvent());
       }
+    });
+  }
+
+  /// 启动中途自愈 13.0 秒硬上限总预算定时器
+  void _startMidStreamBudgetTimer(int scheduledAttemptId) {
+    _midStreamBudgetTimer?.cancel();
+
+    _midStreamBudgetTimer = _timerFactory(kMidStreamRecoveryBudget, () {
+      if (_isDisposed || _context.attemptId != scheduledAttemptId) {
+        return;
+      }
+      if (_state == PlaybackState.playing ||
+          _state == PlaybackState.paused ||
+          _state == PlaybackState.completed ||
+          _state == PlaybackState.error ||
+          _state == PlaybackState.disposed) {
+        return;
+      }
+
+      // 中途自愈 13 秒硬上限触发，强行进入 error 终态
+      dispatch(FatalErrorReceivedEvent(BackendError(
+        kind: BackendErrorKind.unknown,
+        action: RecoveryAction.fatalError,
+        rawMessage: '中途自愈恢复总预算超时 (${kMidStreamRecoveryBudget.inSeconds}s)',
+        relativeTime: kMidStreamRecoveryBudget,
+      )));
     });
   }
 
@@ -712,6 +770,9 @@ class PlaybackFsm {
     _rebufferingTimeoutTimer = null;
     _totalBudgetTimer?.cancel();
     _totalBudgetTimer = null;
+    _midStreamBudgetTimer?.cancel();
+    _midStreamBudgetTimer = null;
+    _recoveryStartTime = null;
 
     // 取消所有底层流订阅
     for (final sub in _subscriptions) {

@@ -727,7 +727,9 @@ TransitionResult _onRecovering(
         nextContext: context.copyWith(
           lastFailure: PlaybackFailure(
             kind: error.kind,
-            action: RecoveryAction.fatalError,
+            action: error.action == RecoveryAction.switchLine
+                ? RecoveryAction.switchLine
+                : RecoveryAction.fatalError,
             message: error.rawMessage,
             host: error.host,
             port: error.port,
@@ -739,10 +741,13 @@ TransitionResult _onRecovering(
           ),
         ),
         sideEffects: [
+          const CancelTimersEffect(),
           EmitFailureEffect(
             PlaybackFailure(
               kind: error.kind,
-              action: RecoveryAction.fatalError,
+              action: error.action == RecoveryAction.switchLine
+                  ? RecoveryAction.switchLine
+                  : RecoveryAction.fatalError,
               message: error.rawMessage,
               host: error.host,
               port: error.port,
@@ -1173,6 +1178,7 @@ TransitionResult _onCompletedReceived(
     nextContext: context.copyWith(
       lastEofPosition: currentPos,
       eofRecoveryCount: eofCount + 1,
+      recoveryAttempts: context.recoveryAttempts + 1,
       currentPosition: currentPos,
     ),
     sideEffects: [

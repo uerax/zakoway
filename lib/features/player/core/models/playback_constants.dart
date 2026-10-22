@@ -24,14 +24,20 @@ const Duration kFirstFrameTimeout = Duration(seconds: 12);
 /// 自愈恢复退避等待时延 (500 毫秒)
 const Duration kRecoveryBackoffDelay = Duration(milliseconds: 500);
 
-/// 会话端到端全局绝对硬上限总预算 (13.0 秒)
+/// 会话起播阶段全局绝对硬上限总预算 (13.0 秒)
 ///
-/// 从用户点击起到首个确定性终态（出画或弹出错误卡片）的全局绝对上限
+/// 从用户点击起到首个确定性终态（出画进入 playing 或弹出错误卡片）的全局绝对上限。
+/// 仅约束起播阶段（resolving / preparing / prebuffering 以及从这些阶段进入的 recovering），到达 playing 后取消并不再使用。
 const Duration kTotalBudget = Duration(seconds: 13);
+
+/// 中途自愈恢复全局硬上限总预算 (13.0 秒，待评审)
+///
+/// 从 playing / rebuffering / seeking / paused 进入 recovering 时，以“本次自愈开始的时刻”为起点计算剩余预算。
+const Duration kMidStreamRecoveryBudget = Duration(seconds: 13);
 
 /// 动态剩余预算自愈阈值 (5.0 秒)
 ///
-/// 发生可恢复错误时，若 `remaining = 13.0s - elapsed < 5.0s`，立即放弃自愈重试直接转入 error
+/// 发生可恢复错误时，若剩余自愈预算 < 5.0s，立即放弃自愈重试直接转入 error
 const Duration kMinRemainingBudgetForRecovery = Duration(seconds: 5);
 
 /// 自然完播进度容差 (2.0 秒)
