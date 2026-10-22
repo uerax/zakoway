@@ -38,12 +38,16 @@ class AppPreferences {
   static const _kServerModeEnabled = 'pref_server_mode_enabled';
   static const _kServerModeApiUrl = 'pref_server_mode_api_url';
   static const _kServerModeCachedSources = 'pref_server_mode_cached_sources';
+  static const _kPreferWebviewSniff = 'pref_prefer_webview_sniff';
 
   /// 默认公开免费 Animaku 服务端地址
   static const String defaultServerModeApiUrl = 'https://bakasine.eu.org';
 
   /// 全局服务端模式状态响应式监听器
   static final ValueNotifier<bool> serverModeNotifier = ValueNotifier<bool>(false);
+
+  /// 全局优先 WebView 嗅探状态响应式监听器
+  static final ValueNotifier<bool> preferWebviewSniffNotifier = ValueNotifier<bool>(false);
 
   static SharedPreferences? _prefs;
 
@@ -120,6 +124,9 @@ class AppPreferences {
 
     // 4. 恢复服务端模式偏好
     serverModeNotifier.value = prefs.getBool(_kServerModeEnabled) ?? false;
+
+    // 5. 恢复 WebView 视频流嗅探偏好
+    preferWebviewSniffNotifier.value = prefs.getBool(_kPreferWebviewSniff) ?? false;
   }
 
   // --- 网络线路持久化 ---
@@ -384,5 +391,16 @@ class AppPreferences {
 
   static Future<void> setServerModeCachedSources(List<String> sources) async {
     await _prefs?.setStringList(_kServerModeCachedSources, sources);
+  }
+
+  // --- WebView 视频流嗅探偏好配置 ---
+
+  static bool isPreferWebviewSniffEnabled() {
+    return _prefs?.getBool(_kPreferWebviewSniff) ?? false;
+  }
+
+  static Future<void> setPreferWebviewSniff(bool enabled) async {
+    preferWebviewSniffNotifier.value = enabled;
+    await _prefs?.setBool(_kPreferWebviewSniff, enabled);
   }
 }

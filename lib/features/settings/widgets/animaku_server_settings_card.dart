@@ -18,16 +18,18 @@ class _AnimakuServerSettingsCardState extends State<AnimakuServerSettingsCard> {
   @override
   void initState() {
     super.initState();
-    AppPreferences.serverModeNotifier.addListener(_onServerModeChanged);
+    AppPreferences.serverModeNotifier.addListener(_onStateChanged);
+    AppPreferences.preferWebviewSniffNotifier.addListener(_onStateChanged);
   }
 
   @override
   void dispose() {
-    AppPreferences.serverModeNotifier.removeListener(_onServerModeChanged);
+    AppPreferences.serverModeNotifier.removeListener(_onStateChanged);
+    AppPreferences.preferWebviewSniffNotifier.removeListener(_onStateChanged);
     super.dispose();
   }
 
-  void _onServerModeChanged() {
+  void _onStateChanged() {
     if (mounted) setState(() {});
   }
 
@@ -203,6 +205,7 @@ class _AnimakuServerSettingsCardState extends State<AnimakuServerSettingsCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isServerMode = AppPreferences.isServerModeEnabled();
+    final isPreferWebview = AppPreferences.isPreferWebviewSniffEnabled();
     final currentUrl = AppPreferences.getServerModeApiUrl();
     final isCustomUrl = currentUrl != AppPreferences.defaultServerModeApiUrl;
 
@@ -269,6 +272,29 @@ class _AnimakuServerSettingsCardState extends State<AnimakuServerSettingsCard> {
                     size: 18,
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const M3SettingsSectionHeader(title: '视频解析模式'),
+        M3SettingsCard(
+          footerText: '默认关闭以获得最快的起播速度与最小内存占用；若遇到部分番剧无法播放或网站限制，可开启强兼容模式在后台加载网页增强解析。',
+          children: [
+            M3SettingsTile(
+              leading: const M3SettingsIconBox(
+                icon: Icons.auto_mode_rounded,
+                bg: Color(0xFF34C759),
+              ),
+              title: '强兼容模式',
+              subtitle: isPreferWebview ? '开启（内存占用高 / 兼容性强）' : '关闭（内存占用小 / 速度快）',
+              showDivider: false,
+              trailing: Switch.adaptive(
+                value: isPreferWebview,
+                activeTrackColor: theme.colorScheme.primary,
+                onChanged: (val) {
+                  AppPreferences.setPreferWebviewSniff(val);
+                },
               ),
             ),
           ],

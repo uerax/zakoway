@@ -24,6 +24,7 @@ import 'package:zakoway/features/player/source/sources/sorani_source.dart';
 import 'package:zakoway/features/player/source/sources/tvtfun_source.dart';
 import 'package:zakoway/features/player/source/sources/video_source.dart';
 import 'package:zakoway/features/player/source/sources/xifan_next_source.dart';
+import 'package:zakoway/features/player/source/webview/webview_video_sniffer.dart';
 
 /// 100% 纯原生 Dart 视频源运行时与统一缓存调度中心
 /// 涵盖 animaku 全部 12 个核心视频源，配备 L1 内存 + L2 硬盘持久化双层缓存体系
@@ -415,7 +416,34 @@ class NativeSourceRuntime {
           }
         } else {
           developer.log('[SourceRouting] 🏠 [本地直连] 源: $sourceId | 动作: resolve | ep: $episodeUrl');
-          result = await s.resolve(episodeUrl);
+          final preferWebview = AppPreferences.isPreferWebviewSniffEnabled() || s.preferWebviewSniff;
+          if (preferWebview && WebviewVideoSniffer.isPlatformSupported) {
+            developer.log('[SourceRouting] 🌐 [系统 WebView 优先嗅探] 源: $sourceId');
+            final sniffed = await WebviewVideoSniffer.instance.sniff(episodeUrl);
+            if (sniffed != null && sniffed.url.isNotEmpty) {
+              result = sniffed;
+            } else {
+              developer.log('[SourceRouting] ⚠️ [WebView 嗅探未命中] 回退尝试本地源原生解析...');
+              result = await s.resolve(episodeUrl);
+            }
+          } else {
+            try {
+              result = await s.resolve(episodeUrl);
+            } catch (nativeErr) {
+              // 自动容灾降级：若原生 Dart 解析失败（如网站反爬或结构变更），且系统支持 WebView，自动激活无头 WebView 嗅探自愈
+              if (WebviewVideoSniffer.isPlatformSupported) {
+                developer.log('[SourceRouting] ⚠️ 原生解析异常 ($nativeErr)，自动启动系统级无头 WebView 嗅探自愈...');
+                final sniffed = await WebviewVideoSniffer.instance.sniff(episodeUrl);
+                if (sniffed != null && sniffed.url.isNotEmpty) {
+                  result = sniffed;
+                } else {
+                  rethrow;
+                }
+              } else {
+                rethrow;
+              }
+            }
+          }
         }
 
         if (result.url.isNotEmpty) {

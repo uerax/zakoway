@@ -48,6 +48,9 @@ abstract class VideoSource {
   /// 是否支持国内网络直连（true: 国内可直连；false: 需代理/海外节点）
   bool get isDirect => true;
 
+  /// 是否优先使用系统 WebView 进行视频流嗅探（针对无公开 API 或挂有复杂反爬的网页源）
+  bool get preferWebviewSniff => false;
+
   Future<List<SourceSearchResult>> search(String keyword);
   Future<List<SourceChapterRoad>> chapters(String animeUrl);
   Future<SourceResolveResult> resolve(String episodeUrl);
