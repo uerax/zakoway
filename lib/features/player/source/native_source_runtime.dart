@@ -423,8 +423,8 @@ class NativeSourceRuntime {
             if (sniffed != null && sniffed.url.isNotEmpty) {
               result = sniffed;
             } else {
-              developer.log('[SourceRouting] ⚠️ [WebView 嗅探未命中] 回退尝试本地源原生解析...');
-              result = await s.resolve(episodeUrl);
+              developer.log('[SourceRouting] ❌ [WebView 嗅探未命中] 嗅探未获取到视频地址');
+              throw Exception('WebView 嗅探未命中有效播放地址');
             }
           } else {
             try {
