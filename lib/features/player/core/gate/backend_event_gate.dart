@@ -73,6 +73,9 @@ class BackendEventGate {
   Uri? _targetUri;
   DateTime? _openTime;
 
+  /// 本代际已识别并放行的重定向目标主机集合 (支持 302 重定向节点错误归因)
+  final Set<String> _redirectHosts = {};
+
   /// 各流通道是否已收到本代际专属重置标记
   final Set<BackendStreamChannel> _receivedResetMarkers = {};
 
@@ -129,6 +132,14 @@ class BackendEventGate {
     _currentDuration = Duration.zero;
     _currentPosition = Duration.zero;
     _recentLogs.clear();
+    _redirectHosts.clear();
+  }
+
+  /// 注册当前 open 会话中由 302 重定向触发的目标主机
+  void registerRedirectHost(String host) {
+    if (host.isNotEmpty) {
+      _redirectHosts.add(host.toLowerCase());
+    }
   }
 
   // ===========================================================================
@@ -234,12 +245,10 @@ class BackendEventGate {
 
   /// 研判底层结构化错误 BackendError
   ///
-  /// 遵循 03 第 6.2 节与 04 第 4.1 节：
+  /// 核心门禁职责：
   /// 1. 时间窗口门禁：错误发生的相对耗时必须 >= Duration.zero；若提供 eventTime，必须晚于或等于 openTime；
-  /// 2. URL/主机名归因门禁：
-  ///    若携带主机名且与当前目标主机名不一致（含旧流残留的 DNS 失败），坚决丢弃；
-  ///    若不带主机名（如底层孤立的 tcp/tls 错误），仅作为诊断线索 (diagnosticOnly)，严禁触发状态机失败迁移；
-  ///    主机名匹配且有效的致命错误，放行进入状态机 (passFatal)。
+  /// 2. 通用重定向放行：流媒体广泛采用 HTTP 301/302 重定向至 CDN 节点或网盘存储桶，
+  ///    只要事件在当前代际 open 时间窗口内发生，底层致命错误一律放行进入状态机，绝不以初始 host/path 粗暴误杀。
   GatedErrorDisposition evaluateError(
     BackendError error, {
     DateTime? eventTime,
@@ -252,11 +261,9 @@ class BackendEventGate {
       return GatedErrorDisposition.discard;
     }
 
-    // 提取主机名
-    final host = error.host ?? _extractHostFromText(error.rawMessage) ?? _extractHostFromCleanUrl(error.cleanUrl);
-
+    final host = error.host ?? _extractHostFromText(error.rawMessage);
     if (host == null || host.isEmpty) {
-      // 不带主机名的底层日志，只作诊断线索，不得触发状态迁移
+      // 不带主机名的底层日志，仅作诊断线索，不触发状态迁移 (TC-26)
       return GatedErrorDisposition.diagnosticOnly;
     }
 
@@ -264,24 +271,23 @@ class BackendEventGate {
       return GatedErrorDisposition.discard;
     }
 
-    // 主机名比对（忽略大小写）
-    if (host.toLowerCase() != _targetUri!.host.toLowerCase()) {
+    final isTargetHost = host.toLowerCase() == _targetUri!.host.toLowerCase();
+    final isRedirectHost = _redirectHosts.contains(host.toLowerCase());
+
+    // 既不是目标主机，也不是当前代际已识别的重定向主机，坚决丢弃旧媒体残留 (TC-27, TC-29)
+    if (!isTargetHost && !isRedirectHost) {
       return GatedErrorDisposition.discard;
     }
 
-    // 端口比对（如果双方均有显式有效端口）
-    if (error.port != null && _targetUri!.hasPort) {
+    // 端口比对（如果双方均有显式有效端口，且属于初始目标主机）
+    if (isTargetHost && error.port != null && _targetUri!.hasPort) {
       if (error.port != _targetUri!.port) {
         return GatedErrorDisposition.discard;
       }
     }
 
-    // 路径比对（用 BackendError.cleanUrl 提取路径）
-    // 特殊处理说明：
-    // 若错误携带目标 cleanUrl，则进一步比对 URL 路径是否与当前 Session 一致。
-    // 注意：若针对同一 URL（相同 host、port、path）发起重试，底层报错因标识完全一致无法通过 URL 区分代际，
-    // 这属于残余风险（已在 04 第 4.1 节残余风险规范中详述），由时间窗口与双重证据门禁兜底。
-    if (error.cleanUrl != null && error.cleanUrl!.isNotEmpty) {
+    // 路径比对（若错误携带目标 cleanUrl，且属于初始目标主机，比对 URL 路径是否与当前代际一致）
+    if (isTargetHost && error.cleanUrl != null && error.cleanUrl!.isNotEmpty) {
       final errorUri = Uri.tryParse(error.cleanUrl!);
       if (errorUri != null && errorUri.path.isNotEmpty && _targetUri!.path.isNotEmpty) {
         if (errorUri.path != _targetUri!.path) {
@@ -298,7 +304,7 @@ class BackendEventGate {
   /// 遵循 04 第 4.1 节第 3 点规范：
   /// 1. 代际匹配与时间窗口校验；
   /// 2. stream.log 与 stream.error 10ms 容差内同文本去重；
-  /// 3. 若日志中含有明确的主机名且与当前目标主机不一致，静默丢弃；
+  /// 3. 若日志中含有明确的主机名且与当前目标主机或已知重定向不一致，静默丢弃；
   /// 4. 其余正常通过，作为诊断线索。
   GatedLogDisposition evaluateLog(
     PlayerLogMessage log, {
@@ -340,10 +346,20 @@ class BackendEventGate {
       _recentLogs.removeAt(0);
     }
 
+    // 自动捕获当前会话抛出的 302 重定向失败或底层重定向目标主机
+    if (trimmedText.startsWith('Failed to open')) {
+      final failedHost = _extractHostFromText(trimmedText);
+      if (failedHost != null && failedHost.isNotEmpty) {
+        registerRedirectHost(failedHost);
+      }
+    }
+
     // 主机名归因校验
     final host = _extractHostFromText(trimmedText);
     if (host != null && host.isNotEmpty && _targetUri != null) {
-      if (host.toLowerCase() != _targetUri!.host.toLowerCase()) {
+      final isTargetHost = host.toLowerCase() == _targetUri!.host.toLowerCase();
+      final isRedirectHost = _redirectHosts.contains(host.toLowerCase());
+      if (!isTargetHost && !isRedirectHost) {
         // 主机名不匹配（如上个会话的后台 DNS 线程迟到日志），丢弃
         return GatedLogDisposition.discard;
       }
@@ -399,12 +415,5 @@ class BackendEventGate {
     }
 
     return null;
-  }
-
-  /// 从 cleanUrl 中提取主机名
-  static String? _extractHostFromCleanUrl(String? cleanUrl) {
-    if (cleanUrl == null || cleanUrl.isEmpty) return null;
-    final parsed = Uri.tryParse(cleanUrl);
-    return parsed?.host;
   }
 }

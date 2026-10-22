@@ -816,6 +816,7 @@ class _PlayerControlsState extends State<PlayerControls> {
               valueListenable: widget.controller.core,
               builder: (context, coreState, _) {
                 final isPaused = !coreState.playing &&
+                    !coreState.buffering &&
                     !coreState.loading &&
                     !_isLocked &&
                     coreState.firstFrameRendered;

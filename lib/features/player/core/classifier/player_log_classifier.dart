@@ -45,6 +45,8 @@ class PlayerLogClassifier {
   Uri? _failedToOpenUri;
   Duration? _failedToOpenRelativeTime;
 
+  final Set<String> _redirectHosts = {};
+
   /// 本次 open 匹配到的 Failed to open 目标 URI
   Uri? get failedToOpenUri => _failedToOpenUri;
 
@@ -100,24 +102,45 @@ class PlayerLogClassifier {
     required String text,
     required Duration relativeTime,
   }) {
-    // 2.1 EOF 证据：tcp: ffurl_read returned 0xdfb9b0bb
-    if (text.contains('0xdfb9b0bb') || text.contains('ffurl_read returned')) {
-      // 特殊处理说明：底层 TCP 错误日志行未输出主机名，分类器无法做 URL 归因校验，保留进入缓冲。
-      // 此为已知残余风险，依据设计文档 v3.1 第 4.1 节，由“同时具备 EOF 与握手两类证据”
-      // 及“建议性负缓存允许手动穿透”双重兜底，并在上层依靠 open 代际标记彻底隔离。
+    final lower = text.toLowerCase();
+
+    // 2.1 网络断开/EOF 证据
+    if (lower.contains('0xdfb9b0bb') ||
+        lower.contains('ffurl_read returned') ||
+        lower.contains('connection reset') ||
+        lower.contains('connection closed') ||
+        lower.contains('end of file') ||
+        lower.contains('broken pipe')) {
       _hasEofEvidence = true;
     }
 
-    // 2.2 握手证据：tls: mbedtls_ssl_handshake returned -0x4e
-    if (text.contains('mbedtls_ssl_handshake returned -0x4e')) {
-      // 特殊处理说明：仅作为底层错误码 -0x4e 记录，严禁称作 RST 或连接重置。
-      // 该日志行同样不包含主机名，作为已知残余风险保留入库。
+    // 2.2 TLS / 握手异常证据
+    if (lower.contains('handshake') ||
+        lower.contains('ssl') ||
+        lower.contains('tls') ||
+        lower.contains('schannel') ||
+        lower.contains('certificate') ||
+        lower.contains('terminated during handshake')) {
       _hasHandshakeEvidence = true;
-      _handshakeNativeErrorCode = -0x4e;
+      if (text.contains('-0x4e')) {
+        _handshakeNativeErrorCode = -0x4e;
+      }
     }
 
-    // 2.3 DNS 证据：Failed to resolve hostname <host>
-    final dnsMatch = RegExp(r'Failed to resolve hostname\s+([^\s:]+)')
+    // 2.3 捕获底层 HTTP 302 重定向目标
+    final redirectMatch = RegExp(
+      r'(?:Redirecting to|Location:)\s+(https?://[^\s]+)',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (redirectMatch != null) {
+      final u = Uri.tryParse(redirectMatch.group(1)!);
+      if (u != null && u.host.isNotEmpty) {
+        _redirectHosts.add(u.host.toLowerCase());
+      }
+    }
+
+    // 2.4 DNS 证据：Failed to resolve hostname <host>
+    final dnsMatch = RegExp(r'Failed to resolve hostname\s+([^\s:]+)', caseSensitive: false)
         .firstMatch(text);
     if (dnsMatch != null) {
       final host = dnsMatch.group(1)!;
@@ -131,7 +154,7 @@ class PlayerLogClassifier {
       return;
     }
 
-    // 2.4 Failed to open <url> 致命行
+    // 2.5 Failed to open <url> 致命行
     if (text.startsWith('Failed to open')) {
       _handleFailedToOpen(text, relativeTime);
     }
@@ -151,17 +174,19 @@ class PlayerLogClassifier {
     final parsed = Uri.tryParse(rawUrl);
     if (parsed == null) return;
 
-    // 隔离规则：URL 中的 sign、t 等可能被替换为 "..."，只比对 host:port 与路径（若有），不比较完整字符串
-    // 若 host:port 不一致，忽略该事件
     final expectedPort = expectedUrl.hasPort
         ? expectedUrl.port
         : (expectedUrl.scheme == 'https' ? 443 : 80);
     final parsedPort =
         parsed.hasPort ? parsed.port : (parsed.scheme == 'https' ? 443 : 80);
 
-    if (parsed.host.toLowerCase() != expectedUrl.host.toLowerCase() ||
-        parsedPort != expectedPort) {
-      // 主机或端口不匹配，忽略该 Failed to open 事件
+    final isExpectedHost =
+        parsed.host.toLowerCase() == expectedUrl.host.toLowerCase() &&
+            parsedPort == expectedPort;
+    final isRedirectHost = _redirectHosts.contains(parsed.host.toLowerCase());
+
+    // 若既非预期目标主机/端口，亦非已确认的重定向目标主机，视为旧连接残留忽略
+    if (!isExpectedHost && !isRedirectHost) {
       return;
     }
 
@@ -191,20 +216,25 @@ class PlayerLogClassifier {
     _errorEmitted = true;
 
     final effectiveRelativeTime = _failedToOpenRelativeTime ?? _dnsRelativeTime ?? now;
-    final cleanUrl = _cleanUrl(expectedUrl);
-    final port = expectedUrl.hasPort
-        ? expectedUrl.port
-        : (expectedUrl.scheme == 'https' ? 443 : 80);
+    final effectiveHost = _failedToOpenUri?.host.isNotEmpty == true
+        ? _failedToOpenUri!.host
+        : expectedUrl.host;
+    final effectivePort = _failedToOpenUri?.hasPort == true
+        ? _failedToOpenUri!.port
+        : (expectedUrl.hasPort
+            ? expectedUrl.port
+            : (expectedUrl.scheme == 'https' ? 443 : 80));
+    final cleanUrl = _cleanUrl(_failedToOpenUri ?? expectedUrl);
 
-    // 规则 1：缓冲里同时有 EOF 证据和握手证据 -> handshakeClosed
-    if (_hasEofEvidence && _hasHandshakeEvidence) {
+    // 规则 1：缓冲里有握手异常证据，或同时有 EOF 与握手证据 -> handshakeClosed
+    if (_hasHandshakeEvidence || (_hasEofEvidence && _hasHandshakeEvidence)) {
       return BackendError(
         kind: BackendErrorKind.handshakeClosed,
         action: RecoveryAction.switchLine,
-        rawMessage: _failedToOpenRawMessage ?? 'Handshake closed by peer',
+        rawMessage: _failedToOpenRawMessage ?? 'TLS handshake failed or closed by peer',
         cleanUrl: cleanUrl,
-        host: expectedUrl.host,
-        port: port,
+        host: effectiveHost,
+        port: effectivePort,
         nativeErrorCode: _handshakeNativeErrorCode ?? -0x4e,
         relativeTime: effectiveRelativeTime,
       );
@@ -217,24 +247,22 @@ class PlayerLogClassifier {
         action: RecoveryAction.switchLine,
         rawMessage: _dnsRawMessage ?? 'DNS resolution failed',
         cleanUrl: cleanUrl,
-        host: _dnsHost ?? expectedUrl.host,
-        port: port,
+        host: _dnsHost ?? effectiveHost,
+        port: effectivePort,
         nativeErrorCode: null,
         relativeTime: _dnsRelativeTime ?? effectiveRelativeTime,
       );
     }
 
     // 规则 3：耗时达到或超过连接超时阈值 -> connectTimeout
-    // 特殊处理说明：对应设计文档 v3.1 第 5.3 节，此为分类器层面的事后定性；
-    // 状态机层面的 12s 看门狗负责主动救场，而底层若在 16.5s 抛出打开失败，分类器精准定性为 connectTimeout
     if (effectiveRelativeTime >= connectTimeoutThreshold) {
       return BackendError(
         kind: BackendErrorKind.connectTimeout,
         action: RecoveryAction.switchLine,
         rawMessage: _failedToOpenRawMessage ?? 'Connect timeout',
         cleanUrl: cleanUrl,
-        host: expectedUrl.host,
-        port: port,
+        host: effectiveHost,
+        port: effectivePort,
         nativeErrorCode: null,
         relativeTime: effectiveRelativeTime,
       );
@@ -246,8 +274,8 @@ class PlayerLogClassifier {
       action: RecoveryAction.refreshAndRetry,
       rawMessage: _failedToOpenRawMessage ?? 'Failed to open media',
       cleanUrl: cleanUrl,
-      host: expectedUrl.host,
-      port: port,
+      host: effectiveHost,
+      port: effectivePort,
       nativeErrorCode: null,
       relativeTime: effectiveRelativeTime,
     );
@@ -268,6 +296,7 @@ class PlayerLogClassifier {
     _failedToOpenRawMessage = null;
     _failedToOpenUri = null;
     _failedToOpenRelativeTime = null;
+    _redirectHosts.clear();
 
     _lastSource = null;
     _lastText = null;

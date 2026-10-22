@@ -18,6 +18,7 @@ import '../../../core/utils/appearance_manager.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
 import '../controller/playback_controller.dart';
+import '../core/models/resolved_media.dart';
 import '../danmaku/danmaku.dart';
 import '../services/player_preferences_service.dart';
 import '../source/auto_source_pick_coordinator.dart';
@@ -246,7 +247,23 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     _danmakuCoordinator = DanmakuSessionCoordinator(
       danmakuController: _danmakuController,
     );
-    _playbackController = createPlaybackController();
+    _playbackController = createPlaybackController(
+      onResolve: ({required bool bypassCache}) async {
+        final curPageUrl = _currentPlayingPageUrl;
+        if (curPageUrl != null && curPageUrl.isNotEmpty) {
+          final runtime = SourceBundleManager.instance.runtime;
+          final res = await runtime.resolve(
+            _selectedSourceId,
+            curPageUrl,
+            bypassCache: bypassCache,
+          );
+          if (res.url.isNotEmpty) {
+            return ResolvedMedia(url: res.url, headers: res.headers);
+          }
+        }
+        return ResolvedMedia(url: _playbackController.currentUri ?? '');
+      },
+    );
     _danmakuBridge = DanmakuPlaybackBridge(
       playbackController: _playbackController,
       danmakuController: _danmakuController,

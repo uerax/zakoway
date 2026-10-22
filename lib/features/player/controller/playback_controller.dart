@@ -9,6 +9,7 @@ import 'package:zakoway/core/services/network_connectivity_service.dart';
 import 'package:zakoway/features/player/controller/playback_state.dart';
 import 'package:zakoway/features/player/core/backend/media_kit_player_backend.dart';
 import 'package:zakoway/features/player/core/backend/player_backend.dart';
+import 'package:zakoway/features/player/core/fsm/playback_event.dart';
 import 'package:zakoway/features/player/core/fsm/playback_fsm.dart';
 import 'package:zakoway/features/player/core/models/backend_error.dart';
 import 'package:zakoway/features/player/core/models/playback_failure.dart';
@@ -21,11 +22,7 @@ import 'playback_controller_interface.dart';
 export 'playback_controller_factory.dart';
 export 'playback_controller_interface.dart';
 
-/// 首帧黑屏防闪遮罩最长保持时间（硬上限超时兜底，防止纯音频、无视频轨或尺寸事件缺失导致死等遮罩）
-/// 特殊处理说明：
-/// 第三方外链与 CDN 在网络波动下拉流与解复用首片往往需要 2~5 秒，
-/// 若超时过短会导致过早解除 loading 与黑屏遮罩造成假死黑屏；放宽至 8 秒兼顾弱网等待体验。
-const Duration kFirstFrameCoverMaxWait = Duration(milliseconds: 8000);
+// 移除无用常量与死代码
 
 /// 按照 04 设计规范清洗结构化错误文案，严禁在 UI 暴露原始 URL 或敏感 Token
 String sanitizePlaybackError(BackendError? error, {String prefix = '播放失败'}) {
@@ -206,6 +203,11 @@ class ZakowayPlaybackController implements PlaybackController {
         _lastPosition = e.data;
         _lastPositionAt = _positionClock.elapsed;
         _scheduleTimelineEmit();
+
+        // 当底层完成真实寻道并推进新位置时，若状态机仍在 seeking，派发 SeekAcknowledgedEvent
+        if (_fsm != null && _fsm!.state == core_state.PlaybackState.seeking) {
+          _fsm!.dispatch(SeekAcknowledgedEvent(e.data));
+        }
       }),
     );
 
@@ -246,16 +248,14 @@ class ZakowayPlaybackController implements PlaybackController {
     final failure = _fsm!.failure;
 
     final hasFirstFrame = fsmCore.firstFrameRendered;
-    final isPlaying = fsmState == core_state.PlaybackState.playing;
+    final isPlaying = fsmCore.playing;
     final isLoading = (fsmState == core_state.PlaybackState.resolving ||
             fsmState == core_state.PlaybackState.preparing ||
             fsmState == core_state.PlaybackState.recovering ||
             !hasFirstFrame) &&
         fsmState != core_state.PlaybackState.error;
-    final isBuffering = fsmState == core_state.PlaybackState.prebuffering ||
-        fsmState == core_state.PlaybackState.rebuffering ||
-        fsmState == core_state.PlaybackState.seeking;
-    final isCompleted = fsmState == core_state.PlaybackState.completed;
+    final isBuffering = fsmCore.buffering;
+    final isCompleted = fsmCore.completed;
 
     // 若真实物理出画已就绪，事实出画具有最高权威，绝不在 UI 呈现报错；
     // 仅在出画前发生无法自愈的致命错误时才在界面展示脱敏错误
@@ -400,6 +400,10 @@ class ZakowayPlaybackController implements PlaybackController {
     _lastPosition = targetPosition;
     _lastPositionAt = _positionClock.elapsed;
 
+    // 重置 250ms 节流定时器，避免旧进度事件在毫秒内回弹覆盖最新 Seek 点
+    _timelineThrottleTimer?.cancel();
+    _timelineThrottleTimer = null;
+
     timeline.value = timeline.value.copyWith(
       position: targetPosition,
       clearPreview: true,
@@ -415,6 +419,14 @@ class ZakowayPlaybackController implements PlaybackController {
 
     if (_fsm != null) {
       await _fsm!.seek(targetPosition);
+      // 若处于暂停态（底层不会自然推进播放时钟），800ms 安全兜底确保退出 seeking
+      if (!core.value.playing) {
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (!_disposed && _fsm?.state == core_state.PlaybackState.seeking) {
+            _fsm?.dispatch(SeekAcknowledgedEvent(targetPosition));
+          }
+        });
+      }
     }
   }
 

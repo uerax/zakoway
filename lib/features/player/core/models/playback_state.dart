@@ -61,6 +61,7 @@ class PlaybackCoreState {
     required this.state,
     this.firstFrameRendered = false,
     this.errorMessage,
+    this.phaseBeforeSeeking,
   });
 
   /// 当前宏观状态枚举
@@ -72,6 +73,9 @@ class PlaybackCoreState {
   /// 错误提示文案（仅在 state == error 时非空）
   final String? errorMessage;
 
+  /// 在 seeking 状态前保留的播放意图状态（playing 或 paused）
+  final PlaybackState? phaseBeforeSeeking;
+
   /// 是否处于加载阶段 (resolving, preparing, recovering)
   bool get loading =>
       state == PlaybackState.resolving ||
@@ -79,7 +83,13 @@ class PlaybackCoreState {
       state == PlaybackState.recovering;
 
   /// 是否正在播放 (playing)
-  bool get playing => state == PlaybackState.playing;
+  /// 特殊处理说明：
+  /// 寻道中 (seeking) 时应忠实继承 Seek 发起前的用户意图 (phaseBeforeSeeking)，
+  /// 避免用户拖动进度条瞬间 UI 播放键闪变暂停键 (遵循 03-state-machine 规范)。
+  bool get playing =>
+      state == PlaybackState.playing ||
+      (state == PlaybackState.seeking &&
+          phaseBeforeSeeking == PlaybackState.playing);
 
   /// 是否正在缓冲卡顿 (prebuffering, rebuffering, seeking)
   bool get buffering =>
@@ -98,11 +108,13 @@ class PlaybackCoreState {
     PlaybackState state, {
     bool firstFrameRendered = false,
     String? errorMessage,
+    PlaybackState? phaseBeforeSeeking,
   }) {
     return PlaybackCoreState(
       state: state,
       firstFrameRendered: firstFrameRendered,
       errorMessage: errorMessage,
+      phaseBeforeSeeking: phaseBeforeSeeking,
     );
   }
 
@@ -112,11 +124,13 @@ class PlaybackCoreState {
     return other is PlaybackCoreState &&
         other.state == state &&
         other.firstFrameRendered == firstFrameRendered &&
-        other.errorMessage == errorMessage;
+        other.errorMessage == errorMessage &&
+        other.phaseBeforeSeeking == phaseBeforeSeeking;
   }
 
   @override
-  int get hashCode => Object.hash(state, firstFrameRendered, errorMessage);
+  int get hashCode =>
+      Object.hash(state, firstFrameRendered, errorMessage, phaseBeforeSeeking);
 
   @override
   String toString() =>

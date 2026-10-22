@@ -3,7 +3,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:zakoway/core/models/bangumi/bangumi_item.dart';
 import 'models/source_models.dart';
-import 'services/plugin_circuit_breaker.dart';
 import 'services/source_binding_service.dart';
 import 'source_bundle_manager.dart';
 import 'source_keyword_matcher.dart';
@@ -414,20 +413,6 @@ class SourceAggregator extends ChangeNotifier {
     final actionId = (_probeActionIds[sourceId] ?? 0) + 1;
     _probeActionIds[sourceId] = actionId;
 
-    // 检查熔断器冷却
-    final breakerCheck = PluginCircuitBreaker.instance.checkBeforeRequest(sourceId);
-    if (!breakerCheck.allowed) {
-      _states[sourceId] = AggregatedSourceState(
-        meta: meta,
-        status: SourceProbeStatus.error,
-        errorMsg: breakerCheck.reason ?? '源站熔断冷却中',
-        searched: true,
-        keyword: kw,
-      );
-      _finishJob(sourceId);
-      return;
-    }
-
     final cancelToken = CancelToken();
     _cancelTokens[sourceId] = cancelToken;
 
@@ -471,9 +456,6 @@ class SourceAggregator extends ChangeNotifier {
           e.toString().contains('probe_timeout_5s') ||
           e.toString().toLowerCase().contains('timeout');
 
-      // 记录熔断器失败
-      PluginCircuitBreaker.instance.recordFailure(sourceId, e);
-
       _states[sourceId] = AggregatedSourceState(
         meta: meta,
         status: SourceProbeStatus.error,
@@ -504,8 +486,6 @@ class SourceAggregator extends ChangeNotifier {
     if (_disposed || _probeActionIds[sourceId] != actionId) return;
 
     // 请求成功，记录熔断器成功状态
-    PluginCircuitBreaker.instance.recordSuccess(sourceId);
-
     // 对搜索结果按标题相似度打分排序
     final ranked = SourceKeywordMatcher.rankSearchHits(rawHits, [
       ..._titleRefs,

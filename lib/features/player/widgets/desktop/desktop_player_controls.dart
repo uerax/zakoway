@@ -882,11 +882,12 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                 ),
               ),
 
-              // 2. 居中暂停水滴微光卡片（暂停时优雅淡入）
+              // 2. 居中暂停水滴微光卡片（仅在真正暂停时优雅淡入，缓冲等待时严禁误显）
               ValueListenableBuilder<PlaybackCoreState>(
                 valueListenable: widget.controller.core,
                 builder: (context, coreState, _) {
                   final isPaused = !coreState.playing &&
+                      !coreState.buffering &&
                       !coreState.loading &&
                       coreState.firstFrameRendered;
 
