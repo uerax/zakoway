@@ -477,7 +477,7 @@ class SourceAggregator extends ChangeNotifier {
       _states[sourceId] = AggregatedSourceState(
         meta: meta,
         status: SourceProbeStatus.error,
-        errorMsg: isTimeout ? '源站超时 (5s)' : '源站响应异常',
+        errorMsg: isTimeout ? '源站响应超时' : '源站响应异常',
         searched: true,
         keyword: kw,
       );

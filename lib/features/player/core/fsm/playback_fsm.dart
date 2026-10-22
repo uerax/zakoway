@@ -155,8 +155,11 @@ class PlaybackFsm {
         _timelineNotifier.value =
             _timelineNotifier.value.copyWith(position: event.data);
 
-        // prebuffering 阶段若时钟推进，检查首帧条件（由转移函数研判）
-        if (_state == PlaybackState.prebuffering && isAdvanced) {
+        // 检查首帧条件（若处于 prebuffering、error 或 recovering，时钟推进均可激活研判）
+        if ((_state == PlaybackState.prebuffering ||
+                _state == PlaybackState.error ||
+                _state == PlaybackState.recovering) &&
+            isAdvanced) {
           dispatch(const FirstFrameRenderedEvent());
         }
       }),
@@ -190,7 +193,9 @@ class PlaybackFsm {
 
         if (event.data.hasValidSize) {
           _context = _context.copyWith(hasValidDimensions: true);
-          if (_state == PlaybackState.prebuffering) {
+          if (_state == PlaybackState.prebuffering ||
+              _state == PlaybackState.error ||
+              _state == PlaybackState.recovering) {
             dispatch(const FirstFrameRenderedEvent());
           }
         }

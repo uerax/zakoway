@@ -245,18 +245,21 @@ class ZakowayPlaybackController implements PlaybackController {
     final fsmCore = _fsm!.coreState;
     final failure = _fsm!.failure;
 
+    final hasFirstFrame = fsmCore.firstFrameRendered;
     final isPlaying = fsmState == core_state.PlaybackState.playing;
-    final isLoading = fsmState == core_state.PlaybackState.resolving ||
-        fsmState == core_state.PlaybackState.preparing ||
-        fsmState == core_state.PlaybackState.recovering ||
-        !fsmCore.firstFrameRendered;
+    final isLoading = (fsmState == core_state.PlaybackState.resolving ||
+            fsmState == core_state.PlaybackState.preparing ||
+            fsmState == core_state.PlaybackState.recovering ||
+            !hasFirstFrame) &&
+        fsmState != core_state.PlaybackState.error;
     final isBuffering = fsmState == core_state.PlaybackState.prebuffering ||
         fsmState == core_state.PlaybackState.rebuffering ||
         fsmState == core_state.PlaybackState.seeking;
     final isCompleted = fsmState == core_state.PlaybackState.completed;
-    final hasFirstFrame = fsmCore.firstFrameRendered;
 
-    final errorMsg = fsmState == core_state.PlaybackState.error
+    // 若真实物理出画已就绪，事实出画具有最高权威，绝不在 UI 呈现报错；
+    // 仅在出画前发生无法自愈的致命错误时才在界面展示脱敏错误
+    final errorMsg = (fsmState == core_state.PlaybackState.error && !hasFirstFrame)
         ? (failure != null
             ? sanitizePlaybackError(BackendError(
                 kind: failure.kind,
@@ -276,7 +279,7 @@ class ZakowayPlaybackController implements PlaybackController {
       completed: isCompleted,
       firstFrameRendered: hasFirstFrame,
       errorMessage: errorMsg,
-      clearError: fsmState != core_state.PlaybackState.error,
+      clearError: errorMsg == null,
     );
 
     // 首帧物理出画后才注入 Anime4K 着色器
@@ -326,6 +329,10 @@ class ZakowayPlaybackController implements PlaybackController {
 
     if (!_isInitialized) {
       await initialize();
+    } else if (_backend != null) {
+      try {
+        await _backend!.pause();
+      } catch (_) {}
     }
 
     if (_fsm != null) {

@@ -363,6 +363,8 @@ class VideoPlayerResolveErrorCard extends StatelessWidget {
                         BouncingScaleCard(
                           scaleDown: 0.94,
                           immediateTap: true,
+                          tapDelayMs: 0,
+                          minHoldMs: 0,
                           onTap: onRetry,
                           child: Container(
                             padding: EdgeInsets.symmetric(
@@ -404,6 +406,8 @@ class VideoPlayerResolveErrorCard extends StatelessWidget {
                         BouncingScaleCard(
                           scaleDown: 0.94,
                           immediateTap: true,
+                          tapDelayMs: 0,
+                          minHoldMs: 0,
                           onTap: onSwitchSource,
                           child: Container(
                             padding: EdgeInsets.symmetric(

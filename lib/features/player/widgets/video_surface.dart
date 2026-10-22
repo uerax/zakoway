@@ -127,7 +127,12 @@ class VideoSurface extends StatelessWidget {
                     ),
                     child: Text(
                       coreState.errorMessage!,
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontFamily: 'MiSans',
+                        fontFamilyFallback: FontManager.fallbackFontFamilies,
+                      ),
                     ),
                   ),
                 );

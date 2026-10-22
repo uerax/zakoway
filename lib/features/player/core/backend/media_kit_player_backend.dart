@@ -246,8 +246,7 @@ class MediaKitPlayerBackend implements PlayerBackend {
     _subscriptions.add(
       _player.stream.playing.listen((isPlaying) {
         if (_isDisposed) return;
-        final isReset =
-            !_resetTracker.playingResetCaptured && (isPlaying == false);
+        final isReset = !_resetTracker.playingResetCaptured;
         if (isReset) {
           _resetTracker.playingResetCaptured = true;
           _classifier?.reset();
@@ -263,8 +262,7 @@ class MediaKitPlayerBackend implements PlayerBackend {
     _subscriptions.add(
       _player.stream.buffering.listen((isBuffering) {
         if (_isDisposed) return;
-        final isReset =
-            !_resetTracker.bufferingResetCaptured && (isBuffering == false);
+        final isReset = !_resetTracker.bufferingResetCaptured;
         if (isReset) {
           _resetTracker.bufferingResetCaptured = true;
           _classifier?.reset();
@@ -280,8 +278,7 @@ class MediaKitPlayerBackend implements PlayerBackend {
     _subscriptions.add(
       _player.stream.position.listen((pos) {
         if (_isDisposed) return;
-        final isReset =
-            !_resetTracker.positionResetCaptured && (pos == Duration.zero);
+        final isReset = !_resetTracker.positionResetCaptured;
         if (isReset) {
           _resetTracker.positionResetCaptured = true;
           _classifier?.reset();
@@ -297,8 +294,7 @@ class MediaKitPlayerBackend implements PlayerBackend {
     _subscriptions.add(
       _player.stream.duration.listen((dur) {
         if (_isDisposed) return;
-        final isReset =
-            !_resetTracker.durationResetCaptured && (dur == Duration.zero);
+        final isReset = !_resetTracker.durationResetCaptured;
         if (isReset) {
           _resetTracker.durationResetCaptured = true;
           _classifier?.reset();
@@ -314,8 +310,7 @@ class MediaKitPlayerBackend implements PlayerBackend {
     _subscriptions.add(
       _player.stream.buffer.listen((buf) {
         if (_isDisposed) return;
-        final isReset =
-            !_resetTracker.bufferResetCaptured && (buf == Duration.zero);
+        final isReset = !_resetTracker.bufferResetCaptured;
         if (isReset) {
           _resetTracker.bufferResetCaptured = true;
           _classifier?.reset();
@@ -445,8 +440,7 @@ class MediaKitPlayerBackend implements PlayerBackend {
     // 渲染尺寸优先：优先 stream.width / stream.height 非空，其次 videoParams 的 dw/dh 非空；不再使用容器尺寸 w/h
     final w = _streamWidth ?? _videoParamsDw;
     final h = _streamHeight ?? _videoParamsDh;
-    final isReset = !_resetTracker.dimensionsResetCaptured &&
-        (w == null && h == null);
+    final isReset = !_resetTracker.dimensionsResetCaptured;
     if (isReset) {
       _resetTracker.dimensionsResetCaptured = true;
       _classifier?.reset();

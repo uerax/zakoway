@@ -982,7 +982,8 @@ TransitionResult _onWatchdogOrStallTriggered(
       lastFailure: failure,
     ),
     sideEffects: [
-      CancelTimersEffect(),
+      const CancelTimersEffect(),
+      const CallBackendPauseEffect(),
       EmitFailureEffect(failure),
     ],
   );
@@ -1016,7 +1017,8 @@ TransitionResult _handleFatalError(
       disposition: TransitionDisposition.exec,
       nextContext: context.copyWith(lastFailure: failure),
       sideEffects: [
-        CancelTimersEffect(),
+        const CancelTimersEffect(),
+        const CallBackendPauseEffect(),
         EmitFailureEffect(failure),
       ],
     );
@@ -1054,7 +1056,8 @@ TransitionResult _handleFatalError(
         disposition: TransitionDisposition.exec,
         nextContext: context.copyWith(lastFailure: failure),
         sideEffects: [
-          CancelTimersEffect(),
+          const CancelTimersEffect(),
+          const CallBackendPauseEffect(),
           EmitFailureEffect(failure),
         ],
       );
@@ -1100,7 +1103,8 @@ TransitionResult _handleFatalError(
     disposition: TransitionDisposition.exec,
     nextContext: context.copyWith(lastFailure: failure),
     sideEffects: [
-      CancelTimersEffect(),
+      const CancelTimersEffect(),
+      const CallBackendPauseEffect(),
       EmitFailureEffect(failure),
     ],
   );
