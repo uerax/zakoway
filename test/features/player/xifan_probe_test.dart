@@ -17,17 +17,17 @@ void main() {
     expect(roads[1].name, contains('稀饭新番主线-2'));
     expect(roads[2].name, contains('稀饭备用-1'));
 
-    // 1. 测试未指定线路（默认走国内沃云主线，遵循源站 no-referrer 规范）
+    // 1. 测试未指定线路（默认走国内沃云主线，解析为 302 展开优化直链并携带规范 Referer）
     final res0 = await source.resolve('https://next.xifanacg.com/anime/3403/play/121397');
-    expect(res0.url, anyOf(contains('pan.wo.cn'), contains('moedot.net')));
+    expect(res0.url, anyOf(contains('pan.wo.cn'), contains('moedot.net'), contains(':30443')));
     expect(res0.format, 'mp4');
-    expect(res0.headers['Referer'], isNull);
+    expect(res0.headers['Referer'], 'https://pan.wo.cn/');
 
-    // 2. 测试严格指定线路 0 (稀饭新番主线-1 -> 国内沃云，遵循 no-referrer)
+    // 2. 测试严格指定线路 0 (稀饭新番主线-1 -> 国内沃云，优化直连节点)
     final resRoad0 = await source.resolve(roads[0].episodes.first.url);
-    expect(resRoad0.url, anyOf(contains('pan.wo.cn'), contains('moedot.net')));
+    expect(resRoad0.url, anyOf(contains('pan.wo.cn'), contains('moedot.net'), contains(':30443')));
     expect(resRoad0.format, 'mp4');
-    expect(resRoad0.headers['Referer'], isNull);
+    expect(resRoad0.headers['Referer'], 'https://pan.wo.cn/');
 
     // 3. 测试严格指定线路 1 (稀饭新番主线-2 -> 海外源)
     final resRoad1 = await source.resolve(roads[1].episodes.first.url);
@@ -54,7 +54,7 @@ void main() {
     final swCacheResolve = Stopwatch()..start();
     final cachedRes = await runtime.resolve(source.id, 'https://next.xifanacg.com/anime/3403/play/121397');
     swCacheResolve.stop();
-    expect(cachedRes.url, anyOf(contains('pan.wo.cn'), contains('moedot.net')));
+    expect(cachedRes.url, anyOf(contains('pan.wo.cn'), contains('moedot.net'), contains(':30443')));
     expect(swCacheResolve.elapsedMilliseconds, lessThan(20));
     runtime.dispose();
 
