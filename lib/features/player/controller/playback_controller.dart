@@ -1,3 +1,4 @@
+// ignore_for_file: annotate_overrides
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
@@ -9,6 +10,10 @@ import 'package:zakoway/core/services/network_connectivity_service.dart';
 import 'package:zakoway/features/player/controller/playback_state.dart';
 import 'package:zakoway/features/player/services/player_preferences_service.dart';
 import 'package:zakoway/features/player/services/shader_asset_service.dart';
+import 'playback_controller_interface.dart';
+
+export 'playback_controller_factory.dart';
+export 'playback_controller_interface.dart';
 
 const String _kDefaultUserAgent =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
@@ -35,7 +40,7 @@ const Duration kFirstFrameCoverMaxWait = Duration(milliseconds: 8000);
 
 /// zakoway 视频播放引擎控制器
 /// 封装 media_kit (libmpv) 底层驱动，支持 250ms 节流解耦、倍速变调修正与切片断流自动重试
-class ZakowayPlaybackController {
+class ZakowayPlaybackController implements PlaybackController {
   ZakowayPlaybackController();
 
   /// 低频宏观控制状态

@@ -246,7 +246,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     _danmakuCoordinator = DanmakuSessionCoordinator(
       danmakuController: _danmakuController,
     );
-    _playbackController = ZakowayPlaybackController();
+    _playbackController = createPlaybackController();
     _danmakuBridge = DanmakuPlaybackBridge(
       playbackController: _playbackController,
       danmakuController: _danmakuController,
