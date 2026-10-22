@@ -1,13 +1,19 @@
-// ignore_for_file: annotate_overrides
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:zakoway/core/services/network_connectivity_service.dart';
 import 'package:zakoway/features/player/controller/playback_state.dart';
+import 'package:zakoway/features/player/core/backend/media_kit_player_backend.dart';
+import 'package:zakoway/features/player/core/backend/player_backend.dart';
+import 'package:zakoway/features/player/core/fsm/playback_fsm.dart';
+import 'package:zakoway/features/player/core/models/backend_error.dart';
+import 'package:zakoway/features/player/core/models/playback_failure.dart';
+import 'package:zakoway/features/player/core/models/playback_state.dart' as core_state;
+import 'package:zakoway/features/player/core/models/resolved_media.dart';
 import 'package:zakoway/features/player/services/player_preferences_service.dart';
 import 'package:zakoway/features/player/services/shader_asset_service.dart';
 import 'playback_controller_interface.dart';
@@ -15,114 +21,136 @@ import 'playback_controller_interface.dart';
 export 'playback_controller_factory.dart';
 export 'playback_controller_interface.dart';
 
-const String _kDefaultUserAgent =
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
-
-/// 自适应网络分级缓存策略：
-/// 1. Wi-Fi / 有线宽带环境：开启 32MB 解复用缓冲与 16MB 回退缓存。
-///    符合 media_kit 官方标准推荐水线，既保证平滑预读，又防止过度抢占网络通道造成 Seek Range 请求拥塞。
-/// 2. 移动蜂窝网络环境：降级为 16MB 解复用缓冲与 4MB 回退缓存。
-///    提供 1~2 分钟平滑防抖窗口的同时，防止点开即退时偷跑宝贵流量。
-const int _kWifiBufferSize = 32 * 1024 * 1024; // 32MB
-const int _kWifiMaxBytes = 32 * 1024 * 1024; // 32MB
-const int _kWifiMaxBackBytes = 16 * 1024 * 1024; // 16MB
-
-const int _kMobileBufferSize = 16 * 1024 * 1024; // 16MB
-const int _kMobileMaxBytes = 16 * 1024 * 1024; // 16MB
-const int _kMobileMaxBackBytes = 4 * 1024 * 1024; // 4MB
-
 /// 首帧黑屏防闪遮罩最长保持时间（硬上限超时兜底，防止纯音频、无视频轨或尺寸事件缺失导致死等遮罩）
 /// 特殊处理说明：
 /// 第三方外链与 CDN 在网络波动下拉流与解复用首片往往需要 2~5 秒，
-/// 若超时过短（如 1.8s）会导致在网络加载稍慢时过早解除 loading 与黑屏遮罩，造成假死黑屏；
-/// 将硬超时放宽至 8 秒，兼顾纯音频等特殊流兜底与弱网首帧等待体验。
+/// 若超时过短会导致过早解除 loading 与黑屏遮罩造成假死黑屏；放宽至 8 秒兼顾弱网等待体验。
 const Duration kFirstFrameCoverMaxWait = Duration(milliseconds: 8000);
 
-/// zakoway 视频播放引擎控制器
-/// 封装 media_kit (libmpv) 底层驱动，支持 250ms 节流解耦、倍速变调修正与切片断流自动重试
-class ZakowayPlaybackController implements PlaybackController {
-  ZakowayPlaybackController();
+/// 按照 04 设计规范清洗结构化错误文案，严禁在 UI 暴露原始 URL 或敏感 Token
+String sanitizePlaybackError(BackendError? error, {String prefix = '播放失败'}) {
+  if (error == null) return '$prefix: 发生未知网络异常，建议切换线路重试';
+  switch (error.kind) {
+    case BackendErrorKind.handshakeClosed:
+      return '$prefix: 服务器在建立连接时关闭了连接，建议切换线路';
+    case BackendErrorKind.openFailedUnknown:
+      return '$prefix: 视频源加载异常，建议重试或切换线路';
+    case BackendErrorKind.dnsResolutionFailed:
+      return '$prefix: 域名解析失败，请检查网络设置或切换线路';
+    case BackendErrorKind.connectTimeout:
+      return '$prefix: 连接视频服务器超时，建议切换线路';
+    case BackendErrorKind.openDemuxWatchdog:
+      return '$prefix: 媒体解析响应超时，建议切换线路';
+    case BackendErrorKind.unknown:
+      return '$prefix: 发生未知网络异常，建议切换线路重试';
+  }
+}
 
-  /// 低频宏观控制状态
+/// 播放器主控制器 (ZakowayPlaybackController)
+///
+/// 遵循 docs/player-rewrite/ 架构设计：
+/// 组合 PlaybackFsm + MediaKitPlayerBackend，对外 100% 遵守 PlaybackController 接口契约，
+/// 驱动 12 状态流转、单调时钟弹幕位置外推、250ms 节流、Anime4K 串行熔断与自适应分级网络缓存。
+class ZakowayPlaybackController implements PlaybackController {
+  ZakowayPlaybackController({
+    PlayerBackend? backend,
+    Future<ResolvedMedia> Function({required bool bypassCache})? onResolve,
+  })  : _injectedBackend = backend,
+        _injectedOnResolve = onResolve;
+
+  final PlayerBackend? _injectedBackend;
+  final Future<ResolvedMedia> Function({required bool bypassCache})? _injectedOnResolve;
+
+  // ===== UI 通知器 =====
+  @override
   final ValueNotifier<PlaybackCoreState> core =
       ValueNotifier<PlaybackCoreState>(const PlaybackCoreState());
 
-  /// 高频时间线状态（250ms 节流）
+  @override
   final ValueNotifier<PlaybackTimelineState> timeline =
       ValueNotifier<PlaybackTimelineState>(const PlaybackTimelineState());
 
-  /// 视频渲染控制器（提供给 Video 组件）
+  @override
   final ValueNotifier<VideoController?> videoControllerNotifier =
       ValueNotifier<VideoController?>(null);
 
-  Player? _player;
+  final ValueNotifier<PlaybackFailure?> _failureNotifier =
+      ValueNotifier<PlaybackFailure?>(null);
+  final ValueNotifier<bool> _showLineSwitchPromptNotifier =
+      ValueNotifier<bool>(false);
+
+  ValueListenable<PlaybackFailure?> get failureNotifier => _failureNotifier;
+  ValueListenable<bool> get showLineSwitchPromptNotifier =>
+      _showLineSwitchPromptNotifier;
+
+  // ===== 页面委托回调 =====
+  VoidCallback? onRetryRequested;
+  VoidCallback? onSwitchLineRequested;
+
+  // ===== 核心组件引用 =====
+  PlayerBackend? _backend;
+  PlaybackFsm? _fsm;
   VideoController? _videoController;
 
   final List<StreamSubscription<dynamic>> _subscriptions = [];
   Timer? _timelineThrottleTimer;
   Duration _lastPosition = Duration.zero;
-
-  /// 位置采样到达时刻（单调时钟），用于把旧采样外推到“此刻”
   final Stopwatch _positionClock = Stopwatch()..start();
   Duration _lastPositionAt = Duration.zero;
   Duration _lastDuration = Duration.zero;
   Duration _lastBuffer = Duration.zero;
 
-  Timer? _firstFrameFallbackTimer;
-  bool _hasReceivedVideoDimensionsSinceOpen = false;
-
-  Duration _pendingStart = Duration.zero;
   bool _disposed = false;
   String? _currentUri;
   double _preMuteVolume = 1.0;
+  bool _isInitialized = false;
 
+  @override
   bool get isDisposed => _disposed;
-  Player? get rawPlayer => _player;
+
+  @override
+  Player? get rawPlayer => _backend is MediaKitPlayerBackend
+      ? (_backend as MediaKitPlayerBackend).rawPlayer
+      : null;
+
+  @override
   String? get currentUri => _currentUri;
 
-  /// 初始化底层播放器实例与 mpv 原生配置
+  /// 暴露状态机引用供底层调试或深度测试使用
+  PlaybackFsm? get fsm => _fsm;
+
+  /// 暴露后端引用
+  PlayerBackend? get backend => _backend ?? _injectedBackend;
+
+  // ===========================================================================
+  // 初始化与起播
+  // ===========================================================================
+
+  @override
   Future<void> initialize() async {
-    if (_player != null || _disposed) return;
+    if (_isInitialized || _disposed) return;
+    _isInitialized = true;
 
     final isMetered = NetworkConnectivityService.instance.isMetered;
     core.value = core.value.copyWith(isMeteredNetwork: isMetered);
-    final initialBufferSize = isMetered ? _kMobileBufferSize : _kWifiBufferSize;
 
-    final player = Player(
-      configuration: PlayerConfiguration(
-        bufferSize: initialBufferSize,
-        title: 'zakoway Player',
-      ),
-    );
-    _player = player;
+    // 1. 初始化或复用 Backend
+    _backend = _injectedBackend ?? MediaKitPlayerBackend();
+    await _backend!.initialize(isMeteredNetwork: isMetered);
 
-    _videoController = VideoController(
-      player,
-      configuration: const VideoControllerConfiguration(
-        enableHardwareAcceleration: true,
-      ),
-    );
-    videoControllerNotifier.value = _videoController;
+    // 2. 若为原生媒体后端，装配 VideoController
+    if (_backend is MediaKitPlayerBackend) {
+      final nativeBackend = _backend as MediaKitPlayerBackend;
+      _videoController = VideoController(
+        nativeBackend.rawPlayer,
+        configuration: const VideoControllerConfiguration(
+          enableHardwareAcceleration: true,
+        ),
+      );
+      videoControllerNotifier.value = _videoController;
+    }
 
-    // 绑定底层播放器流事件与网络环境动态监听
-    _subscriptions.addAll([
-      player.stream.playing.listen(_onPlayingChanged),
-      player.stream.buffering.listen(_onBufferingChanged),
-      player.stream.completed.listen(_onCompletedChanged),
-      player.stream.position.listen(_onPositionChanged),
-      player.stream.duration.listen(_onDurationChanged),
-      player.stream.buffer.listen(_onBufferChanged),
-      player.stream.rate.listen(_onRateChanged),
-      player.stream.error.listen(_onErrorChanged),
-      player.stream.width.listen(_onWidthChanged),
-      player.stream.height.listen(_onHeightChanged),
-      NetworkConnectivityService.instance.onMeteredChanged.listen(_onNetworkMeteredChanged),
-    ]);
-
-    // 注入底层 mpv 增强属性
-    await _configureNativeMpvProperties();
-
-    // 加载用户上次持久化的播放倍速、音量与超分辨率画质记忆
+    // 3. 恢复用户偏好（倍速、音量、超分辨率）
     await PlayerPreferencesService.instance.initialize();
     final savedRate = PlayerPreferencesService.instance.playbackRate;
     final savedVolume = PlayerPreferencesService.instance.volume;
@@ -135,173 +163,159 @@ class ZakowayPlaybackController implements PlaybackController {
       superResolution: savedSuperRes,
     );
 
-    if (savedRate != 1.0) {
-      await player.setRate(savedRate);
-    }
-    await player.setVolume(savedVolume * 100.0);
-  }
-
-  /// 配置底层 mpv 属性（变速变调不变音、协议层断流自动重连、确保网络流快速定位、自适应分级缓冲）
-  Future<void> _configureNativeMpvProperties() async {
-    final player = _player;
-    if (player == null) return;
-
-    try {
-      final platform = player.platform;
-      if (platform is NativePlayer) {
-        // 1. scaletempo2 滤镜：倍速播放（1.25x~3.0x）时自动修正音高，人声音质不失真
-        await platform.setProperty('af', 'scaletempo2=max-speed=8');
-
-        // 2. 特殊处理说明：
-        // 针对点播视频网络流 (MP4/HLS)，仅配置基础的 reconnect 与 reconnect_on_network_error，
-        // 严禁配置 reconnect_at_eof=1 或 reconnect_streamed=1！
-        // 那些参数是专用于不可 Seek 的直播流的；在点播视频 Seek 时，旧 Range 结束会被误判为流异常触发重连，
-        // 导致向对端发起并发连接并遭遇服务器 TCP RST (-0x4e)，进而引发卡死与流损坏。
-        await platform.setProperty(
-          'stream-lavf-o',
-          'reconnect=1,reconnect_on_network_error=1,reconnect_delay_max=2',
-        );
-
-        // 3. 特殊处理说明：
-        // media_kit 默认写死 cache-on-disk=yes，但在 Windows/Android 平台上未配置缓存目录，
-        // 会抛出 "Failed to create file cache" 导致缓存子系统损坏。显式关闭磁盘缓存，改用全内存缓冲。
-        await platform.setProperty('cache-on-disk', 'no');
-
-        // 4. 特殊处理说明：
-        // 开启 demuxer-seekable-cache，使用内存缓存实现已读区间的秒级拖拽/快进，避免重复发起 HTTP 请求。
-        await platform.setProperty('demuxer-seekable-cache', 'yes');
-
-        // 5. 特殊处理说明：
-        // 必须配置 force-seekable=yes，确保网络 MP4 始终被 libmpv 标记为可寻道流；
-        // hr-seek 保持 default，并在 Seek 时开启 hr-seek-framedrop 丢帧加速。
-        // 若设为 no，底层 Seek 会强行对齐到前序关键帧（造成 8~10 秒误差，使自动跳过 OP/ED、断点续播严重偏离）；
-        // 设为 default 配合 framedrop=yes 既能保证时间戳秒级精确命中，又能快速丢弃中间帧加速出图防卡死。
-        await platform.setProperty('force-seekable', 'yes');
-        await platform.setProperty('hr-seek', 'default');
-        await platform.setProperty('hr-seek-framedrop', 'yes');
-
-        // 6. 特殊处理说明：
-        // 严禁设置 cache-pause-initial=yes！mpv 官方手册明确注明该选项在每次 Seek 拖动进度条后都会
-        // 强制重新 pause 并进入 buffering 状态，死等缓冲水线人为制造 1~2 秒转圈。
-        // 将其设为 no，并将 cache-pause-wait 降至 0.2 秒轻量防抖，起播与拖拽瞬间出帧。
-        await platform.setProperty('cache', 'yes');
-        await platform.setProperty('cache-pause', 'yes');
-        await platform.setProperty('cache-pause-initial', 'no');
-        await platform.setProperty('cache-pause-wait', '0.2');
-        await platform.setProperty('demuxer-readahead-secs', '15');
-        await platform.setProperty('cache-secs', '30');
-
-        final isMetered = NetworkConnectivityService.instance.isMetered;
-        final maxBytes = isMetered ? _kMobileMaxBytes : _kWifiMaxBytes;
-        final maxBackBytes = isMetered ? _kMobileMaxBackBytes : _kWifiMaxBackBytes;
-
-        await platform.setProperty('demuxer-max-bytes', maxBytes.toString());
-        await platform.setProperty('demuxer-max-back-bytes', maxBackBytes.toString());
-        await platform.setProperty('network-timeout', '10');
-        await platform.setProperty('volume-max', '100');
-        await platform.setProperty('user-agent', _kDefaultUserAgent);
-
-        // 7. 特殊处理说明：
-        // 放行过期或未受信任的自签名证书。第三方聚合源/边缘 CDN 节点经常存在证书过期或
-        // 自签名情况，关闭媒体流 TLS 校验可大幅提升外链播放成功率（仅作用于底层 mpv 音视频拉流）。
-        await platform.setProperty('tls-verify', 'no');
-
-        // 9. 特殊处理说明：
-        // 开启全格式硬解码；Android 下使用 auto-safe 防止部分低端芯片遇到非常规编码直接导致 Surface 崩溃。
-        await platform.setProperty('hwdec-codecs', 'all');
-        if (Platform.isAndroid) {
-          await platform.setProperty('hwdec', 'auto-safe');
-          // Android 平台默认音频输出
-          await platform.setProperty('ao', 'opensles');
-        } else {
-          await platform.setProperty('hwdec', 'auto');
-        }
-
-        // 10. 桌面端（Windows）动漫线条与渲染优化：
-        // 采用 Spline36 与 Sigmoid 插值，消除动漫色块边缘锯齿与光晕，计算量轻量杜绝掉帧
-        if (Platform.isWindows) {
-          await platform.setProperty('scale', 'spline36');
-          await platform.setProperty('cscale', 'spline36');
-          await platform.setProperty('sigmoid-upscaling', 'yes');
-          await platform.setProperty('correct-downscaling', 'yes');
-        }
+    if (rawPlayer != null) {
+      if (savedRate != 1.0) {
+        await rawPlayer!.setRate(savedRate);
       }
-    } catch (e) {
-      debugPrint('[ZakowayPlayback] 配置 mpv 属性失败: $e');
+      await rawPlayer!.setVolume(savedVolume * 100.0);
+    }
+
+    // 4. 构建并装载 PlaybackFsm
+    _fsm = PlaybackFsm(
+      backend: _backend!,
+      onResolve: _injectedOnResolve ??
+          ({required bool bypassCache}) async {
+            return ResolvedMedia(url: _currentUri ?? '');
+          },
+    );
+
+    // 5. 绑定 FSM 与 Backend 状态通知器
+    _bindFsmSubscriptions();
+  }
+
+  void _bindFsmSubscriptions() {
+    if (_fsm == null) return;
+
+    // 监听 FSM coreState 并投影映射至现有 PlaybackCoreState
+    _fsm!.coreNotifier.addListener(_onFsmCoreStateChanged);
+
+    // 监听 FSM failure 并派发
+    _fsm!.failureNotifier.addListener(() {
+      _failureNotifier.value = _fsm!.failure;
+    });
+
+    // 监听换线提示条
+    _fsm!.showLineSwitchPromptNotifier.addListener(() {
+      _showLineSwitchPromptNotifier.value = _fsm!.showLineSwitchPrompt;
+    });
+
+    // 绑定高频时间线事件（250ms 节流）
+    _subscriptions.add(
+      _backend!.onPositionChanged.listen((e) {
+        if (_disposed) return;
+        _lastPosition = e.data;
+        _lastPositionAt = _positionClock.elapsed;
+        _scheduleTimelineEmit();
+      }),
+    );
+
+    _subscriptions.add(
+      _backend!.onDurationChanged.listen((e) {
+        if (_disposed) return;
+        _lastDuration = e.data;
+        _scheduleTimelineEmit();
+      }),
+    );
+
+    _subscriptions.add(
+      _backend!.onBufferChanged.listen((e) {
+        if (_disposed) return;
+        _lastBuffer = e.data;
+        _scheduleTimelineEmit();
+      }),
+    );
+
+    // 动态网络环境监听
+    _subscriptions.add(
+      NetworkConnectivityService.instance.onMeteredChanged.listen((metered) {
+        if (_disposed) return;
+        core.value = core.value.copyWith(isMeteredNetwork: metered);
+        if (_backend is MediaKitPlayerBackend) {
+          (_backend as MediaKitPlayerBackend)
+              .updateDemuxerCacheWatermark(isMeteredNetwork: metered)
+              .ignore();
+        }
+      }),
+    );
+  }
+
+  void _onFsmCoreStateChanged() {
+    if (_disposed || _fsm == null) return;
+    final fsmState = _fsm!.state;
+    final fsmCore = _fsm!.coreState;
+    final failure = _fsm!.failure;
+
+    final isPlaying = fsmState == core_state.PlaybackState.playing;
+    final isLoading = fsmState == core_state.PlaybackState.resolving ||
+        fsmState == core_state.PlaybackState.preparing ||
+        fsmState == core_state.PlaybackState.recovering ||
+        !fsmCore.firstFrameRendered;
+    final isBuffering = fsmState == core_state.PlaybackState.prebuffering ||
+        fsmState == core_state.PlaybackState.rebuffering ||
+        fsmState == core_state.PlaybackState.seeking;
+    final isCompleted = fsmState == core_state.PlaybackState.completed;
+    final hasFirstFrame = fsmCore.firstFrameRendered;
+
+    final errorMsg = fsmState == core_state.PlaybackState.error
+        ? (failure != null
+            ? sanitizePlaybackError(BackendError(
+                kind: failure.kind,
+                action: failure.action,
+                rawMessage: failure.message,
+                host: failure.host,
+                port: failure.port,
+                relativeTime: Duration.zero,
+              ))
+            : fsmCore.errorMessage ?? '视频播放失败')
+        : null;
+
+    core.value = core.value.copyWith(
+      playing: isPlaying,
+      loading: isLoading,
+      buffering: isBuffering,
+      completed: isCompleted,
+      firstFrameRendered: hasFirstFrame,
+      errorMessage: errorMsg,
+      clearError: fsmState != core_state.PlaybackState.error,
+    );
+
+    // 首帧物理出画后才注入 Anime4K 着色器
+    if (hasFirstFrame && core.value.superResolution != SuperResolutionMode.off) {
+      _applySuperResolutionToBackend(core.value.superResolution).ignore();
     }
   }
 
-  /// 网络环境动态变更（如播放中从 Wi-Fi 切换至 4G/5G 蜂窝数据或反之）：在线热更新 mpv 缓冲水线
-  Future<void> _onNetworkMeteredChanged(bool isMetered) async {
-    if (_disposed) return;
-    core.value = core.value.copyWith(isMeteredNetwork: isMetered);
-
-    final player = _player;
-    if (player == null) return;
-
-    try {
-      final platform = player.platform;
-      if (platform is NativePlayer) {
-        final maxBytes = isMetered ? _kMobileMaxBytes : _kWifiMaxBytes;
-        final maxBackBytes = isMetered ? _kMobileMaxBackBytes : _kWifiMaxBackBytes;
-        await platform.setProperty('demuxer-max-bytes', maxBytes.toString());
-        await platform.setProperty('demuxer-max-back-bytes', maxBackBytes.toString());
-        debugPrint(
-          '[ZakowayPlayback] 网络类型动态变更，已热更新解复用缓冲: '
-          '${isMetered ? "移动蜂窝数据模式(16MB)" : "高速Wi-Fi/有线模式(150MB)"}',
-        );
+  Future<void> _applySuperResolutionToBackend(SuperResolutionMode mode) async {
+    if (_backend is! MediaKitPlayerBackend) return;
+    final nativeBackend = _backend as MediaKitPlayerBackend;
+    if (mode == SuperResolutionMode.off) {
+      await nativeBackend.applyShaders(const []);
+    } else {
+      final isQuality = mode == SuperResolutionMode.quality;
+      final shaderPath = await ShaderAssetService.instance.getShadersPathForMode(isQuality: isQuality);
+      if (shaderPath != null && shaderPath.isNotEmpty) {
+        final separator = Platform.isWindows ? ';' : ':';
+        final paths = shaderPath.split(separator).where((s) => s.isNotEmpty).toList();
+        await nativeBackend.applyShaders(paths);
       }
-    } catch (e) {
-      debugPrint('[ZakowayPlayback] 动态热更新解复用缓冲失败: $e');
     }
   }
 
-  /// 打开媒体流并起播
-  /// [uri] 媒体播放直链（mp4 / m3u8 等）
-  /// [httpHeaders] 防盗链请求头（如 Referer / User-Agent）
-  /// [start] 起播定位时间戳（用于历史进度记忆断点续播）
+  @override
   Future<void> open(
     String uri, {
     Map<String, String>? httpHeaders,
     Duration? start,
     bool autoplay = true,
   }) async {
-    if (_disposed) return;
-    await initialize();
-    final player = _player;
-    if (player == null || _disposed) return;
-
     _currentUri = uri;
-    _pendingStart = start ?? Duration.zero;
-    // 特殊处理说明：
-    // 起播时将内部 _lastPosition 初始化为 Duration.zero，严禁提前预设为 _pendingStart！
-    // 目标断点续播进度由底层 mpv 通过 Media(..., start: start) 驱动定位；
-    // 在底层解析出真实时长并上报有效播放位置前，时间轴必须保持 Duration.zero，
-    // 杜绝在网络慢或直链失效时出现「04:26 / 00:00」的时间倒挂荒谬界面。
-    _lastPosition = Duration.zero;
-    _lastPositionAt = _positionClock.elapsed;
-    _lastDuration = Duration.zero;
-    _lastBuffer = Duration.zero;
-    _hasReceivedVideoDimensionsSinceOpen = false;
 
-    _firstFrameFallbackTimer?.cancel();
-    _firstFrameFallbackTimer = Timer(kFirstFrameCoverMaxWait, () {
-      if (_disposed) return;
-      if (!core.value.firstFrameRendered) {
-        _checkFirstFrameRendered(force: true);
-      }
-    });
-
-    // 特殊处理说明：
-    // 切集或初次打开媒体流时，必须将 firstFrameRendered 立即置为 false 并保持 loading=true。
-    // 这会在 UI 层激活纯黑防闪遮罩，彻底遮蔽底层 GPU Texture 中残留的上一集最后一帧画面。
-    // 直到底层真正解码出首帧（position/duration 就绪）才解除遮罩。
+    // 起播/切集立即进入 loading 状态并撤销首帧遮罩标记，防止残影
     core.value = core.value.copyWith(
       loading: true,
       firstFrameRendered: false,
-      buffering: false,
-      completed: false,
       clearError: true,
+      completed: false,
     );
 
     timeline.value = const PlaybackTimelineState(
@@ -310,32 +324,28 @@ class ZakowayPlaybackController implements PlaybackController {
       buffer: Duration.zero,
     );
 
-    try {
-      await player.open(
-        Media(
-          uri,
-          httpHeaders: httpHeaders ?? const <String, String>{},
-          start: start,
-        ),
-        play: autoplay,
-      );
-    } catch (e) {
-      _firstFrameFallbackTimer?.cancel();
-      _firstFrameFallbackTimer = null;
-      core.value = core.value.copyWith(
-        loading: false,
-        firstFrameRendered: true,
-        buffering: false,
-        errorMessage: '视频播放失败: $e',
+    if (!_isInitialized) {
+      await initialize();
+    }
+
+    if (_fsm != null) {
+      await _fsm!.load(
+        uri,
+        startPosition: start,
+        autoplay: autoplay,
+        headers: httpHeaders,
       );
     }
   }
 
-  /// 播放 / 暂停切换
+  // ===========================================================================
+  // 基础播放控制
+  // ===========================================================================
+
+  @override
   Future<void> togglePlay() async {
     if (_disposed) return;
-    final player = _player;
-    if (player == null) {
+    if (_fsm == null) {
       core.value = core.value.copyWith(playing: !core.value.playing);
       return;
     }
@@ -346,35 +356,33 @@ class ZakowayPlaybackController implements PlaybackController {
     }
   }
 
+  @override
   Future<void> play() async {
     if (_disposed) return;
-    final player = _player;
-    if (player == null) {
+    if (_fsm == null) {
       core.value = core.value.copyWith(playing: true);
       return;
     }
-    await player.play();
+    await _fsm!.play();
   }
 
+  @override
   Future<void> pause() async {
     if (_disposed) return;
-    final player = _player;
-    if (player == null) {
+    if (_fsm == null) {
       core.value = core.value.copyWith(playing: false);
       return;
     }
-    await player.pause();
+    await _fsm!.pause();
   }
 
-  /// 跳转至指定播放进度
+  @override
   Future<void> seek(Duration target) async {
     if (_disposed) return;
     final dur = timeline.value.duration;
     var targetPosition = target < Duration.zero ? Duration.zero : target;
 
-    // 特殊处理说明：
-    // 若目标时间戳非常接近或等于/超过视频总时长 (dur)，libmpv 会直接触发 eof-reached 将 completed 置为 true。
-    // 因此在时长有效时，对 Seek 终点做 500ms 安全余量截断保护。
+    // 特殊处理说明：Seek 终点 500ms 截断保护 (TC-07 与 11 号文档规范)
     if (dur > const Duration(seconds: 1) && targetPosition >= dur) {
       targetPosition = dur - const Duration(milliseconds: 500);
       if (targetPosition < Duration.zero) {
@@ -390,7 +398,7 @@ class ZakowayPlaybackController implements PlaybackController {
       clearPreview: true,
     );
 
-    // Seek 时主动清除前序偶发错误与 completed 状态，确保平滑恢复与继续播放
+    // Seek 主动清除偶发错误与 completed 状态
     if (core.value.hasError || core.value.completed) {
       core.value = core.value.copyWith(
         clearError: true,
@@ -398,21 +406,17 @@ class ZakowayPlaybackController implements PlaybackController {
       );
     }
 
-    final player = _player;
-    if (player != null) {
-      // 特殊处理说明：
-      // 直接委托底层 media_kit 原生 seek 处理，杜绝上层多余的 pause() -> seek() -> play() 异步交错。
-      // 外层反复 pause/play 会破坏底层解复用线程与解码器缓冲区的状态机同步，诱发 Packet corrupt。
-      await player.seek(targetPosition);
+    if (_fsm != null) {
+      await _fsm!.seek(targetPosition);
     }
   }
 
-  /// 进度条拖拽中实时更新预览位置（手指不松开不调用底层的 seek）
+  @override
   void updateSeekPreview(Duration previewTarget) {
     timeline.value = timeline.value.copyWith(previewPosition: previewTarget);
   }
 
-  /// 结束拖拽，真正落地 seek
+  @override
   Future<void> endSeekPreview() async {
     final preview = timeline.value.previewPosition;
     if (preview != null) {
@@ -420,50 +424,53 @@ class ZakowayPlaybackController implements PlaybackController {
     }
   }
 
-  /// 步进跳转（快进 / 快退）
+  @override
   Future<void> seekBy(Duration offset) async {
     final current = timeline.value.position;
     final target = current + offset;
     await seek(target);
   }
 
-  /// 设置播放倍速
+  // ===========================================================================
+  // 倍速、音量与超分辨率偏好控制
+  // ===========================================================================
+
+  @override
   Future<void> setPlaybackRate(double rate) async {
     if (_disposed) return;
     final clampedRate = math.max(0.25, math.min(3.0, rate));
     core.value = core.value.copyWith(playbackRate: clampedRate);
-    final player = _player;
-    if (player != null) {
-      await player.setRate(clampedRate);
+    if (rawPlayer != null) {
+      await rawPlayer!.setRate(clampedRate);
     }
     PlayerPreferencesService.instance.savePlaybackRate(clampedRate).ignore();
   }
 
-  /// 设置音量 (0.0 ~ 1.0)
+  @override
   Future<void> setVolume(double vol) async {
     final clamped = math.max(0.0, math.min(1.0, vol));
     core.value = core.value.copyWith(
       volume: clamped,
       muted: clamped <= 0.001,
     );
-    final player = _player;
-    if (player != null) {
-      // media_kit volume 范围为 0 ~ 100
-      await player.setVolume(clamped * 100.0);
+    if (rawPlayer != null) {
+      await rawPlayer!.setVolume(clamped * 100.0);
     }
     PlayerPreferencesService.instance.saveVolume(clamped).ignore();
   }
 
-  /// 退出页面前静音底层播放器：不改写 UI 音量状态，也不落盘用户音量偏好
+  @override
   Future<void> muteForExit() async {
-    final player = _player;
-    if (player == null) return;
-    try {
-      await player.setVolume(0.0);
-    } catch (_) {}
+    if (_backend is MediaKitPlayerBackend) {
+      await (_backend as MediaKitPlayerBackend).muteForExit();
+    } else if (rawPlayer != null) {
+      try {
+        await rawPlayer!.setVolume(0.0);
+      } catch (_) {}
+    }
   }
 
-  /// 切换静音
+  @override
   Future<void> toggleMute() async {
     if (core.value.muted) {
       await setVolume(_preMuteVolume > 0.05 ? _preMuteVolume : 0.7);
@@ -473,77 +480,28 @@ class ZakowayPlaybackController implements PlaybackController {
     }
   }
 
-  /// 切换画面缩放模式
+  @override
   void setVideoFit(BoxFit fit) {
     core.value = core.value.copyWith(videoFit: fit);
   }
 
-  /// 切换 Anime4K 超分辨率画质增强模式
-  Future<void> setSuperResolution(SuperResolutionMode mode, {bool persist = true}) async {
+  @override
+  Future<void> setSuperResolution(
+    SuperResolutionMode mode, {
+    bool persist = true,
+  }) async {
     core.value = core.value.copyWith(superResolution: mode);
     if (persist) {
       await PlayerPreferencesService.instance.saveSuperResolutionMode(mode);
     }
-    final player = _player;
-    if (player == null) return;
-    await _applyShaderToPlayer(player, mode);
-  }
-
-  bool _isApplyingShader = false;
-  SuperResolutionMode? _pendingShaderMode;
-
-  /// 依据所选超分档位向底层 mpv 动态注入或清空 Anime4K 着色器
-  /// 特殊处理说明：
-  /// 1. 采用串行互斥队列保护：避免用户快速连续点击档位时触发多重并发指令，导致 mpv 渲染线程在 D3D/ANGLE 编译期死锁；
-  /// 2. 单次指令加入 4 秒超时熔断保护（.timeout），防止 Direct3D 着色器编译挂起永久阻断 Dart 异步流；
-  /// 3. 当有新请求在执行期间到达，自动合并更新为最新目标档位，等待前次完成后串行处理最新请求。
-  Future<void> _applyShaderToPlayer(Player player, SuperResolutionMode mode) async {
-    _pendingShaderMode = mode;
-    if (_isApplyingShader) return;
-    _isApplyingShader = true;
-
-    try {
-      while (_pendingShaderMode != null && !_disposed) {
-        final targetMode = _pendingShaderMode!;
-        _pendingShaderMode = null;
-
-        final platform = player.platform;
-        if (platform is NativePlayer) {
-          if (targetMode == SuperResolutionMode.off) {
-            await platform.command([
-              'change-list',
-              'glsl-shaders',
-              'clr',
-              '',
-            ]).timeout(const Duration(seconds: 3));
-          } else {
-            final isQuality = targetMode == SuperResolutionMode.quality;
-            final shaderPath = await ShaderAssetService.instance.getShadersPathForMode(isQuality: isQuality);
-            if (shaderPath != null && shaderPath.isNotEmpty && !_disposed) {
-              await platform.command([
-                'change-list',
-                'glsl-shaders',
-                'set',
-                shaderPath,
-              ]).timeout(const Duration(seconds: 4));
-              debugPrint('[ZakowayPlayback] 已成功应用 Anime4K 超分滤镜 (${targetMode.label})');
-            }
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('[ZakowayPlayback] 注入 Anime4K 着色器异常: $e');
-    } finally {
-      _isApplyingShader = false;
-      if (_pendingShaderMode != null && !_disposed) {
-        unawaited(_applyShaderToPlayer(player, _pendingShaderMode!));
-      }
+    if (core.value.firstFrameRendered) {
+      await _applySuperResolutionToBackend(mode);
     }
   }
 
-  /// 高清截取当前视频帧画面
+  @override
   Future<Uint8List?> screenshot({String format = 'image/png'}) async {
-    final player = _player;
+    final player = rawPlayer;
     if (player == null) return null;
     try {
       return await player.screenshot(format: format);
@@ -552,169 +510,11 @@ class ZakowayPlaybackController implements PlaybackController {
     }
   }
 
-  // ==========================
-  // 底层事件流响应与 250ms 节流
-  // ==========================
+  // ===========================================================================
+  // 弹幕时钟位置外推算法
+  // ===========================================================================
 
-  void _onPlayingChanged(bool isPlaying) {
-    if (_disposed) return;
-    if (core.value.playing != isPlaying) {
-      core.value = core.value.copyWith(
-        playing: isPlaying,
-        clearError: isPlaying,
-      );
-      _checkFirstFrameRendered();
-    }
-  }
-
-  void _onBufferingChanged(bool isBuffering) {
-    if (_disposed) return;
-    if (core.value.buffering != isBuffering) {
-      core.value = core.value.copyWith(buffering: isBuffering);
-      if (!isBuffering) {
-        _checkFirstFrameRendered();
-      }
-    }
-  }
-
-  void _onCompletedChanged(bool isCompleted) {
-    if (_disposed) return;
-    if (isCompleted) {
-      // 特殊处理说明：
-      // 当底层网络断流或解码瞬态异常抛出 EOF code: 4 (ERROR) 时，
-      // media_kit 会将 eof-reached 误认为 completed = true。
-      // 只有当当前播放位置真正接近视频总时长（剩余不足 2 秒）时，才确认为自然播放结束。
-      // 严禁在中途非正常 EOF 时调用 player.play()，因为 EOF 态下调用 play() 会被 mpv 默认当做从 00:00 重播。
-      final currentPos = timeline.value.position;
-      final totalDur = timeline.value.duration;
-      if (totalDur > const Duration(seconds: 5) &&
-          currentPos < totalDur - const Duration(seconds: 2)) {
-        debugPrint(
-          '[ZakowayPlayback] 忽略中途非正常 EOF 信号 (当前: ${currentPos.inSeconds}s, 总长: ${totalDur.inSeconds}s)',
-        );
-        return;
-      }
-    }
-
-    if (core.value.completed != isCompleted) {
-      core.value = core.value.copyWith(completed: isCompleted);
-    }
-  }
-
-  void _onRateChanged(double rate) {
-    if (_disposed) return;
-    if (core.value.playbackRate != rate) {
-      core.value = core.value.copyWith(playbackRate: rate);
-    }
-  }
-
-  void _onErrorChanged(String error) {
-    if (_disposed || error.isEmpty) return;
-
-    // 过滤底层网络断开/Seek重连/EOF良性日志 (如 FFmpeg AVERROR_EOF = -541478725 / 0xdfb9b0bb)
-    final lower = error.toLowerCase();
-    if (lower.contains('0xdfb9b0bb') ||
-        lower.contains('ffurl_read returned') ||
-        lower.contains('end of file') ||
-        lower.contains('connection reset by peer')) {
-      debugPrint('[ZakowayPlayback] 忽略底层网络断流/Seek良性重连日志: $error');
-      return;
-    }
-
-    _firstFrameFallbackTimer?.cancel();
-    _firstFrameFallbackTimer = null;
-    core.value = core.value.copyWith(
-      errorMessage: error,
-      loading: false,
-      firstFrameRendered: true,
-    );
-  }
-
-  void _onPositionChanged(Duration pos) {
-    if (_disposed) return;
-    // 特殊处理说明：
-    // 门禁：规避起播瞬间 mpv 抛出的 0 秒瞬态事件提前冲掉 _pendingStart；
-    // 仅当底层进度尚未接近断点目标且尚未获得有效时长（媒体还在解复用）时才过滤防抖；
-    // 一旦获得有效时长或底层 Seek 完成，立即放行真实进度。
-    if (_pendingStart > Duration.zero) {
-      if (pos + const Duration(seconds: 1) < _pendingStart &&
-          _lastDuration == Duration.zero) {
-        return;
-      }
-      _pendingStart = Duration.zero;
-    }
-
-    // 当播放进度正常前进时，说明媒体解码通畅，自动抹除瞬态错误
-    if (core.value.hasError && pos > Duration.zero) {
-      core.value = core.value.copyWith(clearError: true);
-    }
-
-    _lastPosition = pos;
-    _lastPositionAt = _positionClock.elapsed;
-    _scheduleTimelineEmit();
-  }
-
-  void _onDurationChanged(Duration dur) {
-    if (_disposed) return;
-    _lastDuration = dur;
-    _scheduleTimelineEmit();
-  }
-
-  void _onWidthChanged(int? width) {
-    if (_disposed) return;
-    if ((width ?? 0) > 0) {
-      _hasReceivedVideoDimensionsSinceOpen = true;
-      _checkFirstFrameRendered();
-    }
-  }
-
-  void _onHeightChanged(int? height) {
-    if (_disposed) return;
-    if ((height ?? 0) > 0) {
-      _hasReceivedVideoDimensionsSinceOpen = true;
-      _checkFirstFrameRendered();
-    }
-  }
-
-  /// 检查新视频首帧是否已经真正解码渲染上屏
-  /// 特殊处理说明：
-  /// 首帧就绪门禁：
-  /// 1. open() 之后收到 player.stream.width / height 非空且大于 0 的事件，
-  ///    作为解码器真正出画（mpv 报出 video-params）的可靠物理信号；
-  /// 2. 具备硬上限超时兜底 (kFirstFrameCoverMaxWait / force: true)，
-  ///    防止纯音频、无视频轨或尺寸事件缺失导致遮罩永久卡死。
-  void _checkFirstFrameRendered({bool force = false}) {
-    if (_disposed) return;
-    if (!core.value.firstFrameRendered) {
-      final canRender = force || _hasReceivedVideoDimensionsSinceOpen;
-      if (canRender) {
-        _firstFrameFallbackTimer?.cancel();
-        _firstFrameFallbackTimer = null;
-        core.value = core.value.copyWith(
-          firstFrameRendered: true,
-          loading: false,
-        );
-
-        // 特殊处理说明：
-        // 首帧画面与纹理就绪后，再安全应用用户偏好配置的超分辨率滤镜；
-        // 彻底规避在播放器未加载视频媒体时盲目注入着色器导致的 Direct3D/ANGLE 渲染上下文假死。
-        final player = _player;
-        if (player != null && core.value.superResolution != SuperResolutionMode.off) {
-          unawaited(_applyShaderToPlayer(player, core.value.superResolution));
-        }
-      }
-    }
-  }
-
-  void _onBufferChanged(Duration buf) {
-    if (_disposed) return;
-    _lastBuffer = buf;
-    _scheduleTimelineEmit();
-  }
-
-  /// 把最近一次位置采样按到达时刻外推到当前时刻，供弹幕时钟对时使用。
-  /// 采样本身是旧值（事件延迟 + 250ms 节流定时器），直接拿来对时会给弹幕时钟注入噪声。
-  /// 暂停 / 缓冲中不外推；外推量设上限，防止事件长时间缺失时越推越偏。
+  @override
   Duration get extrapolatedPosition {
     if (_disposed) return Duration.zero;
     final state = core.value;
@@ -742,41 +542,59 @@ class ZakowayPlaybackController implements PlaybackController {
     });
   }
 
-  /// 资源销毁
+  /// 供错误卡片点击重试时调用
+  Future<void> retry() async {
+    if (_disposed) return;
+    onRetryRequested?.call();
+    if (_fsm != null) {
+      await _fsm!.retry();
+    }
+  }
+
+  /// 供换线提示或错误卡片点击换线时调用
+  void switchLine() {
+    onSwitchLineRequested?.call();
+  }
+
+  // ===========================================================================
+  // 资源销毁
+  // ===========================================================================
+
+  @override
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
 
-    _firstFrameFallbackTimer?.cancel();
-    _firstFrameFallbackTimer = null;
     _timelineThrottleTimer?.cancel();
+    _timelineThrottleTimer = null;
+
     for (final sub in _subscriptions) {
       unawaited(sub.cancel());
     }
     _subscriptions.clear();
 
-    final player = _player;
-    _player = null;
+    if (_fsm != null) {
+      _fsm!.coreNotifier.removeListener(_onFsmCoreStateChanged);
+      await _fsm!.dispose();
+      _fsm = null;
+    }
+
     videoControllerNotifier.value = null;
 
-    if (player != null) {
-      // 特殊处理说明：
-      // 在页面 Pop 退出或销毁时，libmpv (media_kit) 若正处于网络缓冲或 demux 状态，
-      // 同步等待 player.stop()/dispose() 会阻塞原生线程与 PlatformChannel 达数秒导致界面卡死。
-      // 因此此处先立即触发非阻塞 pause，并将真正的 stop/dispose 脱钩至后台微任务中异步释放。
-      unawaited(() async {
-        try {
-          await player.pause();
-          await player.stop();
-        } catch (_) {}
-        try {
-          await player.dispose();
-        } catch (_) {}
-      }());
+    if (_backend != null) {
+      // 遵循 TC-14 与 11 号文档：非阻塞脱钩释放底层 C 实例
+      final b = _backend;
+      _backend = null;
+      unawaited(b!.dispose());
     }
 
     core.dispose();
     timeline.dispose();
     videoControllerNotifier.dispose();
+    _failureNotifier.dispose();
+    _showLineSwitchPromptNotifier.dispose();
   }
 }
+
+/// 兼容别名：保留 RewrittenPlaybackController 符号以完全兼容现有测试与调用点
+typedef RewrittenPlaybackController = ZakowayPlaybackController;
