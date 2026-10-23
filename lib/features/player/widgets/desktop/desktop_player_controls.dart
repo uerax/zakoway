@@ -139,6 +139,7 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
           ValueNotifier<bool>(PlayerPreferencesService.instance.autoPlayNext);
     }
     widget.controller.timeline.addListener(_onTimelineTickForOped);
+    widget.controller.core.addListener(_onCoreStateChanged);
     _startHideTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -165,6 +166,12 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
   @override
   void didUpdateWidget(DesktopPlayerControls oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.timeline.removeListener(_onTimelineTickForOped);
+      oldWidget.controller.core.removeListener(_onCoreStateChanged);
+      widget.controller.timeline.addListener(_onTimelineTickForOped);
+      widget.controller.core.addListener(_onCoreStateChanged);
+    }
     if (oldWidget.opedSegment != widget.opedSegment ||
         oldWidget.canonicalEpisode != widget.canonicalEpisode) {
       _hasSkippedOp = false;
@@ -179,6 +186,9 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
       _showSpeedPopup = false;
       _isVolumeHovered = false;
       _activePanel = _DesktopActivePanel.none;
+      if (widget.controller.core.value.playing) {
+        _startHideTimer();
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _ensureKeyboardFocus();
@@ -187,9 +197,27 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
     }
   }
 
+  void _onCoreStateChanged() {
+    if (!mounted) return;
+    if (widget.controller.core.value.playing) {
+      if (_visible) {
+        _startHideTimer();
+      }
+    } else {
+      if (!_visible) {
+        setState(() {
+          _visible = true;
+        });
+      }
+      _hideTimer?.cancel();
+      _hideTimer = null;
+    }
+  }
+
   @override
   void dispose() {
     widget.controller.timeline.removeListener(_onTimelineTickForOped);
+    widget.controller.core.removeListener(_onCoreStateChanged);
     _hideTimer?.cancel();
     _volumeCloseTimer?.cancel();
     _skipToastTimer?.cancel();
@@ -375,6 +403,7 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
   void _startHideTimer() {
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(milliseconds: 3000), () {
+      _hideTimer = null;
       if (mounted &&
           _visible &&
           !_isSeekingSlider &&

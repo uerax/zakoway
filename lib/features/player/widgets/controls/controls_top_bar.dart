@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:zakoway/core/utils/font_manager.dart';
 import 'package:zakoway/features/player/danmaku/danmaku.dart';
 import 'package:zakoway/features/player/widgets/player_side_panel.dart';
@@ -124,7 +127,49 @@ class PlayerControlsTopBar extends StatelessWidget {
               return const SizedBox.shrink();
             }
 
-            return Row(
+            final isDesktop = !kIsWeb &&
+                (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+
+            final Widget titleWidget = hasTitle
+                ? Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14.0,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
+                      fontFamily: 'MiSans',
+                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black54,
+                          blurRadius: 6,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  )
+                : const SizedBox.expand();
+
+            // 特殊处理说明：
+            // 桌面端无边框窗口全屏模式下，系统原生标题栏已被隐藏；
+            // 将播放器顶部控制栏的标题与留白区域注入 DragToMoveArea，支持鼠标直接拖拽移动窗口与双击最大化/还原。
+            final Widget middleSection = Expanded(
+              child: isDesktop
+                  ? DragToMoveArea(
+                      child: Container(
+                        height: 32,
+                        color: Colors.transparent,
+                        alignment: Alignment.centerLeft,
+                        child: titleWidget,
+                      ),
+                    )
+                  : (hasTitle ? titleWidget : const Spacer()),
+            );
+
+            Widget topBarContent = Row(
               children: [
                 if (hasBack) ...[
                   ClipRRect(
@@ -156,31 +201,7 @@ class PlayerControlsTopBar extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                 ],
-                if (hasTitle)
-                  Expanded(
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14.0,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.2,
-                        fontFamily: 'MiSans',
-                        fontFamilyFallback: FontManager.fallbackFontFamilies,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black54,
-                            blurRadius: 6,
-                            offset: Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  const Spacer(),
+                middleSection,
                 if (onOpenEpisodePicker != null || onOpenSidePanel != null) ...[
                   const SizedBox(width: 6),
                   PlayerPillButton(
@@ -226,6 +247,21 @@ class PlayerControlsTopBar extends StatelessWidget {
                 ],
               ],
             );
+
+            if (isDesktop) {
+              topBarContent = Stack(
+                children: [
+                  const Positioned.fill(
+                    child: DragToMoveArea(
+                      child: SizedBox.expand(),
+                    ),
+                  ),
+                  topBarContent,
+                ],
+              );
+            }
+
+            return topBarContent;
           },
         ),
       ),

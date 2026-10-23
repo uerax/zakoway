@@ -5,6 +5,23 @@ import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import '../../../../core/utils/appearance_manager.dart';
 
+/// 桌面端窗口顶栏全局调度控制器
+///
+/// 允许全屏播放器或沉浸式视图在未进入操作系统级全屏时主动通知隐藏窗口顶栏
+class DesktopTitleBarManager {
+  DesktopTitleBarManager._();
+  static final DesktopTitleBarManager instance = DesktopTitleBarManager._();
+
+  /// 是否因应用内全屏 (如播放器应用全屏) 主动请求隐藏顶栏
+  final ValueNotifier<bool> isTitleBarHidden = ValueNotifier<bool>(false);
+
+  void setPlayerFullscreen(bool isFullscreen) {
+    if (isTitleBarHidden.value != isFullscreen) {
+      isTitleBarHidden.value = isFullscreen;
+    }
+  }
+}
+
 /// 桌面端全局沉浸式窗口骨架
 ///
 /// 架构设计与规范：
@@ -34,7 +51,13 @@ class _AppDesktopWindowFrameState extends State<AppDesktopWindowFrame>
   @override
   void initState() {
     super.initState();
+    DesktopTitleBarManager.instance.isTitleBarHidden
+        .addListener(_onTitleBarHiddenChanged);
     _checkInitialFullScreenState();
+  }
+
+  void _onTitleBarHiddenChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _checkInitialFullScreenState() async {
@@ -51,6 +74,8 @@ class _AppDesktopWindowFrameState extends State<AppDesktopWindowFrame>
 
   @override
   void dispose() {
+    DesktopTitleBarManager.instance.isTitleBarHidden
+        .removeListener(_onTitleBarHiddenChanged);
     if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
       try {
         windowManager.removeListener(this);
@@ -83,6 +108,8 @@ class _AppDesktopWindowFrameState extends State<AppDesktopWindowFrame>
     final theme = Theme.of(context);
     final mediaQuery = MediaQuery.of(context);
     const titleBarHeight = 44.0;
+    final hideTitleBar = _isFullScreen ||
+        DesktopTitleBarManager.instance.isTitleBarHidden.value;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -104,18 +131,18 @@ class _AppDesktopWindowFrameState extends State<AppDesktopWindowFrame>
               child: MediaQuery(
                 data: mediaQuery.copyWith(
                   padding: mediaQuery.padding.copyWith(
-                    top: _isFullScreen ? 0 : titleBarHeight,
+                    top: titleBarHeight,
                   ),
                   viewPadding: mediaQuery.viewPadding.copyWith(
-                    top: _isFullScreen ? 0 : titleBarHeight,
+                    top: titleBarHeight,
                   ),
                 ),
                 child: widget.child,
               ),
             ),
           ),
-          // 0. 桌面端自适应沉浸顶栏：浮在最上方，未滚动时完全透明透出壁纸，滚动时自动淡入亚克力毛玻璃防穿透
-          if (!_isFullScreen)
+          // 0. 桌面端自适应沉浸顶栏：浮在最上方，未滚动时完全透明透出壁纸，滚动时自动淡入亚克力毛玻璃防穿透；全屏时收缩隐藏
+          if (!hideTitleBar)
             Positioned(
               top: 0,
               left: 0,

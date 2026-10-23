@@ -38,6 +38,7 @@ import '../widgets/video_source_view.dart';
 import '../widgets/watch_comments_section.dart';
 import '../widgets/watch_meta_view.dart';
 import '../widgets/watch_recommend_section.dart';
+import '../../common/widgets/app_desktop_title_bar.dart';
 
 /// zakoway 统一多端视频播放页面 (1:1 严格对齐 animaku 完整视频源生命周期与架构规范)
 ///
@@ -1239,6 +1240,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     _hudToastTimer?.cancel();
     _danmakuBridge.dispose();
     _saveProgressOnExit();
+    DesktopTitleBarManager.instance.setPlayerFullscreen(false);
     if (_isTrueFullscreen) {
       _exitTrueFullscreen();
     } else if (_isAppFullscreen) {
@@ -1274,10 +1276,12 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         ]);
       }
     }
+    if (!mounted) return;
     setState(() {
       _isAppFullscreen = true;
       _isTrueFullscreen = false;
     });
+    DesktopTitleBarManager.instance.setPlayerFullscreen(true);
   }
 
   Future<void> _exitAppFullscreen() async {
@@ -1289,6 +1293,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       _isAppFullscreen = false;
       _isSidePanelOpen = false;
     });
+    DesktopTitleBarManager.instance.setPlayerFullscreen(false);
   }
 
   void _toggleAppFullscreen() {
@@ -1307,6 +1312,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       _isTrueFullscreen = true;
       _isAppFullscreen = false;
     });
+    DesktopTitleBarManager.instance.setPlayerFullscreen(true);
     if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
       try {
         await defaultEnterNativeFullscreen();
@@ -1326,6 +1332,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       _isAppFullscreen = false;
       _isSidePanelOpen = false;
     });
+    DesktopTitleBarManager.instance.setPlayerFullscreen(false);
     if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
       try {
         await defaultExitNativeFullscreen();
@@ -1654,7 +1661,11 @@ class _VideoPlayPageState extends State<VideoPlayPage>
                     AppearanceManager.instance.buildWallpaperLayer(pageKey: 'profile'),
                   // 2. 播放页面主体流
                   Positioned.fill(
-                    child: layoutContent,
+                    child: MediaQuery.removePadding(
+                      context: context,
+                      removeTop: _isFullscreen,
+                      child: layoutContent,
+                    ),
                   ),
                 ],
               ),

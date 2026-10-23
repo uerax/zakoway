@@ -1,8 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:window_manager/window_manager.dart';
+import 'package:zakoway/features/common/widgets/app_desktop_title_bar.dart';
 import 'package:zakoway/features/player/controller/playback_controller.dart';
+import 'package:zakoway/features/player/widgets/controls/controls_top_bar.dart';
 import 'package:zakoway/features/player/widgets/controls/popups/player_speed_popup.dart';
 import 'package:zakoway/features/player/widgets/controls/popups/player_vertical_volume_popup.dart';
 import 'package:zakoway/features/player/widgets/desktop/desktop_player_controls.dart';
@@ -433,6 +437,125 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.keyT);
       await tester.pump();
       expect(theaterToggleCount, equals(2));
+    });
+
+    testWidgets('DesktopTitleBarManager: 联动隐藏桌面窗口顶栏并更新顶内边距',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: AppDesktopWindowFrame(
+              child: Builder(
+                builder: (context) {
+                  final topPad = MediaQuery.of(context).padding.top;
+                  return Center(
+                    child: Text('TopPadding: $topPad'),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // 默认状态下：存在桌面沉浸顶栏，且向下注入 44px top padding
+        expect(find.byType(AppDesktopTitleBar), findsOneWidget);
+        expect(find.text('TopPadding: 44.0'), findsOneWidget);
+
+        // 进入播放器全屏状态：顶栏收缩隐藏，全局 MediaQuery 保持绝对稳定不重排
+        DesktopTitleBarManager.instance.setPlayerFullscreen(true);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AppDesktopTitleBar), findsNothing);
+        expect(find.text('TopPadding: 44.0'), findsOneWidget);
+
+        // 退出播放器全屏：顶栏平滑恢复
+        DesktopTitleBarManager.instance.setPlayerFullscreen(false);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AppDesktopTitleBar), findsOneWidget);
+        expect(find.text('TopPadding: 44.0'), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+        DesktopTitleBarManager.instance.setPlayerFullscreen(false);
+      }
+    });
+
+    testWidgets('DesktopPlayerControls: 全屏播放状态下播放中 3 秒自动隐藏顶部控制栏与底部条',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 720));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DesktopPlayerControls(
+              controller: controller,
+              title: '全屏播放顶栏测试',
+              isFullscreen: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // 验证全屏下顶部控制栏存在
+      expect(find.byType(PlayerControlsTopBar), findsOneWidget);
+
+      // 开始播放
+      await controller.play();
+      await tester.pump();
+
+      // 验证控制栏此时仍然可见（opacity: 1.0）
+      final animatedOpacityFinder = find.byWidgetPredicate(
+        (w) => w is AnimatedOpacity && w.duration == const Duration(milliseconds: 220),
+      );
+      expect(animatedOpacityFinder, findsOneWidget);
+      var opacityWidget = tester.widget<AnimatedOpacity>(animatedOpacityFinder);
+      expect(opacityWidget.opacity, equals(1.0));
+
+      // 等待 3 秒自动隐藏定时器触发并完成 220ms 动画
+      await tester.pump(const Duration(milliseconds: 3300));
+
+      opacityWidget = tester.widget<AnimatedOpacity>(animatedOpacityFinder);
+      expect(opacityWidget.opacity, equals(0.0));
+
+      // 模拟鼠标移动唤醒控制栏
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await gesture.addPointer(location: const Offset(400, 300));
+      addTearDown(gesture.removePointer);
+      await tester.pump();
+
+      await gesture.moveTo(const Offset(450, 350));
+      await tester.pump();
+
+      opacityWidget = tester.widget<AnimatedOpacity>(animatedOpacityFinder);
+      expect(opacityWidget.opacity, equals(1.0));
+    });
+
+    testWidgets('PlayerControlsTopBar: 桌面端顶部控制栏配置 DragToMoveArea 支持窗口拖拽与双击最大化',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: PlayerControlsTopBar(
+                title: '测试可拖拽标题',
+                isFullscreen: true,
+                onBackPressed: () {},
+                onOpenEpisodePicker: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(DragToMoveArea), findsWidgets);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
     });
   });
 }
