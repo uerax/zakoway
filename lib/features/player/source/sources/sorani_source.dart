@@ -27,7 +27,7 @@ class SoraniSource extends VideoSource {
   String get description => '1080P · 官方原生 API 直出 (最高画质)';
 
   @override
-  bool get isDirect => true;
+  bool get isDirect => false;
 
   Map<String, String> _baseHeaders([String? referer]) {
     return {
@@ -60,11 +60,20 @@ class SoraniSource extends VideoSource {
           .whereType<Map<String, dynamic>>()
           .map((item) {
             final id = item['id'];
+            final malId = item['malId'];
             final title = item['title']?.toString().trim() ?? '';
             final cover = item['cover']?.toString() ?? item['coverThumb']?.toString();
+            // 特殊处理说明：对齐青空次元官方前端规范，番剧详情链接采用 /anime/mal/:malId 路径，
+            // 并在 query 携带原始 video id 供 chapters 请求 API 时精准定位
+            final String animeUrl;
+            if (malId != null && malId.toString().isNotEmpty) {
+              animeUrl = '$_webBaseUrl/anime/mal/$malId?id=$id';
+            } else {
+              animeUrl = '$_webBaseUrl/anime/$id';
+            }
             return SourceSearchResult(
               name: title,
-              url: '$_webBaseUrl/anime/$id',
+              url: animeUrl,
               cover: cover,
             );
           })
@@ -78,14 +87,19 @@ class SoraniSource extends VideoSource {
   @override
   Future<List<SourceChapterRoad>> chapters(String animeUrl) async {
     final trimmed = animeUrl.trim();
-    final match = RegExp(r'/anime/(?:mal/)?(\d+)', caseSensitive: false).firstMatch(trimmed) ??
-        RegExp(r'/video/(\d+)', caseSensitive: false).firstMatch(trimmed) ??
-        RegExp(r'(\d+)$').firstMatch(trimmed);
+    final uri = Uri.tryParse(trimmed);
+    String? videoId = uri?.queryParameters['id'] ?? uri?.queryParameters['videoId'];
 
-    if (match == null) {
-      throw Exception('无法从链接提取青空次元番剧 ID: $animeUrl');
+    if (videoId == null || videoId.isEmpty) {
+      final match = RegExp(r'/anime/(?:mal/)?(\d+)', caseSensitive: false).firstMatch(trimmed) ??
+          RegExp(r'/video/(\d+)', caseSensitive: false).firstMatch(trimmed) ??
+          RegExp(r'(\d+)$').firstMatch(trimmed);
+
+      if (match == null) {
+        throw Exception('无法从链接提取青空次元番剧 ID: $animeUrl');
+      }
+      videoId = match.group(1)!;
     }
-    final videoId = match.group(1)!;
 
     // 1. 获取番剧分集详情
     final detailRes = await _dio.get<dynamic>(
@@ -98,7 +112,8 @@ class SoraniSource extends VideoSource {
     );
 
     final detailData = parseJsonMap(detailRes.data);
-    final rawEpisodes = (detailData?['data']?['episodes'] as List?) ?? [];
+    final dataMap = detailData?['data'] as Map<String, dynamic>?;
+    final rawEpisodes = (dataMap?['episodes'] as List?) ?? [];
     if (rawEpisodes.isEmpty) return [];
 
     final activeEpisodes = rawEpisodes
@@ -107,6 +122,18 @@ class SoraniSource extends VideoSource {
         .toList();
 
     if (activeEpisodes.isEmpty) return [];
+
+    // 计算标准官方番剧详情基础路径 (如 /anime/mal/4756)
+    final malId = dataMap?['malId'];
+    final String animeBasePath;
+    if (trimmed.contains('/anime/mal/')) {
+      final malPathMatch = RegExp(r'(/anime/mal/\d+)').firstMatch(trimmed);
+      animeBasePath = malPathMatch?.group(1) ?? '/anime/mal/$videoId';
+    } else if (malId != null && malId.toString().isNotEmpty) {
+      animeBasePath = '/anime/mal/$malId';
+    } else {
+      animeBasePath = '/anime/$videoId';
+    }
 
     // 2. 获取可用线路 (容错兜底)
     List<Map<String, dynamic>> lines = [];
@@ -139,19 +166,29 @@ class SoraniSource extends VideoSource {
       final lineName = (line['name']?.toString() ?? '青空次元').trim();
 
       final episodes = <SourceEpisode>[];
-      for (final ep in activeEpisodes) {
+      for (var i = 0; i < activeEpisodes.length; i++) {
+        final ep = activeEpisodes[i];
         final epId = ep['episodeId'] ?? ep['id'];
-        final epOrder = ep['episodeOrder'] ?? 1;
+        final rawOrder = ep['episodeOrder'];
+        final int orderInt = (rawOrder is num)
+            ? rawOrder.toInt()
+            : (int.tryParse(rawOrder?.toString() ?? '') ?? (i + 1));
         final rawTitle = ep['title']?.toString().trim() ?? '';
         final epLabel = ep['episodeLabel']?.toString().trim() ?? '';
+        final orderStr = orderInt.toString().padLeft(2, '0');
         final title = rawTitle.isNotEmpty
             ? rawTitle
-            : (epLabel.isNotEmpty ? epLabel : '第${epOrder.toString().padLeft(2, '0')}集');
+            : (epLabel.isNotEmpty ? epLabel : '第$orderStr集');
+
+        // 特殊处理说明：对齐青空次元官方 SvelteKit 前端真实播放路由 /anime/mal/:id/episode/:order (如 /episode/01)，
+        // 确保无头 WebView 嗅探能进入真实官方页面启动播放器，并在 query 携带 epId 与 lineCode 供原生 Dart 极速秒开
+        final epUrl =
+            '$_webBaseUrl$animeBasePath/episode/$orderStr?epId=$epId&lineCode=${Uri.encodeComponent(lineCode)}';
 
         episodes.add(
           SourceEpisode(
             name: title,
-            url: '$_webBaseUrl/anime/$videoId/episode/$epId?lineCode=${Uri.encodeComponent(lineCode)}',
+            url: epUrl,
           ),
         );
       }
@@ -171,23 +208,58 @@ class SoraniSource extends VideoSource {
     try {
       final uri = Uri.parse(trimmed);
       lineCode = uri.queryParameters['lineCode'] ?? uri.queryParameters['line'];
-      final pathMatch = RegExp(r'/episode/(\d+)', caseSensitive: false).firstMatch(uri.path) ??
-          RegExp(r'/ep/(\d+)', caseSensitive: false).firstMatch(uri.path) ??
-          RegExp(r'/play/(\d+)', caseSensitive: false).firstMatch(uri.path);
-      if (pathMatch != null) {
-        episodeId = pathMatch.group(1);
-      }
+      episodeId = uri.queryParameters['epId'] ?? uri.queryParameters['episodeId'];
     } catch (_) {}
 
-    if (episodeId == null) {
-      final fallbackMatch = RegExp(r'/episode/(\d+)', caseSensitive: false).firstMatch(trimmed) ??
-          RegExp(r'(\d+)$').firstMatch(trimmed);
-      if (fallbackMatch != null) {
-        episodeId = fallbackMatch.group(1);
+    // 容错 1：老版本老链接或备选兼容提取真实数据库 ID (如 /episode/66078 且数字大)
+    if (episodeId == null || episodeId.isEmpty) {
+      final match = RegExp(r'/episode/(\d+)', caseSensitive: false).firstMatch(trimmed) ??
+          RegExp(r'/ep/(\d+)', caseSensitive: false).firstMatch(trimmed);
+      if (match != null) {
+        final candidate = match.group(1)!;
+        if (int.tryParse(candidate) != null && int.parse(candidate) > 99) {
+          episodeId = candidate;
+        }
       }
     }
 
-    if (episodeId == null) {
+    // 容错 2：若为纯净官方播放路由 /anime/mal/:malId/episode/:order (无 query epId)，通过 API 反查真实 epId
+    if (episodeId == null || episodeId.isEmpty) {
+      final animeMatch = RegExp(r'/anime/(?:mal/)?(\d+)', caseSensitive: false).firstMatch(trimmed);
+      final epOrderMatch = RegExp(r'/episode/(\d+)', caseSensitive: false).firstMatch(trimmed);
+      if (animeMatch != null && epOrderMatch != null) {
+        final vId = animeMatch.group(1)!;
+        final targetOrder = int.tryParse(epOrderMatch.group(1)!);
+        try {
+          final detailRes = await _dio.get<dynamic>(
+            '$_apiBaseUrl/api/video/$vId',
+            options: Options(
+              headers: _baseHeaders(),
+              sendTimeout: const Duration(seconds: 8),
+              receiveTimeout: const Duration(seconds: 8),
+            ),
+          );
+          final detailData = parseJsonMap(detailRes.data);
+          final rawEpisodes = (detailData?['data']?['episodes'] as List?) ?? [];
+          for (var i = 0; i < rawEpisodes.length; i++) {
+            final ep = rawEpisodes[i] as Map<String, dynamic>;
+            final order = ep['episodeOrder'] ?? (i + 1);
+            if (order == targetOrder) {
+              episodeId = (ep['episodeId'] ?? ep['id'])?.toString();
+              break;
+            }
+          }
+          if (episodeId == null && rawEpisodes.isNotEmpty) {
+            final idx = (targetOrder != null && targetOrder > 0 && targetOrder <= rawEpisodes.length)
+                ? targetOrder - 1
+                : 0;
+            episodeId = (rawEpisodes[idx]['episodeId'] ?? rawEpisodes[idx]['id'])?.toString();
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (episodeId == null || episodeId.isEmpty) {
       throw Exception('无法从播放链接提取青空次元选集 ID: $episodeUrl');
     }
 
