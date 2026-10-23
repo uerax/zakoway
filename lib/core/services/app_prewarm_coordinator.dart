@@ -49,11 +49,15 @@ class AppPrewarmCoordinator {
 
   /// 启动后台静默调度队列（在首页完成首帧构建后调用）
   void startBackgroundPrewarm(WidgetRef ref, BangumiClient client) {
-    // 延迟 120ms，避开首页首屏最密集的组件构建与第一轮动画，进入空闲期后依次排队
+    // 1. 延迟 120ms 避开首页首屏最密集的组件构建，先预热纯本地数据（搜索历史、磁盘缓存统计，零网络开销）
     Future.delayed(const Duration(milliseconds: 120), () {
-      prewarmCategory(ref);
       prewarmSearch(ref);
       prewarmSettings(client);
+    });
+
+    // 2. 延迟 2500ms 等待首页首屏核心网络请求平稳发起后再静默预取分类数据，杜绝弱网冷启动时并发抢占带宽
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      prewarmCategory(ref);
     });
   }
 

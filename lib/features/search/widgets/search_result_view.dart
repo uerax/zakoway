@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/bangumi/bangumi_item.dart';
+import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
 import '../../common/widgets/anime_card.dart';
 import '../../common/widgets/shimmer_loading.dart';
@@ -89,7 +90,13 @@ class SearchResultView extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('重新尝试'),
+                label: Text(
+                  '重新尝试',
+                  style: TextStyle(
+                    fontFamily: FontManager.instance.activeFontFamily,
+                    fontFamilyFallback: FontManager.fallbackFontFamilies,
+                  ),
+                ),
               ),
             ],
           ),
