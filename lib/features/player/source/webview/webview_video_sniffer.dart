@@ -49,6 +49,9 @@ class WebviewVideoSniffer {
   Completer<SourceResolveResult?>? _activeCompleter;
   String _activePageUrl = '';
 
+  // 主动熔断令牌：新任务进入时立即打断旧会话，杜绝无谓排队等待
+  Completer<void>? _activeCancelToken;
+
   /// 懒加载初始化全局唯一长驻无头 WebView 实例
   Future<void> _ensureInitialized() async {
     if (_headless != null && _controller != null) return;
@@ -75,6 +78,9 @@ class WebviewVideoSniffer {
           loadsImagesAutomatically: false,
           allowsInlineMediaPlayback: true,
           useShouldInterceptRequest: true,
+          // 特殊处理说明：兼容 HTTPS 页面中嵌套 HTTP 视频直链与切片，严禁强推 HTTPS 防止握手失败
+          mixedContentMode: MixedContentMode.MIXED_CONTENT_COMPATIBILITY_MODE,
+          upgradeKnownHostsToHTTPS: false,
         ),
         onWebViewCreated: (controller) {
           _controller = controller;
@@ -147,29 +153,47 @@ class WebviewVideoSniffer {
     }
   }
 
-  void _onCaptured(
+  Future<void> _onCaptured(
     String streamUrl, {
     required String format,
     required String referer,
     required String userAgent,
     required String source,
-  }) {
+  }) async {
     if (streamUrl.isEmpty) return;
     final completer = _activeCompleter;
     if (completer != null && !completer.isCompleted) {
       debugPrint('[WebviewSniffer] [$source] 成功捕获直链 (Session: $_activeSessionId): $streamUrl');
-      completer.complete(SourceResolveResult(
-        url: streamUrl,
-        format: format,
-        headers: {
-          'User-Agent': userAgent,
-          if (referer.isNotEmpty) 'Referer': referer,
-        },
-      ));
+
+      // 特殊处理说明：从 WebView 的 CookieManager 中提取当前源与媒体的 Cookie，
+      // 许多第三方源或分段切片强制校验 Cookie，缺少 Cookie 会直接返回 403 Forbidden。
+      String? cookieHeader;
+      try {
+        final cookies = await CookieManager.instance().getCookies(
+          url: WebUri(streamUrl.startsWith('http') ? streamUrl : _activePageUrl),
+        );
+        if (cookies.isNotEmpty) {
+          cookieHeader = cookies.map((c) => '${c.name}=${c.value}').join('; ');
+        }
+      } catch (e) {
+        debugPrint('[WebviewSniffer] 提取 Cookie 异常 (忽略并继续): $e');
+      }
+
+      if (!completer.isCompleted) {
+        completer.complete(SourceResolveResult(
+          url: streamUrl,
+          format: format,
+          headers: {
+            'User-Agent': userAgent,
+            if (referer.isNotEmpty) 'Referer': referer,
+            if (cookieHeader != null && cookieHeader.isNotEmpty) 'Cookie': cookieHeader,
+          },
+        ));
+      }
     }
   }
 
-  /// 异步嗅探目标播放网页中的视频真实流直链 (排队串行且具备代际防串安全保护)
+  /// 异步嗅探目标播放网页中的视频真实流直链 (排队串行且具备代际防串与快速熔断保护)
   Future<SourceResolveResult?> sniff(
     String pageUrl, {
     Duration timeout = const Duration(seconds: 15),
@@ -183,17 +207,45 @@ class WebviewVideoSniffer {
     final trimmedUrl = pageUrl.trim();
     if (trimmedUrl.isEmpty) return null;
 
+    // 特殊处理说明：快速熔断上一代旧会话 (对齐 Kazumi _activeRequest.cancel())
+    // 当用户快速切换线路或分集时，前序仍在等待或执行的旧任务立即被打断，不再占用队列白白等待
+    final prevCancel = _activeCancelToken;
+    final currentCancel = Completer<void>();
+    _activeCancelToken = currentCancel;
+
+    if (prevCancel != null && !prevCancel.isCompleted) {
+      debugPrint('[WebviewSniffer] ⚡ 收到新嗅探任务，立即主动熔断前序会话');
+      prevCancel.complete();
+      try {
+        _controller?.loadUrl(urlRequest: URLRequest(url: WebUri('about:blank')));
+      } catch (_) {}
+    }
+
     final taskCompleter = Completer<SourceResolveResult?>();
 
     // 加入串行队列锁：等待前序会话清理中立态后按序推进
     _queueTail = _queueTail.then((_) async {
+      // 若当前任务在排队等待期间已被后续更新的任务取消，直接退出
+      if (currentCancel.isCompleted) {
+        taskCompleter.complete(null);
+        return;
+      }
+
       try {
         final result = await _executeSniff(
           trimmedUrl,
           timeout: timeout,
+          cancelToken: currentCancel,
           customHeaders: customHeaders,
         );
+
+        if (currentCancel.isCompleted) {
+          taskCompleter.complete(null);
+          return;
+        }
+
         if (result != null && result.url.isNotEmpty) {
+          // 通用轻量 Range 探测展开 302 跳板与连接优化 (约 20~50ms，彻底规避 1.5s 罚坐)
           final resolved = await MediaUrlResolver.resolveRedirects(result);
           taskCompleter.complete(resolved);
         } else {
@@ -213,11 +265,13 @@ class WebviewVideoSniffer {
   Future<SourceResolveResult?> _executeSniff(
     String targetUrl, {
     required Duration timeout,
+    required Completer<void> cancelToken,
     Map<String, String>? customHeaders,
   }) async {
     await _ensureInitialized();
     final controller = _controller;
     if (controller == null) return null;
+    if (cancelToken.isCompleted) return null;
 
     // 1. 会话代际自增：使之前所有残留迟到回调彻底失效
     final sessionId = ++_sessionCounter;
@@ -231,6 +285,7 @@ class WebviewVideoSniffer {
     try {
       // 2. 先重定向到 about:blank 空白页，由浏览器引擎原生切断所有上级在途连接与 JS 脚本
       await controller.loadUrl(urlRequest: URLRequest(url: WebUri('about:blank')));
+      if (cancelToken.isCompleted) return null;
 
       // 3. 正式加载目标番剧播放页面
       await controller.loadUrl(
@@ -240,8 +295,13 @@ class WebviewVideoSniffer {
         ),
       );
 
-      // 4. 等待捕获或超时
-      final result = await completer.future.timeout(
+      // 4. 等待捕获、超时，或被后续新会话主动熔断打断
+      final cancelFuture =
+          cancelToken.future.then<SourceResolveResult?>((_) => null);
+      final result = await Future.any([
+        completer.future,
+        cancelFuture,
+      ]).timeout(
         timeout,
         onTimeout: () {
           debugPrint('[WebviewSniffer] [Session: $sessionId] 嗅探超时 (${timeout.inSeconds}s)');
@@ -296,7 +356,7 @@ class WebviewVideoSniffer {
       return true;
     }
 
-    // 4. 过滤统计上报、回放录制与广告脚本
+    // 4. 过滤统计上报、回放录制、反调试与广告脚本
     if (lower.contains('googleads') ||
         lower.contains('googlesyndication') ||
         lower.contains('doubleclick') ||
@@ -307,7 +367,10 @@ class WebviewVideoSniffer {
         lower.contains('analytics') ||
         lower.contains('clarity.ms') ||
         lower.contains('hm.baidu.com') ||
-        lower.contains('cnzz.com')) {
+        lower.contains('cnzz.com') ||
+        lower.contains('devtools-detector') ||
+        lower.contains('adtrafficquality') ||
+        lower.contains('prestrain')) {
       return true;
     }
 

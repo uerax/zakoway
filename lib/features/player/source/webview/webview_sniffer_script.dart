@@ -1,10 +1,12 @@
 /// 深度视频流嗅探注入脚本 (At Document Start)
 ///
-/// 遵循行业通用 WebExtension / 猫抓成熟嗅探规范：
-/// 1. 劫持 window.fetch 与 XMLHttpRequest，直接读取响应头 Content-Type 及响应体 #EXTM3U 特征；
-/// 2. 劫持 HTMLMediaElement (video/audio) 的 src 属性赋值；
-/// 3. 过滤常见广告、统计追踪与垃圾请求；
-/// 4. 识别并捕获视频流真实直链，通过 flutter_inappwebview JavaScriptHandler 抛回 Dart 层。
+/// 遵循行业通用 WebExtension / 猫抓及 Kazumi 生产验证的成熟嗅探规范：
+/// 1. 【解除懒加载】：强制移除 iframe[loading="lazy"]，避免无头无渲染模式下视口外 iframe 永远不加载导致超时；
+/// 2. 【双重网络劫持】：劫持 window.fetch 与 XMLHttpRequest，识别响应头 Content-Type 及响应体 #EXTM3U 特征；
+/// 3. 【套壳 iframe 递归】：递归解析 iframe src 中的 query 视频参数 (如 ?url=...m3u8/.mp4)；
+/// 4. 【DOM 动态感知】：MutationObserver 深度监听动态新增的 iframe、video 与 source 节点；
+/// 5. 【媒体原型劫持】：劫持 HTMLMediaElement (video/audio) 的 src 属性赋值；
+/// 6. 【安全降噪】：过滤反调试脚本 (devtools-detector)、常见广告、统计追踪与垃圾请求。
 const String kWebviewSnifferScript = r'''
 (function() {
   if (window.__zakoway_sniffer_installed__) return;
@@ -13,7 +15,7 @@ const String kWebviewSnifferScript = r'''
   const AD_DOMAINS = [
     'googleads', 'googlesyndication', 'doubleclick', 'analytics',
     'prestrain', 'adtrafficquality', 'hm.baidu.com', 'cnzz.com',
-    'statcounter', 'clarity.ms'
+    'statcounter', 'clarity.ms', 'devtools-detector'
   ];
 
   function isAdOrTracker(url) {
@@ -41,6 +43,113 @@ const String kWebviewSnifferScript = r'''
       window.flutter_inappwebview.callHandler('onStreamCaptured', payload);
     }
   }
+
+  // 0. 关键特性：强制解除 iframe 懒加载 (无头无视口滚动模式下保障播放器 iframe 必定加载)
+  function removeLazyLoading() {
+    try {
+      var lazyIframes = document.querySelectorAll('iframe[loading="lazy"]');
+      for (var i = 0; i < lazyIframes.length; i++) {
+        lazyIframes[i].removeAttribute('loading');
+      }
+    } catch (e) {}
+  }
+
+  // 从 iframe src 中递归解码被封装在 query 参数中的真实视频直链 (兼容常见套壳播放器与解析接口)
+  function decodeQueryVideoUrl(rawUrl) {
+    if (!rawUrl || typeof rawUrl !== 'string') return null;
+    try {
+      var decoded = decodeURIComponent(rawUrl);
+      var reg = /(https?:\/\/[^\s"'<>]+\.(?:m3u8|mp4|m4a|mp3)(?:\?[^\s"'<>]*)?)/i;
+      var match = decoded.match(reg);
+      if (match && match[1]) {
+        return match[1];
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function processIframe(iframe) {
+    if (!iframe) return;
+    try {
+      var src = iframe.getAttribute('src');
+      if (src) {
+        var videoUrl = decodeQueryVideoUrl(src);
+        if (videoUrl) {
+          reportStream(videoUrl);
+        }
+      }
+    } catch (e) {}
+  }
+
+  function processVideoNode(node) {
+    if (!node) return;
+    try {
+      if (node.nodeName === 'VIDEO') {
+        try { node.play(); } catch (e) {}
+        var src = node.getAttribute('src') || node.currentSrc;
+        if (src && !src.startsWith('blob:') && !isAdOrTracker(src)) {
+          reportStream(new URL(src, window.location.href).href);
+        }
+        var sources = node.getElementsByTagName('source');
+        for (var i = 0; i < sources.length; i++) {
+          var sSrc = sources[i].getAttribute('src');
+          if (sSrc && !sSrc.startsWith('blob:') && !isAdOrTracker(sSrc)) {
+            reportStream(new URL(sSrc, window.location.href).href);
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  // DOM 变化与节点插入深度监听 (覆盖动态渲染的 iframe 与 video 节点)
+  try {
+    var domObserver = new MutationObserver(function(mutations) {
+      for (var i = 0; i < mutations.length; i++) {
+        var m = mutations[i];
+        if (m.type === 'attributes') {
+          if (m.target.nodeName === 'IFRAME') {
+            processIframe(m.target);
+          } else if (m.target.nodeName === 'VIDEO' || m.target.nodeName === 'SOURCE') {
+            processVideoNode(m.target.nodeName === 'VIDEO' ? m.target : m.target.parentElement);
+          }
+        } else if (m.addedNodes) {
+          for (var j = 0; j < m.addedNodes.length; j++) {
+            var n = m.addedNodes[j];
+            if (n.nodeName === 'IFRAME') {
+              processIframe(n);
+            } else if (n.nodeName === 'VIDEO') {
+              processVideoNode(n);
+            } else if (n.querySelectorAll) {
+              var iframes = n.querySelectorAll('iframe');
+              for (var k = 0; k < iframes.length; k++) processIframe(iframes[k]);
+              var videos = n.querySelectorAll('video');
+              for (var v = 0; v < videos.length; v++) processVideoNode(videos[v]);
+            }
+          }
+        }
+      }
+    });
+
+    function initDomSensors() {
+      removeLazyLoading();
+      document.querySelectorAll('iframe').forEach(processIframe);
+      document.querySelectorAll('video').forEach(processVideoNode);
+      if (document.documentElement) {
+        domObserver.observe(document.documentElement, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['src', 'loading']
+        });
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initDomSensors);
+    } else {
+      initDomSensors();
+    }
+  } catch (e) {}
 
   // 1. 劫持 window.fetch
   if (window.fetch) {

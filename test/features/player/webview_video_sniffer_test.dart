@@ -33,10 +33,17 @@ void main() {
     expect(kWebviewSnifferScript, contains('new URL'));
     expect(kWebviewSnifferScript, contains('onStreamCaptured'));
 
-    // 4. 广告与追踪域名过滤
+    // 4. 广告、反调试与追踪域名过滤
     expect(kWebviewSnifferScript, contains('googleads'));
     expect(kWebviewSnifferScript, contains('prestrain'));
     expect(kWebviewSnifferScript, contains('doubleclick'));
+    expect(kWebviewSnifferScript, contains('devtools-detector'));
+
+    // 5. 关键增强：强制解除 iframe 懒加载、DOM 节点动态感知与套壳 query 参数解码
+    expect(kWebviewSnifferScript, contains('removeLazyLoading'));
+    expect(kWebviewSnifferScript, contains('loading="lazy"'));
+    expect(kWebviewSnifferScript, contains('MutationObserver'));
+    expect(kWebviewSnifferScript, contains('decodeQueryVideoUrl'));
   });
 
   test('验证 VideoSource 基类包含 preferWebviewSniff 属性定义', () {

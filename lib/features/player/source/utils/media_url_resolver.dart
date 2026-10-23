@@ -13,9 +13,9 @@ class MediaUrlResolver {
 
   static final Dio _internalDio = Dio(
     BaseOptions(
-      connectTimeout: const Duration(milliseconds: 1500),
-      receiveTimeout: const Duration(milliseconds: 1500),
-      sendTimeout: const Duration(milliseconds: 1500),
+      connectTimeout: const Duration(milliseconds: 500),
+      receiveTimeout: const Duration(milliseconds: 500),
+      sendTimeout: const Duration(milliseconds: 500),
     ),
   );
 
@@ -23,12 +23,13 @@ class MediaUrlResolver {
   ///
   /// 特殊处理说明：
   /// 1. 嗅探或原生解析捕获的直链很多是跳转跳板（如 apn.moedot.net），播放内核直接起播容易因跨域丢 Referer 或握手超时失败；
-  /// 2. 本方法通过轻量 HEAD 预检（通常 <100ms）提前跟随重定向，提取最终落地真实媒体 URL；
-  /// 3. 若未发生重定向或请求异常（如服务端禁用 HEAD 或超时），零风险平滑降级，原样返回入参；
+  /// 2. 【方案 A 通用轻量探测】：采用标准 GET 请求搭配 'Range': 'bytes=0-0' 探测，对跳板仅获取 302 响应头 (约 20~50ms)，
+  ///    对自建终点直链 (支持 Range) 瞬间返回 206 立即收工，彻底规避传统 HEAD 方法被流媒体服务端丢弃导致罚坐 1.5s 的缺陷；
+  /// 3. 若未发生重定向或请求异常（如连接超时），零风险平滑降级，原样返回入参；
   /// 4. 针对沃派网盘 (pan.wo.cn) 节点，自动对齐 'https://pan.wo.cn/' Referer，并在 Windows/Android 环境下解析绑定纯净 IPv4 绕开握手黑洞。
   static Future<SourceResolveResult> resolveRedirects(
     SourceResolveResult result, {
-    Duration timeout = const Duration(milliseconds: 1500),
+    Duration timeout = const Duration(milliseconds: 400),
     Dio? dioClient,
   }) async {
     final rawUrl = result.url.trim();
@@ -48,12 +49,13 @@ class MediaUrlResolver {
         hops++;
         final currentReferer = headers['Referer'] ?? headers['referer'] ?? '';
 
-        Response<void>? headRes;
+        Response<ResponseBody>? probeRes;
         try {
-          headRes = await client.get<void>(
+          probeRes = await client.get<ResponseBody>(
             currentUrl,
             options: Options(
-              method: 'HEAD',
+              method: 'GET',
+              responseType: ResponseType.stream,
               followRedirects: false,
               validateStatus: (s) =>
                   s != null &&
@@ -65,17 +67,18 @@ class MediaUrlResolver {
                       s < 400),
               headers: {
                 'User-Agent': ua,
+                'Range': 'bytes=0-0',
                 if (currentReferer.isNotEmpty) 'Referer': currentReferer,
               },
             ),
           ).timeout(timeout);
         } catch (e) {
-          // 当前单次预检失败（如目标节点不支持 HEAD、海外连接超时或 TLS 阻断），终止后续递归，保留当前可用地址
+          // 当前单次预检失败（如目标节点海外连接超时或 TLS 阻断），终止后续递归，保留当前可用地址
           debugPrint('[MediaUrlResolver] 预检请求中断/超时 ($currentUrl): $e');
           break;
         }
 
-        final status = headRes.statusCode ?? 200;
+        final status = probeRes.statusCode ?? 200;
         final isRedirect = status == 301 ||
             status == 302 ||
             status == 303 ||
@@ -83,11 +86,11 @@ class MediaUrlResolver {
             status == 308;
 
         if (!isRedirect) {
-          // 不再发生重定向，已到达最终媒体直链
+          // 不再发生重定向 (如返回 200 / 206)，已到达最终媒体直链，立即退出
           break;
         }
 
-        final location = headRes.headers.value('location');
+        final location = probeRes.headers.value('location');
         if (location == null || location.trim().isEmpty) {
           break;
         }

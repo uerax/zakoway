@@ -99,7 +99,7 @@ class CycaniSource extends VideoSource {
           .whereType<Map<String, dynamic>>()
           .map((item) => SourceSearchResult(
                 name: item['title']?.toString().trim() ?? '番剧 #${item['video_id']}',
-                url: '$_baseUrl/videos/${item['video_id']}',
+                url: '$_baseUrl/anime/${item['video_id']}',
                 cover: item['cover_url']?.toString(),
               ))
           .toList();
@@ -110,7 +110,7 @@ class CycaniSource extends VideoSource {
 
   @override
   Future<List<SourceChapterRoad>> chapters(String animeUrl) async {
-    final match = RegExp(r'/videos/(\d+)').firstMatch(animeUrl) ?? RegExp(r'(\d+)$').firstMatch(animeUrl);
+    final match = RegExp(r'/(?:anime|videos)/(\d+)').firstMatch(animeUrl) ?? RegExp(r'(\d+)$').firstMatch(animeUrl);
     if (match == null) throw Exception('无法从链接提取次元城番剧 ID: $animeUrl');
     final videoId = match.group(1)!;
 
@@ -150,13 +150,19 @@ class CycaniSource extends VideoSource {
           final epList = (secData?['data']?['list'] as List?) ?? [];
           if (epList.isEmpty) return;
 
-          final episodes = epList
-              .whereType<Map<String, dynamic>>()
-              .map((ep) => SourceEpisode(
-                    name: ep['title']?.toString().trim() ?? '第${ep['id']}集',
-                    url: '$_baseUrl/play/$videoId/${ep['id']}',
-                  ))
-              .toList();
+          // 特殊处理说明：次元城官方前端播放路由为纯顺序 /anime/:id/play/:epIndex，
+          // 直接根据数组自然下标顺序 1..N 构造真实合法的播放链接，并在 query 附带真实 sid 供原生解析秒开
+          final episodes = <SourceEpisode>[];
+          for (var i = 0; i < epList.length; i++) {
+            final ep = epList[i] as Map<String, dynamic>;
+            final epNum = i + 1;
+            final epTitle = ep['title']?.toString().trim();
+            final name = (epTitle != null && epTitle.isNotEmpty) ? epTitle : '第$epNum集';
+            episodes.add(SourceEpisode(
+              name: name,
+              url: '$_baseUrl/anime/$videoId/play/$epNum?sid=${ep['id']}',
+            ));
+          }
 
           roads.add(SourceChapterRoad(name: title, episodes: episodes));
         } catch (_) {}
@@ -168,9 +174,13 @@ class CycaniSource extends VideoSource {
 
   @override
   Future<SourceResolveResult> resolve(String episodeUrl) async {
-    final match = RegExp(r'/play/\d+/(\d+)').firstMatch(episodeUrl) ?? RegExp(r'(\d+)$').firstMatch(episodeUrl);
-    if (match == null) throw Exception('无法提取次元城选集 ID: $episodeUrl');
-    final sectionId = match.group(1)!;
+    final uri = Uri.tryParse(episodeUrl);
+    String? sectionId = uri?.queryParameters['sid'] ?? uri?.queryParameters['section_id'];
+    if (sectionId == null || sectionId.isEmpty) {
+      final match = RegExp(r'/play/\d+/(\d+)').firstMatch(episodeUrl) ?? RegExp(r'(\d+)$').firstMatch(episodeUrl);
+      if (match == null) throw Exception('无法提取次元城选集 ID: $episodeUrl');
+      sectionId = match.group(1)!;
+    }
 
     var token = await _ensureValidToken();
 

@@ -423,8 +423,10 @@ class NativeSourceRuntime {
             if (sniffed != null && sniffed.url.isNotEmpty) {
               result = sniffed;
             } else {
-              developer.log('[SourceRouting] ❌ [WebView 嗅探未命中] 嗅探未获取到视频地址');
-              throw Exception('WebView 嗅探未命中有效播放地址');
+              // 特殊处理说明：当无头浏览器嗅探未命中时 (如纯 API 源或前端待机播放器需要手势交互)，
+              // 自动平滑降级回退至本地源自身原生解析，避免直接中断抛错导致播放失败
+              developer.log('[SourceRouting] ⚠️ [WebView 嗅探未命中] 自动降级回退至本地源原生解析...');
+              result = await s.resolve(episodeUrl);
             }
           } else {
             try {
