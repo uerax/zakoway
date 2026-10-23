@@ -50,6 +50,9 @@ abstract interface class PlaybackController {
   /// 暂停
   Future<void> pause();
 
+  /// 停止当前媒体会话，终止解码与音频输出，并将渲染管线与状态重置回未出画的空闲等待态
+  Future<void> stop();
+
   /// 跳转至指定播放进度（内置末尾 500ms 截断保护）
   Future<void> seek(Duration target);
 

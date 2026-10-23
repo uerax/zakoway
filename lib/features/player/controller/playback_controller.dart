@@ -384,6 +384,36 @@ class ZakowayPlaybackController implements PlaybackController {
   }
 
   @override
+  Future<void> stop() async {
+    if (_disposed) return;
+
+    _timelineThrottleTimer?.cancel();
+    _timelineThrottleTimer = null;
+
+    _lastPosition = Duration.zero;
+    _lastDuration = Duration.zero;
+    _lastBuffer = Duration.zero;
+    timeline.value = const PlaybackTimelineState();
+
+    if (_fsm != null) {
+      await _fsm!.stop();
+    } else {
+      try {
+        await _backend?.pause();
+      } catch (_) {}
+
+      core.value = core.value.copyWith(
+        playing: false,
+        loading: true,
+        buffering: false,
+        completed: false,
+        firstFrameRendered: false,
+        clearError: true,
+      );
+    }
+  }
+
+  @override
   Future<void> seek(Duration target) async {
     if (_disposed) return;
     final dur = timeline.value.duration;

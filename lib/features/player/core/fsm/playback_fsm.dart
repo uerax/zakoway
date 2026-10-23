@@ -638,6 +638,41 @@ class PlaybackFsm {
     dispatch(const PauseRequestEvent());
   }
 
+  /// 幂等停止播放会话：取消在途定时器、暂停底层播放器并重置首帧出画状态与上下文为 idle
+  Future<void> stop() async {
+    if (_isDisposed) return;
+
+    _cancelPrebufferingTimers();
+    _resolvingTimeoutTimer?.cancel();
+    _resolvingTimeoutTimer = null;
+    _recoveryBackoffTimer?.cancel();
+    _recoveryBackoffTimer = null;
+    _rebufferingTimeoutTimer?.cancel();
+    _rebufferingTimeoutTimer = null;
+
+    _requestStartTime = null;
+    _recoveryStartTime = null;
+
+    try {
+      await backend.pause();
+    } catch (_) {}
+
+    _context = _context.copyWith(
+      attemptId: _context.attemptId + 1,
+      currentPosition: Duration.zero,
+      firstFrameRendered: false,
+      hasValidDimensions: false,
+      hasPositionAdvanced: false,
+    );
+
+    _state = PlaybackState.idle;
+    _lastFailure = null;
+    _failureNotifier.value = null;
+    _syncCoreNotifier();
+
+    _timelineNotifier.value = const PlaybackTimelineState();
+  }
+
   /// 精准寻道（内置末尾 500ms 截断保护）
   Future<void> seek(Duration position) async {
     if (_isDisposed) return;

@@ -138,6 +138,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
 
   List<SourceChapterRoad> _chapterRoads = [];
   int _selectedRoadIndex = 0;
+  int _episodeResolveToken = 0;
   String? _currentPlayingPageUrl;
 
   // 观看统计、15秒有效播放门槛与完播仲裁状态 (对齐 animaku usePlaybackStats 核心规范)
@@ -1022,6 +1023,10 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       return;
     }
 
+    // 立即停止当前播放并重置画面为加载态（瞬间覆盖清除上一集画面与声音）
+    _playbackController.stop().ignore();
+    final sessionToken = ++_episodeResolveToken;
+
     setState(() {
       _activeEpisode = slot.canonicalEp;
       _currentPlayingPageUrl = slot.pageUrl;
@@ -1057,6 +1062,9 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       final runtime = SourceBundleManager.instance.runtime;
       final result = await runtime.resolve(_selectedSourceId, slot.pageUrl);
 
+      // 若解析期间用户已切换至其他集数或组件已销毁，放弃旧请求响应
+      if (sessionToken != _episodeResolveToken || !mounted) return;
+
       if (result.url.isEmpty) {
         throw Exception('视频源未能生成有效媒体地址');
       }
@@ -1074,7 +1082,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         runtime.resolve(_selectedSourceId, slots[currentIdx + 1].pageUrl).ignore();
       }
     } catch (e) {
-      if (!mounted) return;
+      if (sessionToken != _episodeResolveToken || !mounted) return;
       setState(() {
         _resolveError = cleanErrorMessage(e, prefix: '播放解析失败');
       });
@@ -1105,6 +1113,10 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       _showHudToast('当前视频源暂无可播放分集，请切换线路或视频源');
       return;
     }
+
+    // 立即停止当前播放并重置画面为加载态（瞬间覆盖清除上一集画面与声音）
+    _playbackController.stop().ignore();
+    final sessionToken = ++_episodeResolveToken;
 
     final epIndex = ep - 1;
     final targetEp = episodes[epIndex];
@@ -1149,6 +1161,9 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       final runtime = SourceBundleManager.instance.runtime;
       final result = await runtime.resolve(_selectedSourceId, targetEp.url);
 
+      // 若解析期间用户已切换至其他集数或组件已销毁，放弃旧请求响应
+      if (sessionToken != _episodeResolveToken || !mounted) return;
+
       if (result.url.isEmpty) {
         throw Exception('视频源未能生成有效媒体地址');
       }
@@ -1164,7 +1179,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         runtime.resolve(_selectedSourceId, episodes[epIndex + 1].url).ignore();
       }
     } catch (e) {
-      if (!mounted) return;
+      if (sessionToken != _episodeResolveToken || !mounted) return;
       setState(() {
         _resolveError = cleanErrorMessage(e, prefix: '播放解析失败');
       });

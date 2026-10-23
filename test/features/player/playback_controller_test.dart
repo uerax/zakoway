@@ -138,6 +138,30 @@ void main() {
       expect(controller.core.value.loading, isTrue);
     });
 
+    test('控制器 stop 操作将播放器状态与时间线完全重置为空闲出画等待态', () async {
+      // 模拟先前的播放状态：正在播放、首帧已出画、有进度
+      controller.core.value = controller.core.value.copyWith(
+        playing: true,
+        loading: false,
+        firstFrameRendered: true,
+      );
+      controller.timeline.value = controller.timeline.value.copyWith(
+        position: const Duration(minutes: 12),
+        duration: const Duration(minutes: 24),
+      );
+
+      // 调用 stop
+      await controller.stop();
+
+      // 验证状态重置为 loading 态且首帧出画标记为 false，时间线清空
+      expect(controller.core.value.playing, isFalse);
+      expect(controller.core.value.loading, isTrue);
+      expect(controller.core.value.firstFrameRendered, isFalse);
+      expect(controller.core.value.hasError, isFalse);
+      expect(controller.timeline.value.position, equals(Duration.zero));
+      expect(controller.timeline.value.duration, equals(Duration.zero));
+    });
+
     test('控制器 dispose 后资源与定时器安全销毁', () async {
       await controller.dispose();
       expect(controller.isDisposed, isTrue);
