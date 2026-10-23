@@ -1024,8 +1024,9 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       return;
     }
 
-    // 立即停止当前播放并重置画面为加载态（瞬间覆盖清除上一集画面与声音）
+    // 立即停止当前播放并重置画面为加载态（瞬间覆盖清除上一集画面与声音），并归零重置上一集弹幕状态
     _playbackController.stop().ignore();
+    _danmakuController.reset();
     final sessionToken = ++_episodeResolveToken;
 
     setState(() {
@@ -1116,8 +1117,9 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       return;
     }
 
-    // 立即停止当前播放并重置画面为加载态（瞬间覆盖清除上一集画面与声音）
+    // 立即停止当前播放并重置画面为加载态（瞬间覆盖清除上一集画面与声音），并归零重置上一集弹幕状态
     _playbackController.stop().ignore();
+    _danmakuController.reset();
     final sessionToken = ++_episodeResolveToken;
 
     final epIndex = ep - 1;

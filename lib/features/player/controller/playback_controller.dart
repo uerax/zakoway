@@ -71,6 +71,12 @@ class ZakowayPlaybackController implements PlaybackController {
   final ValueNotifier<VideoController?> videoControllerNotifier =
       ValueNotifier<VideoController?>(null);
 
+  final StreamController<Duration> _seekStreamController =
+      StreamController<Duration>.broadcast();
+
+  @override
+  Stream<Duration> get onSeek => _seekStreamController.stream;
+
   final ValueNotifier<PlaybackFailure?> _failureNotifier =
       ValueNotifier<PlaybackFailure?>(null);
   final ValueNotifier<bool> _showLineSwitchPromptNotifier =
@@ -315,6 +321,7 @@ class ZakowayPlaybackController implements PlaybackController {
 
     // 起播/切集立即进入 loading 状态并撤销首帧遮罩标记，防止残影
     core.value = core.value.copyWith(
+      playing: false,
       loading: true,
       firstFrameRendered: false,
       clearError: true,
@@ -446,6 +453,8 @@ class ZakowayPlaybackController implements PlaybackController {
         completed: false,
       );
     }
+
+    _seekStreamController.add(targetPosition);
 
     if (_fsm != null) {
       await _fsm!.seek(targetPosition);
@@ -629,6 +638,7 @@ class ZakowayPlaybackController implements PlaybackController {
     }
 
     videoControllerNotifier.value = null;
+    unawaited(_seekStreamController.close());
 
     if (_backend != null) {
       // 遵循 TC-14 与 11 号文档：非阻塞脱钩释放底层 C 实例

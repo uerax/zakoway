@@ -64,6 +64,14 @@ void main() {
       expect(danmaku.playing, isTrue);
     });
 
+    test('播放器 seek 显式联动弹幕 seek', () async {
+      Duration? seekTarget;
+      danmaku.attach(_MockDanmakuListener(onSeek: (pos) => seekTarget = pos));
+
+      await playback.seek(const Duration(seconds: 45));
+      expect(seekTarget, equals(const Duration(seconds: 45)));
+    });
+
     test('bridge.dispose() 后彻底切断同步，即便 playback 后续状态突变也绝不调用 danmaku', () async {
       // 先确认正常联动
       playback.core.value = playback.core.value.copyWith(
@@ -94,4 +102,39 @@ void main() {
       expect(true, isTrue);
     });
   });
+}
+
+class _MockDanmakuListener implements DanmakuListener {
+  _MockDanmakuListener({this.onSeek});
+
+  final void Function(Duration pos)? onSeek;
+
+  @override
+  void onDanmakuTimeSync(Duration position) {}
+
+  @override
+  void onDanmakuSeek(Duration position) {
+    onSeek?.call(position);
+  }
+
+  @override
+  void onDanmakuPlaybackRateChanged(double rate) {}
+
+  @override
+  void onDanmakuItemsChanged() {}
+
+  @override
+  void onDanmakuInject(DanmakuItem item) {}
+
+  @override
+  void onDanmakuSettingsChanged(DanmakuSettings next, DanmakuSettings previous) {}
+
+  @override
+  void onDanmakuPause() {}
+
+  @override
+  void onDanmakuResume() {}
+
+  @override
+  void onDanmakuReset() {}
 }

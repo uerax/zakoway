@@ -23,10 +23,9 @@ const double _kScrollBaseDurationMs = 7500.0;
 /// 分级时钟漂移治理模型 (Tiered Drift Policy)：
 /// 1. 正负对称死区 (|drift| <= 40ms)：吸收 24/30fps 视频解码步进 (约 33~42ms) 与硬件采样抖动，
 ///    完全不干预，保证弹幕匀速单调前进，杜绝微小拉扯抖动；
-/// 2. 平滑微调 (40ms < |drift| <= 600ms)：采用一阶 EMA 低通滤波 (alpha = 0.15)，
+/// 2. 平滑微调 (|drift| > 40ms)：采用一阶 EMA 低通滤波 (alpha = 0.15)，
 ///    正负双向温和吸收漂移，数秒内平稳追平进度且消除向后快退死锁；
-/// 3. 硬寻道 (|drift| > 600ms)：超过 600ms 视为 Seek 跳转，触发时钟重置、清屏与重定位游标。
-const double _kSeekThresholdMs = 600.0;
+/// 3. 用户显式 Seek 跳转：由播放器明确的 onDanmakuSeek 事件触发原子清屏重定位，彻底废除隐式阈值猜测。
 const double _kSyncDeadbandMs = 40.0;
 const double _kSyncEmaAlpha = 0.15;
 
@@ -1067,50 +1066,48 @@ class _DanmakuViewState extends State<DanmakuView>
   // ==========================
 
   @override
+  void onDanmakuSeek(Duration position) {
+    final positionMs = position.inMilliseconds.toDouble();
+    _mediaClockMs = positionMs;
+    _seekDebounceTimer?.cancel();
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final elapsedSinceLastSeek = now - _lastSeekTimeMs;
+
+    if (elapsedSinceLastSeek > 300) {
+      // 单次跳转：前沿立即执行，零延迟原子重建，彻底消除 200ms 的空白与闪烁
+      _lastSeekTimeMs = now;
+      _rebuildScreenAt(_mediaClockMs, reason: 'Seek');
+    } else {
+      // 连续高频拖拽中：清屏防拉扯，防抖 180ms 稳定后更新最终位置
+      _clearActive();
+      _repaintNotifier.value++;
+      _seekDebounceTimer = Timer(const Duration(milliseconds: 180), () {
+        _seekDebounceTimer = null;
+        if (!mounted || !_hasViewport) return;
+        _lastSeekTimeMs = DateTime.now().millisecondsSinceEpoch;
+        _rebuildScreenAt(_mediaClockMs, reason: 'Seek');
+      });
+    }
+  }
+
+  @override
   void onDanmakuTimeSync(Duration position) {
     final positionMs = position.inMilliseconds.toDouble();
     final drift = positionMs - _mediaClockMs;
 
-    // 1. 用户 Seek 大寻道 (|drift| > 600ms)：
-    // 前沿立即执行 + 尾沿防抖 (Leading-edge Throttle + Trailing-edge Debounce)：
-    // - 单次跳转（点击进度条 / 键盘按键快进）：0ms 立即原子重建，杜绝清屏空屏与闪烁！
-    // - 连续快速拖拽：密集拖动期间清屏防错位，稳定 180ms 后完成最终重建。
-    if (drift.abs() > _kSeekThresholdMs) {
-      _mediaClockMs = positionMs;
-      _seekDebounceTimer?.cancel();
-
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final elapsedSinceLastSeek = now - _lastSeekTimeMs;
-
-      if (elapsedSinceLastSeek > 300) {
-        // 单次跳转：前沿立即执行，零延迟原子重建，彻底消除 200ms 的空白与闪烁
-        _lastSeekTimeMs = now;
-        _rebuildScreenAt(_mediaClockMs, reason: 'Seek');
-      } else {
-        // 连续高频拖拽中：清屏防拉扯，防抖 180ms 稳定后更新最终位置
-        _clearActive();
-        _repaintNotifier.value++;
-        _seekDebounceTimer = Timer(const Duration(milliseconds: 180), () {
-          _seekDebounceTimer = null;
-          if (!mounted || !_hasViewport) return;
-          _lastSeekTimeMs = DateTime.now().millisecondsSinceEpoch;
-          _rebuildScreenAt(_mediaClockMs, reason: 'Seek');
-        });
-      }
-      return;
-    }
-
-    // 2. 正负对称死区 (|drift| <= 40ms)：
+    // 1. 正负对称死区 (|drift| <= 40ms)：
     // 吸收 24/30fps 解码步进与硬件采样抖动，不干预，保持绝对匀速
     if (drift.abs() <= _kSyncDeadbandMs) return;
 
-    // 3. 特殊处理说明：
+    // 2. 特殊处理说明：
     // 飞行时钟解耦核心点：
-    // 一阶低通纠偏 (40ms < |drift| <= 600ms) 仅温和调整媒体发射时钟 _mediaClockMs，
-    // 绝对不触碰飞行渲染时钟 _motionClockMs！
-    // 使得屏幕上正在飞行的全部在场弹幕的物理运动保持 100% 绝对匀速连续，单帧零跳变；
-    // 仅温和微调后续新弹幕的入场时刻判定。
+    // 常规时间同步与纠偏（包含偶发网络卡顿导致的时间滞后）仅温和调整媒体发射时钟 _mediaClockMs 与发射游标，
+    // 绝对不触碰飞行渲染时钟 _motionClockMs，更绝不触发销毁在屏弹幕的清屏重排！
+    // 使得屏幕上正在飞行的全部在场弹幕的物理运动保持 100% 绝对匀速连续，单帧零跳变，
+    // 彻底消除网络差卡顿导致误判 Seek 产生的反复拉扯与闪烁。
     _mediaClockMs += drift * _kSyncEmaAlpha;
+    _cursor = _lowerBound(_controller.items, _mediaClockMs);
   }
 
   @override

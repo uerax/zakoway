@@ -8,8 +8,11 @@ import 'package:zakoway/features/player/services/player_preferences_service.dart
 
 /// 弹幕事件监听接口，由视图层 DanmakuView 实现并绑定
 abstract interface class DanmakuListener {
-  /// 时间轴同步（跳进度或周期性矫正）
+  /// 时间轴平滑同步（常规连续位置对齐，不触发清屏）
   void onDanmakuTimeSync(Duration position);
+
+  /// 显式寻道跳转（用户拖动进度条、快进快退触发的大跨步跳转，执行清屏与重排）
+  void onDanmakuSeek(Duration position);
 
   /// 弹幕播放倍速改变
   void onDanmakuPlaybackRateChanged(double rate);
@@ -183,6 +186,16 @@ class DanmakuController extends ChangeNotifier with WidgetsBindingObserver {
       ..reset()
       ..start();
     _listener?.onDanmakuTimeSync(position);
+  }
+
+  /// 显式用户寻道跳转（触发清屏重定位）
+  void seek(Duration position) {
+    if (_disposed) return;
+    _lastPosition = position;
+    _syncStopwatch
+      ..reset()
+      ..start();
+    _listener?.onDanmakuSeek(position);
   }
 
   /// 播放倍速联动

@@ -141,7 +141,13 @@ class PlaybackFsm {
         if (_isDisposed) return;
         if (!_gate.canPassPosition(event)) return;
 
-        final isAdvanced = event.data > Duration.zero;
+        // 特殊处理说明：
+        // 首帧播放位移推进判定：
+        // 针对断点续播 (initialResumePosition > 0)，底层刚完成定位时上报的初始静态位置并不代表物理出画前进；
+        // 必须相对于起始位置产生实质位移前进 (event.data > initialPos)，才视为产生有效播放步进，
+        // 彻底杜绝续播起播时将静态定位值误判为首帧出画导致弹幕在黑屏加载遮罩期提前偷跑。
+        final initialPos = _context.initialResumePosition ?? Duration.zero;
+        final isAdvanced = event.data > initialPos;
         if (isAdvanced) {
           _context = _context.copyWith(
             currentPosition: event.data,

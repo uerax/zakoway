@@ -604,13 +604,49 @@ void main() {
       controller.syncTime(const Duration(milliseconds: 5000));
       await tester.pump(const Duration(milliseconds: 350));
 
-      // 单次向后大跳转 1 秒 (5000ms -> 4000ms, drift = -1000ms > 600ms Seek 阈值)
-      controller.syncTime(const Duration(milliseconds: 4000));
+      // 显式 Seek 向后大跳转 1 秒 (5000ms -> 4000ms)
+      controller.seek(const Duration(milliseconds: 4000));
       // 0ms 立即原子完成重建，下一帧直接可见，无需等待 200ms
       await tester.pump(const Duration(milliseconds: 16));
 
       expect(find.byType(DanmakuView), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('常规网络卡顿与时间同步测试：即便时间滞后超过600ms，非Seek事件绝不清屏拉扯在场弹幕', (tester) async {
+      final controller = DanmakuController();
+      controller.loadItems([
+        DanmakuItem(text: '飞行的测试弹幕', timeMs: 0),
+      ]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 600,
+              child: DanmakuView(controller: controller),
+            ),
+          ),
+        ),
+      );
+
+      controller.resume();
+      // 弹幕入场并飞行中
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final state = tester.state(find.byType(DanmakuView)) as dynamic;
+      expect(state.activeEntriesForTest.length, equals(1));
+      final entryBefore = state.activeEntriesForTest.first;
+
+      // 模拟网络卡顿1秒后，播放器送来停滞点时间戳（时间漂移 drift 绝对值达 1000ms）
+      // 由于这是常规 syncTime（而非用户显式 Seek），绝不可清空在场弹幕！
+      controller.syncTime(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 16));
+
+      // 在场弹幕仍然平滑飞行，未被清空或销毁
+      expect(state.activeEntriesForTest.length, equals(1));
+      expect(identical(state.activeEntriesForTest.first, entryBefore), isTrue);
     });
 
     testWidgets('连续密集 Seek 拖拽：后沿防抖稳定 180ms 后完成最终重建', (tester) async {
@@ -636,14 +672,14 @@ void main() {
       controller.resume();
       await tester.pump(const Duration(milliseconds: 350));
 
-      // 模拟第 1 次 Seek（前沿触发）
-      controller.syncTime(const Duration(milliseconds: 2000));
+      // 模拟第 1 次显式 Seek（前沿触发）
+      controller.seek(const Duration(milliseconds: 2000));
       await tester.pump(const Duration(milliseconds: 50));
 
       // 紧接着连续快速 Seek 拖拽（间隔 < 300ms）
-      controller.syncTime(const Duration(milliseconds: 2500));
+      controller.seek(const Duration(milliseconds: 2500));
       await tester.pump(const Duration(milliseconds: 50));
-      controller.syncTime(const Duration(milliseconds: 3000));
+      controller.seek(const Duration(milliseconds: 3000));
       await tester.pump(const Duration(milliseconds: 50));
 
       // 拖拽停止后，等待 180ms 防抖结束 (50ms + 150ms = 200ms > 180ms)
