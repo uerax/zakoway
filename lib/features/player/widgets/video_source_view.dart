@@ -33,17 +33,17 @@ class VideoSourceItem {
 List<VideoSourceItem> getDefaultSourceItems() {
   const directMap = {
     'mifun': true,
-    'sorani': true,
-    'gugu': true,
+    'sorani': false,
+    'gugu': false,
     'lzizy': true,
     'animoe': true,
     'tvtfun': true,
     'xifan-next': false,
-    'cycani': false,
-    'girigiri': false,
+    'cycani': true,
+    'girigiri': true,
     'moonci': false,
-    'mxdm': false,
-    'anime1': false,
+    'mxdm': true,
+    'anime1': true,
     'omofun': false,
     'libvio': false,
   };
@@ -374,7 +374,7 @@ class _VideoSourceViewState extends State<VideoSourceView> {
           ],
         ),
 
-        // 2.5 分类过滤胶囊 (全部 / ⚡ 可直连 / 🌐 需代理)
+        // 2.5 分类过滤胶囊 (全部 / ⚡ 直连 / 🌐 海外)
         Container(
           height: 34,
           margin: const EdgeInsets.only(top: 10, bottom: 12),
@@ -400,7 +400,7 @@ class _VideoSourceViewState extends State<VideoSourceView> {
               _buildFilterTab(
                 context: context,
                 category: SourceFilterCategory.proxy,
-                label: '代理 $proxyCount',
+                label: '海外 $proxyCount',
                 icon: Icons.public_rounded,
               ),
             ],

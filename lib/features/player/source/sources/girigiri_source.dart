@@ -29,7 +29,7 @@ class GirigiriSource extends VideoSource {
   String get description => '1080P · Cloudflare CDN 原画直连 (老番优先)';
 
   @override
-  bool get isDirect => false;
+  bool get isDirect => true;
 
   /// 格式化 girigiri 的线路代号为用户友好的展示标签
   String _formatRoadName(String rawName, int index) {

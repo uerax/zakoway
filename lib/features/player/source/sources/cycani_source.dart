@@ -31,7 +31,7 @@ class CycaniSource extends VideoSource {
   String get description => '1080P · 纯净 REST API 多线路 (Cloudflare CDN 原画)';
 
   @override
-  bool get isDirect => false;
+  bool get isDirect => true;
 
   Map<String, String> _baseHeaders([String? token]) {
     final t = token ?? _cachedToken;

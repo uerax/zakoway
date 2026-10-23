@@ -26,7 +26,7 @@ class MxdmSource extends VideoSource {
   String get description => 'HLS · 备用多线路模板解析';
 
   @override
-  bool get isDirect => false;
+  bool get isDirect => true;
 
   Map<String, String> _headers([String? referer]) {
     final h = <String, String>{
