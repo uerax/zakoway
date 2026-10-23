@@ -286,16 +286,6 @@ class BackendEventGate {
       }
     }
 
-    // 路径比对（若错误携带目标 cleanUrl，且属于初始目标主机，比对 URL 路径是否与当前代际一致）
-    if (isTargetHost && error.cleanUrl != null && error.cleanUrl!.isNotEmpty) {
-      final errorUri = Uri.tryParse(error.cleanUrl!);
-      if (errorUri != null && errorUri.path.isNotEmpty && _targetUri!.path.isNotEmpty) {
-        if (errorUri.path != _targetUri!.path) {
-          return GatedErrorDisposition.discard;
-        }
-      }
-    }
-
     return GatedErrorDisposition.passFatal;
   }
 

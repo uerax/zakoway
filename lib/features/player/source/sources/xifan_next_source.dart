@@ -1,9 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:zakoway/core/network/bangumi_data_disk_cache_manager.dart';
 import '../models/source_models.dart';
-import '../utils/media_url_resolver.dart';
 import 'video_source.dart';
 
 const String _kDefaultUserAgent =
@@ -723,22 +723,116 @@ class XifanNextSource extends VideoSource {
     final referer = isWoPan ? 'https://pan.wo.cn/' : 'https://next.xifanacg.com/';
     final format = playUrl.contains('.m3u8') ? 'hls' : 'mp4';
 
-    // 针对 302 节点进行轻量展开与规范化
-    final resolved = await MediaUrlResolver.resolveRedirects(
-      SourceResolveResult(
-        url: playUrl,
-        format: format,
+    // 针对沃派网盘 302 节点进行轻量展开与纯净 IPv4 锁定
+    final optimized = await _optimizeMediaUrl(playUrl, referer);
+
+    _log('解析完成: url=${optimized.url}, 格式: $format, Referer: ${optimized.headers['Referer'] ?? "none"}');
+
+    return SourceResolveResult(
+      url: optimized.url,
+      headers: optimized.headers,
+      format: format,
+    );
+  }
+
+  /// 沃派网盘 (pan.wo.cn / moedot.net) 302 预检展开与纯净 IPv4 锁定
+  ///
+  /// 特殊处理说明：
+  /// 1. 沃派网盘直链 (如 apn.moedot.net) 在被播放器请求时会产生 302 重定向至 bjdownload.pan.wo.cn:30443；
+  /// 2. 该 30443 端口在部分 IPv4 节点和双栈 IPv6 下存在 TLS 握手立即断开异常（-0x4e / EOF）。若直接由底层 FFmpeg 跟随，
+  ///    FFmpeg 内部会在同一死节点连续失败 3 次抛出 Failed to open，迫使上层必须经过 1-4 次整机起播重试；
+  /// 3. 此处在稀饭适配器私有范围内通过轻量 HEAD 预检（约 150~200ms）提前提取 302 真实的 Location，
+  ///    并解析过滤出纯净 IPv4 地址，将 URL Host 替换为该 IP 并携带 'Host: domain:port' 和 'Referer' 头，
+  ///    直接绕过 302 重定向延迟与握手黑洞节点，实现一次秒级起播；
+  /// 4. 严格范围圈禁：非沃派节点或已是 m3u8 的流直接 0ms 瞬间返回，绝不执行无谓的网络预检。
+  Future<({String url, Map<String, String> headers})> _optimizeMediaUrl(
+    String rawUrl,
+    String referer,
+  ) async {
+    final isWoPan = rawUrl.contains('pan.wo.cn') ||
+        rawUrl.contains('moedot.net') ||
+        rawUrl.contains('apn.moedot.net');
+    if (!isWoPan || rawUrl.contains('.m3u8')) {
+      return (
+        url: rawUrl,
         headers: {
           'User-Agent': _kDefaultUserAgent,
           'Referer': referer,
         },
-      ),
-      dioClient: _dio,
-    );
+      );
+    }
 
-    _log('解析完成: url=${resolved.url}, 格式: ${resolved.format}, Referer: ${resolved.headers['Referer'] ?? "none"}');
+    try {
+      // 1. 通过轻量 HEAD 预检提前跟随 302 探测最终真实直链，耗时仅几十毫秒
+      final headRes = await _dio.get<void>(
+        rawUrl,
+        options: Options(
+          method: 'HEAD',
+          followRedirects: false,
+          validateStatus: (s) => s != null && (s == 301 || s == 302 || s < 400),
+          headers: {
+            'User-Agent': _kDefaultUserAgent,
+            'Referer': referer,
+          },
+          sendTimeout: const Duration(seconds: 2),
+          receiveTimeout: const Duration(seconds: 2),
+        ),
+      );
 
-    return resolved;
+      var finalUrl = rawUrl;
+      final location = headRes.headers.value('location');
+      if (location != null && location.isNotEmpty) {
+        finalUrl = location.startsWith('http')
+            ? location
+            : Uri.parse(rawUrl).resolve(location).toString();
+        _log('HEAD 预检解析出 302 真实下载直链: $finalUrl');
+      }
+
+      final uri = Uri.parse(finalUrl);
+      final host = uri.host;
+
+      // 2. 针对存在节点握手黑洞的 pan.wo.cn 节点，主动解析并绑定纯净 IPv4 地址
+      if (host.contains('pan.wo.cn')) {
+        final ipv4s = await InternetAddress.lookup(
+          host,
+          type: InternetAddressType.IPv4,
+        ).timeout(const Duration(milliseconds: 1500), onTimeout: () => []);
+
+        if (ipv4s.isNotEmpty) {
+          // 采用轮询分散策略避免单点瞬时故障
+          final targetIp = ipv4s[DateTime.now().second % ipv4s.length].address;
+          final hostHeader = uri.hasPort ? '$host:${uri.port}' : host;
+          final optimizedUri = uri.replace(host: targetIp);
+          _log('成功将沃云域名 $host 锁定为 IPv4 节点 $targetIp: $optimizedUri');
+
+          return (
+            url: optimizedUri.toString(),
+            headers: {
+              'User-Agent': _kDefaultUserAgent,
+              'Referer': referer,
+              'Host': hostHeader,
+            },
+          );
+        }
+      }
+
+      return (
+        url: finalUrl,
+        headers: {
+          'User-Agent': _kDefaultUserAgent,
+          'Referer': referer,
+        },
+      );
+    } catch (e) {
+      _log('直链预检优化异常，平滑降级使用原地址: $e');
+      return (
+        url: rawUrl,
+        headers: {
+          'User-Agent': _kDefaultUserAgent,
+          'Referer': referer,
+        },
+      );
+    }
   }
 
   @override

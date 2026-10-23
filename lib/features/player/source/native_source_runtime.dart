@@ -427,22 +427,7 @@ class NativeSourceRuntime {
               throw Exception('WebView 嗅探未命中有效播放地址');
             }
           } else {
-            try {
-              result = await s.resolve(episodeUrl);
-            } catch (nativeErr) {
-              // 自动容灾降级：若原生 Dart 解析失败（如网站反爬或结构变更），且系统支持 WebView，自动激活无头 WebView 嗅探自愈
-              if (WebviewVideoSniffer.isPlatformSupported) {
-                developer.log('[SourceRouting] ⚠️ 原生解析异常 ($nativeErr)，自动启动系统级无头 WebView 嗅探自愈...');
-                final sniffed = await WebviewVideoSniffer.instance.sniff(episodeUrl);
-                if (sniffed != null && sniffed.url.isNotEmpty) {
-                  result = sniffed;
-                } else {
-                  rethrow;
-                }
-              } else {
-                rethrow;
-              }
-            }
+            result = await s.resolve(episodeUrl);
           }
         }
 

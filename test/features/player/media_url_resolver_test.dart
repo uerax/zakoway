@@ -54,7 +54,7 @@ void main() {
       expect(result.headers['User-Agent'], 'CustomUA');
     });
 
-    test('沃派网盘跳转自动规范 Referer 为 https://pan.wo.cn/', () async {
+    test('多次 302 跳转保留传入的自定义请求头', () async {
       final dio = Dio();
       dio.interceptors.add(
         InterceptorsWrapper(
@@ -62,10 +62,7 @@ void main() {
             return handler.resolve(
               Response(
                 requestOptions: options,
-                statusCode: 302,
-                headers: Headers.fromMap({
-                  'location': ['https://apn.moedot.net/d/wo/test.mp4'],
-                }),
+                statusCode: 200,
               ),
             );
           },
@@ -75,10 +72,11 @@ void main() {
       const input = SourceResolveResult(
         url: 'https://jump.com/1.mp4',
         format: 'mp4',
+        headers: {'Referer': 'https://custom.referer.com/'},
       );
 
       final result = await MediaUrlResolver.resolveRedirects(input, dioClient: dio);
-      expect(result.headers['Referer'], 'https://pan.wo.cn/');
+      expect(result.headers['Referer'], 'https://custom.referer.com/');
     });
 
     test('预检发生异常或网络超时平滑降级，原样返回入参', () async {

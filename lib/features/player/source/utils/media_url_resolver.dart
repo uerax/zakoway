@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:zakoway/features/player/source/models/source_models.dart';
@@ -29,7 +28,7 @@ class MediaUrlResolver {
   /// 4. 针对沃派网盘 (pan.wo.cn) 节点，自动对齐 'https://pan.wo.cn/' Referer，并在 Windows/Android 环境下解析绑定纯净 IPv4 绕开握手黑洞。
   static Future<SourceResolveResult> resolveRedirects(
     SourceResolveResult result, {
-    Duration timeout = const Duration(milliseconds: 400),
+    Duration timeout = const Duration(milliseconds: 1500),
     Dio? dioClient,
   }) async {
     final rawUrl = result.url.trim();
@@ -86,7 +85,10 @@ class MediaUrlResolver {
             status == 308;
 
         if (!isRedirect) {
-          // 不再发生重定向 (如返回 200 / 206)，已到达最终媒体直链，立即退出
+          // 不再发生重定向 (如返回 200 / 206)，已到达最终媒体直链，关闭流后立即退出
+          try {
+            probeRes.data?.stream.listen((_) {}).cancel().ignore();
+          } catch (_) {}
           break;
         }
 
@@ -101,37 +103,6 @@ class MediaUrlResolver {
 
         debugPrint('[MediaUrlResolver] 探测到 302 重定向: $currentUrl -> $nextUrl');
         currentUrl = nextUrl;
-
-        // 特殊处理说明：沃派网盘必须携带官方规范 Referer，且跳转后即为最终下载端口，无需二次探测
-        if (currentUrl.contains('pan.wo.cn') ||
-            currentUrl.contains('moedot.net') ||
-            currentUrl.contains('apn.moedot.net')) {
-          headers['Referer'] = 'https://pan.wo.cn/';
-          break;
-        }
-      }
-
-      // 针对沃派网盘在 Windows/Android 环境下的 IPv4 绑定优化 (规避 30443 端口 TLS EOF 握手黑洞)
-      final uri = Uri.tryParse(currentUrl);
-      if (uri != null &&
-          uri.host.contains('pan.wo.cn') &&
-          !kIsWeb &&
-          (Platform.isWindows || Platform.isAndroid)) {
-        try {
-          final ipv4s = await InternetAddress.lookup(
-            uri.host,
-            type: InternetAddressType.IPv4,
-          ).timeout(const Duration(milliseconds: 1500), onTimeout: () => []);
-
-          if (ipv4s.isNotEmpty) {
-            final targetIp = ipv4s[DateTime.now().second % ipv4s.length].address;
-            final hostHeader = uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
-            final optimizedUri = uri.replace(host: targetIp);
-            headers['Host'] = hostHeader;
-            currentUrl = optimizedUri.toString();
-            debugPrint('[MediaUrlResolver] 沃云节点绑定纯净 IPv4: $currentUrl');
-          }
-        } catch (_) {}
       }
 
       final lower = currentUrl.toLowerCase();

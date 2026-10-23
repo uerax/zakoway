@@ -104,17 +104,7 @@ class WebviewVideoSniffer {
           final urlStr = request.url.toString();
           if (urlStr.isEmpty) return null;
 
-          // 1. 0ms 秒拒静态样式、图片、字体、埋点广告
-          if (_shouldBlockResource(urlStr)) {
-            return WebResourceResponse(
-              contentType: 'text/plain',
-              statusCode: 200,
-              reasonPhrase: 'OK',
-              data: Uint8List(0),
-            );
-          }
-
-          // 2. 深度嗅探：检查是否为视频媒体直链 (网络层捕获)
+          // 深度嗅探：检查是否为视频媒体直链 (网络层捕获)
           // 特殊处理说明：这里捕获后严禁返回 204 No Content，必须返回 null 允许浏览器网络层正常请求与跟随 302 重定向；
           // 嗅探完成后由生命周期回调导向 about:blank 自然中断在途连接，避免切断重定向链路。
           if (_isMediaStreamUrl(urlStr)) {
@@ -136,6 +126,9 @@ class WebviewVideoSniffer {
             );
           }
 
+          // 特殊处理说明：统一返回 null，交由系统网络栈原生处理。
+          // 严禁在此构造并返回 WebResourceResponse(data: Uint8List(0))，Windows WebView2 的 C++ 插件
+          // 在处理 0 长度数据流时会发生访问冲突 (0xC0000005) 导致进程直接闪退。
           return null;
         },
         onReceivedError: (controller, request, error) {
@@ -153,43 +146,28 @@ class WebviewVideoSniffer {
     }
   }
 
-  Future<void> _onCaptured(
+  void _onCaptured(
     String streamUrl, {
     required String format,
     required String referer,
     required String userAgent,
     required String source,
-  }) async {
+  }) {
     if (streamUrl.isEmpty) return;
     final completer = _activeCompleter;
     if (completer != null && !completer.isCompleted) {
       debugPrint('[WebviewSniffer] [$source] 成功捕获直链 (Session: $_activeSessionId): $streamUrl');
 
-      // 特殊处理说明：从 WebView 的 CookieManager 中提取当前源与媒体的 Cookie，
-      // 许多第三方源或分段切片强制校验 Cookie，缺少 Cookie 会直接返回 403 Forbidden。
-      String? cookieHeader;
-      try {
-        final cookies = await CookieManager.instance().getCookies(
-          url: WebUri(streamUrl.startsWith('http') ? streamUrl : _activePageUrl),
-        );
-        if (cookies.isNotEmpty) {
-          cookieHeader = cookies.map((c) => '${c.name}=${c.value}').join('; ');
-        }
-      } catch (e) {
-        debugPrint('[WebviewSniffer] 提取 Cookie 异常 (忽略并继续): $e');
-      }
-
-      if (!completer.isCompleted) {
-        completer.complete(SourceResolveResult(
-          url: streamUrl,
-          format: format,
-          headers: {
-            'User-Agent': userAgent,
-            if (referer.isNotEmpty) 'Referer': referer,
-            if (cookieHeader != null && cookieHeader.isNotEmpty) 'Cookie': cookieHeader,
-          },
-        ));
-      }
+      // 特殊处理说明：严禁在 shouldInterceptRequest 的 COM 事件回调链路中同步调用 CookieManager，
+      // 否则会引发 Windows WebView2 COM 接口重入死锁 (Access Violation 0xC0000005) 导致应用瞬间闪退。
+      completer.complete(SourceResolveResult(
+        url: streamUrl,
+        format: format,
+        headers: {
+          'User-Agent': userAgent,
+          if (referer.isNotEmpty) 'Referer': referer,
+        },
+      ));
     }
   }
 

@@ -299,6 +299,7 @@ void main() {
       expect(find.text('亮度调节'), findsOneWidget);
 
       // 点击切换超分辨率至效率档
+      await tester.scrollUntilVisible(find.text('效率档'), 100);
       await tester.tap(find.text('效率档'));
       await tester.pumpAndSettle();
       expect(controller.core.value.superResolution, equals(SuperResolutionMode.efficiency));
