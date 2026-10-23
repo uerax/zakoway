@@ -118,6 +118,7 @@ class VideoSourceView extends StatefulWidget {
     super.key,
     required this.sources,
     required this.selectedSourceId,
+    this.playingSourceId,
     required this.onSourceSelected,
     this.onSelectHit,
     this.aggregator,
@@ -129,6 +130,7 @@ class VideoSourceView extends StatefulWidget {
 
   final List<VideoSourceItem> sources;
   final String selectedSourceId;
+  final String? playingSourceId;
   final ValueChanged<VideoSourceItem> onSourceSelected;
   final SourceHitSelectCallback? onSelectHit;
   final SourceAggregator? aggregator;
@@ -424,6 +426,7 @@ class _VideoSourceViewState extends State<VideoSourceView> {
         // 3. 视频源卡片列表 (含硬件加速丝滑展开抽屉 Drawer)
         ...filteredSources.map((src) {
           final isSelected = src.id == widget.selectedSourceId;
+          final isPlaying = widget.playingSourceId != null && src.id == widget.playingSourceId;
           final state = probeStates[src.id] ??
               AggregatedSourceState(
                 meta: SourceMeta(id: src.id, name: src.name, version: '1.0.0'),
@@ -461,11 +464,11 @@ class _VideoSourceViewState extends State<VideoSourceView> {
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
-                  color: Colors.green,
+                  color: isPlaying ? primaryColor : Colors.green,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.green.withValues(alpha: 0.6),
+                      color: (isPlaying ? primaryColor : Colors.green).withValues(alpha: 0.6),
                       blurRadius: 4,
                       spreadRadius: 1,
                     )
@@ -474,9 +477,11 @@ class _VideoSourceViewState extends State<VideoSourceView> {
               );
               pillButton = _buildPill(
                 context: context,
-                label: isSelected ? '在播' : '切换',
-                color: isSelected ? primaryColor : Colors.green,
-                isFilled: isSelected,
+                label: isPlaying ? '在播' : (isSelected ? '当前查看' : '切换'),
+                color: isPlaying
+                    ? primaryColor
+                    : (isSelected ? primaryColor.withValues(alpha: 0.85) : Colors.green),
+                isFilled: isPlaying || isSelected,
                 onTap: () {
                   widget.onUserAction?.call();
                   if (isSelected) {
@@ -571,7 +576,9 @@ class _VideoSourceViewState extends State<VideoSourceView> {
             statusDescriptionColor = primaryColor;
           } else if (state.status == SourceProbeStatus.ready) {
             statusDescription = matchedTitle.isNotEmpty ? matchedTitle : '已命中番剧条目';
-            statusDescriptionColor = isSelected ? primaryColor : Colors.green;
+            statusDescriptionColor = isPlaying
+                ? primaryColor
+                : (isSelected ? primaryColor.withValues(alpha: 0.85) : Colors.green);
           } else if (state.status == SourceProbeStatus.needsPick) {
             statusDescription = '搜到 ${state.items.length} 个候选版本 · 点击挑选';
             statusDescriptionColor = _kOrangeColor;
@@ -587,15 +594,19 @@ class _VideoSourceViewState extends State<VideoSourceView> {
           return Container(
             margin: const EdgeInsets.only(bottom: 8.0),
             decoration: BoxDecoration(
-              color: isSelected
-                  ? primaryColor.withValues(alpha: isDark ? 0.16 : 0.08)
-                  : (isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(7)),
+              color: isPlaying
+                  ? primaryColor.withValues(alpha: isDark ? 0.2 : 0.1)
+                  : (isSelected
+                      ? primaryColor.withValues(alpha: isDark ? 0.12 : 0.06)
+                      : (isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(7))),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: isSelected
-                    ? primaryColor.withValues(alpha: 0.5)
-                    : (isDark ? Colors.white.withAlpha(18) : Colors.black.withAlpha(12)),
-                width: isSelected ? 1.2 : 0.5,
+                color: isPlaying
+                    ? primaryColor.withValues(alpha: 0.7)
+                    : (isSelected
+                        ? primaryColor.withValues(alpha: 0.45)
+                        : (isDark ? Colors.white.withAlpha(18) : Colors.black.withAlpha(12))),
+                width: (isPlaying || isSelected) ? 1.2 : 0.5,
               ),
             ),
             child: Column(
@@ -626,9 +637,11 @@ class _VideoSourceViewState extends State<VideoSourceView> {
                               width: 34,
                               height: 34,
                               decoration: BoxDecoration(
-                                color: isSelected
+                                color: isPlaying
                                     ? primaryColor
-                                    : (isDark ? Colors.white.withAlpha(16) : Colors.black.withAlpha(10)),
+                                    : (isSelected
+                                        ? primaryColor.withValues(alpha: 0.75)
+                                        : (isDark ? Colors.white.withAlpha(16) : Colors.black.withAlpha(10))),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               alignment: Alignment.center,
@@ -639,7 +652,7 @@ class _VideoSourceViewState extends State<VideoSourceView> {
                                   fontFamilyFallback: theme.textTheme.titleMedium?.fontFamilyFallback,
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
-                                  color: isSelected ? Colors.white : theme.textTheme.bodySmall?.color,
+                                  color: (isPlaying || isSelected) ? Colors.white : theme.textTheme.bodySmall?.color,
                                 ),
                               ),
                             ),
@@ -667,13 +680,15 @@ class _VideoSourceViewState extends State<VideoSourceView> {
                                         fontFamily: theme.textTheme.titleMedium?.fontFamily,
                                         fontFamilyFallback: theme.textTheme.titleMedium?.fontFamilyFallback,
                                         fontSize: 14,
-                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                        fontWeight: (isPlaying || isSelected) ? FontWeight.w700 : FontWeight.w600,
                                         letterSpacing: -0.2,
-                                        color: isSelected
+                                        color: isPlaying
                                             ? primaryColor
-                                            : (src.isDirect
-                                                ? (isDark ? const Color(0xFF4ADE80) : const Color(0xFF15803D))
-                                                : (isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED))),
+                                            : (isSelected
+                                                ? primaryColor.withValues(alpha: 0.85)
+                                                : (src.isDirect
+                                                    ? (isDark ? const Color(0xFF4ADE80) : const Color(0xFF15803D))
+                                                    : (isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED)))),
                                       ),
                                     ),
                                   ),

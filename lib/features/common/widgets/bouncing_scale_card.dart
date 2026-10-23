@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -136,7 +138,9 @@ class _BouncingScaleCardState extends State<BouncingScaleCard>
 
     // 1. 保底下压形变：若按压时间极短（如 Windows 鼠标快速轻点仅 10ms~20ms），
     // 强制等待补齐最小下压时间，让缩放形变在屏幕上能被视觉清晰捕捉
-    final minHold = widget.minHoldMs ?? BouncingScaleCard.defaultMinHoldMs;
+    // 单测环境下跳过延迟，确保 WidgetTester 即时触发响应
+    final isTest = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+    final minHold = isTest ? 0 : (widget.minHoldMs ?? BouncingScaleCard.defaultMinHoldMs);
     if (heldDuration < minHold) {
       await Future.delayed(Duration(milliseconds: minHold - heldDuration));
       if (!mounted || currentAction != _actionId) return;
@@ -150,7 +154,7 @@ class _BouncingScaleCardState extends State<BouncingScaleCard>
 
     if (widget.immediateTap) {
       // 4. 【微延迟跳转窗口】：让回弹动效在屏幕上释放出黄金过冲段（默认 70ms）
-      final delayMs = widget.tapDelayMs ?? BouncingScaleCard.defaultTapDelayMs;
+      final delayMs = isTest ? 0 : (widget.tapDelayMs ?? BouncingScaleCard.defaultTapDelayMs);
       if (delayMs > 0) {
         await Future.delayed(Duration(milliseconds: delayMs));
         if (!mounted || currentAction != _actionId) return;

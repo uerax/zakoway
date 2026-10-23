@@ -216,11 +216,18 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
       epList = epList.reversed.toList();
     }
 
+    // 特殊处理说明：
+    // 在播状态严格由外部 playingRoadIndex 显式驱动；
+    // 严禁使用硬编码 (widget.roads.length <= 1) 进行猜测。
+    // 当外部传入 playingRoadIndex == null 时，表明当前查看的源未处于播放状态，必须判定为不在播。
+    final isCurrentRoadPlaying = widget.playingRoadIndex != null &&
+        widget.playingRoadIndex == _activeRoadIndex;
+
     final currentEpLabel = isPendingLoading
         ? '加载中...'
         : (total == 0
             ? '源未解析到分集'
-            : (widget.currentEpisode != null
+            : (isCurrentRoadPlaying && widget.currentEpisode != null
                 ? '${widget.currentEpisode}/$total 话'
                 : '共 $total 话'));
 
@@ -397,7 +404,8 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                     ? total
                     : (rIdx + 1) * rangeSize;
                 final isRangeActive = rIdx == _selectedRangeIndex;
-                final containsPlaying = widget.currentEpisode != null &&
+                final containsPlaying = isCurrentRoadPlaying &&
+                    widget.currentEpisode != null &&
                     widget.currentEpisode! >= rStart &&
                     widget.currentEpisode! <= rEnd;
 
@@ -620,11 +628,10 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                           slot = slots[itemIdx];
                         }
 
-                        // 线路在播隔离：仅当当前查看的线路与实际在播线路一致时才标记在播态；
-                        // 多线路存在时若未指定 playingRoadIndex 绝不盲目全线路高亮
-                        final isCurrentRoadPlaying = widget.playingRoadIndex != null
-                            ? widget.playingRoadIndex == _activeRoadIndex
-                            : (widget.roads.length <= 1);
+                        // 特殊处理说明：
+                        // 在播状态严格由 widget.playingRoadIndex == _activeRoadIndex 判定，消除硬编码推测，防止换源后异源虚假在播
+                        final isCurrentRoadPlaying = widget.playingRoadIndex != null &&
+                            widget.playingRoadIndex == _activeRoadIndex;
                         final isPlaying = isCurrentRoadPlaying &&
                             (slot != null
                                 ? (slot.canonicalEp == widget.currentEpisode)

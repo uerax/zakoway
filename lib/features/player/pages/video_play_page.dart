@@ -130,7 +130,8 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   List<VideoSourceItem> get _sources => getDefaultSourceItems();
 
   bool _isLoadingChapters = false;
-  String? _resolveError;
+  String? _chaptersError;
+  String? _playbackError;
   String? _sourceNotice;
   late final ValueNotifier<String?> _hudToastNotifier;
   Timer? _hudToastTimer;
@@ -676,7 +677,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     if (!mounted) return;
     setState(() {
       _isLoadingChapters = true;
-      _resolveError = null;
+      _chaptersError = null;
       _sourceNotice = null;
     });
 
@@ -831,7 +832,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       if (!mounted) return;
       setState(() {
         _isLoadingChapters = false;
-        _resolveError = cleanErrorMessage(e, prefix: '检索异常');
+        _chaptersError = cleanErrorMessage(e, prefix: '检索异常');
       });
     }
   }
@@ -853,7 +854,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         _chapterRoads = cachedRoads;
         _selectedRoadIndex = 0;
         _isLoadingChapters = false;
-        _resolveError = null;
+        _chaptersError = null;
         _sourceNotice = null;
         _defaultSearchEmpty = false;
       });
@@ -875,9 +876,9 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         ).ignore();
       }
 
-      if (_hasStartedPlayback && _currentSlots.isNotEmpty) {
-        _selectEpisode(_activeEpisode ?? 1);
-      }
+      // 特殊处理说明：
+      // 依照交互规范（子选项 2），换源操作仅切换分集查看列表与线路视图，
+      // 绝不自动打断当前正在播放的视频或自动起播新源；用户在分集列表中点击具体集数时，才真正起播该视频源。
       return;
     }
 
@@ -886,9 +887,10 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       _chapterRoads = [];
       _selectedRoadIndex = 0;
       _isLoadingChapters = true;
-      _resolveError = null;
+      _chaptersError = null;
       _sourceNotice = null;
-      _playbackController.pause();
+      // 特殊处理说明：
+      // 依照交互规范（子选项 2），切源检索期间保持当前视频无缝播放，不暂停打断当前体验。
     });
 
     // 确保聚焦在「简介」Tab (选集舱所在页面) 与桌面端「选集」Tab
@@ -1000,15 +1002,14 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         );
       }
 
-      // 若之前处于在播态，换源后自动无缝续播当前集数
-      if (_hasStartedPlayback && _currentEpisodes.isNotEmpty) {
-        _selectEpisode(_activeEpisode ?? 1);
-      }
+      // 特殊处理说明：
+      // 依照交互规范（子选项 2），换源操作仅切换分集查看列表与线路视图，
+      // 绝不自动打断当前正在播放的源与视频；用户在列表中点击具体集数才真正起播该视频源。
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoadingChapters = false;
-        _resolveError = cleanErrorMessage(e, prefix: '分集同步失败');
+        _chaptersError = cleanErrorMessage(e, prefix: '分集同步失败');
       });
     }
   }
@@ -1033,7 +1034,8 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       _hasStartedPlayback = true;
       _playingRoadIndex = _selectedRoadIndex;
       _playingSourceId = _selectedSourceId;
-      _resolveError = null;
+      _playbackError = null;
+      _chaptersError = null;
     });
 
     _resetPlaybackStats();
@@ -1084,7 +1086,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     } catch (e) {
       if (sessionToken != _episodeResolveToken || !mounted) return;
       setState(() {
-        _resolveError = cleanErrorMessage(e, prefix: '播放解析失败');
+        _playbackError = cleanErrorMessage(e, prefix: '播放解析失败');
       });
     }
   }
@@ -1134,7 +1136,8 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       _hasStartedPlayback = true;
       _playingRoadIndex = _selectedRoadIndex;
       _playingSourceId = _selectedSourceId;
-      _resolveError = null;
+      _playbackError = null;
+      _chaptersError = null;
     });
 
     _resetPlaybackStats();
@@ -1181,7 +1184,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     } catch (e) {
       if (sessionToken != _episodeResolveToken || !mounted) return;
       setState(() {
-        _resolveError = cleanErrorMessage(e, prefix: '播放解析失败');
+        _playbackError = cleanErrorMessage(e, prefix: '播放解析失败');
       });
     }
   }
@@ -1238,7 +1241,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         // 当前在播视频绝不强行打断（让其缓冲播完），但由于本地无爬虫，选集区展示不可用错误状态
         setState(() {
           _chapterRoads = [];
-          _resolveError = '当前视频源需开启「Animaku 服务端模式」\n该源为服务端专属扩展源，本地直连模式下无法解析分集。';
+          _chaptersError = '当前视频源需开启「Animaku 服务端模式」\n该源为服务端专属扩展源，本地直连模式下无法解析分集。';
         });
         _showHudToast('当前源需开启服务端模式，无法解析新集数');
       }
@@ -1773,7 +1776,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       canonicalEpisode: _currentCanonicalEp,
       officialDurationSeconds: _currentOfficialDurationSeconds,
       hudToastListenable: _hudToastNotifier,
-      resolveError: _resolveError,
+      resolveError: _playbackError,
       primaryColor: primaryColor,
       onRetryResolve: () {
         if (_activeEpisode != null) {
@@ -1905,7 +1908,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
                                 episodeTitles: _mappedEpisodeTitles,
                                 isLoading: _isLoadingChapters,
                                 sourceName: _selectedSourceName,
-                                errorMessage: _resolveError,
+                                errorMessage: _chaptersError,
                                 onEnableServerMode: (!AppPreferences.isServerModeEnabled() &&
                                         !SourceBundleManager.instance.runtime.isLocalSource(_selectedSourceId))
                                     ? () => AppPreferences.setServerModeEnabled(true)
@@ -1930,6 +1933,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
                               VideoSourceView(
                                 sources: _sources,
                                 selectedSourceId: _selectedSourceId,
+                                playingSourceId: _hasStartedPlayback ? _playingSourceId : null,
                                 aggregator: _aggregator,
                                 keywordOptions: _keywordOptions,
                                 onSourceSelected: (src) {
@@ -1972,6 +1976,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
             sources: _sources,
             selectedSourceId: _selectedSourceId,
             selectedSourceName: _selectedSourceName,
+            playingSourceId: _hasStartedPlayback ? _playingSourceId : null,
             onSourceSelected: _handleSourceSelected,
             aggregator: _aggregator,
             sourceNotice: _sourceNotice,
@@ -1980,7 +1985,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
             currentEpisode: _activeEpisode,
             playingRoadIndex: _hasStartedPlayback && _selectedSourceId == _playingSourceId ? _playingRoadIndex : null,
             isLoadingChapters: _isLoadingChapters,
-            resolveError: _resolveError,
+            resolveError: _chaptersError,
             hasEpisodes: _currentEpisodes.isNotEmpty,
             currentSlots: _currentSlots,
             roadNames: _roadNames,
@@ -2022,7 +2027,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         episodeTitles: _mappedEpisodeTitles,
         slots: _currentSlots,
         isLoadingEpisodes: _isLoadingChapters,
-        resolveError: _resolveError,
+        resolveError: _chaptersError,
         onSelectEpisode: (ep) => _selectEpisode(ep),
         onSelectSlot: (slot) => _selectSlot(slot),
         // 切换线路仅更新查看视图与集数列表，绝不自动切换起播
@@ -2034,6 +2039,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
             _startDefaultSourceSearch(autoPlayFirst: false),
         sources: _sources,
         selectedSourceId: _selectedSourceId,
+        playingSourceId: _hasStartedPlayback ? _playingSourceId : null,
         aggregator: _aggregator,
         onSourceSelected: (src) => _handleSourceSelected(src),
         onSelectHit: (src, hit, [roads]) => _handleSourceSelected(src, hit, roads),
@@ -2089,7 +2095,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
             isLoading: _isLoadingChapters,
             loadingMessage: '正在从「$_selectedSourceName」解析分集...',
             sourceName: _selectedSourceName,
-            errorMessage: _resolveError,
+            errorMessage: _chaptersError,
             onEnableServerMode: (!AppPreferences.isServerModeEnabled() &&
                     !SourceBundleManager.instance.runtime.isLocalSource(_selectedSourceId))
                 ? () => AppPreferences.setServerModeEnabled(true)
@@ -2113,6 +2119,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       sourceViewSection: VideoSourceView(
         sources: _sources,
         selectedSourceId: _selectedSourceId,
+        playingSourceId: _hasStartedPlayback ? _playingSourceId : null,
         onSourceSelected: (src) => _handleSourceSelected(src),
         onSelectHit: (src, hit, [roads]) => _handleSourceSelected(src, hit, roads),
         aggregator: _aggregator,

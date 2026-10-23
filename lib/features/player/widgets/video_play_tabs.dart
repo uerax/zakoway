@@ -106,6 +106,7 @@ class VideoPlayTabContentView extends StatelessWidget {
     required this.sources,
     required this.selectedSourceId,
     required this.selectedSourceName,
+    this.playingSourceId,
     required this.onSourceSelected,
     required this.aggregator,
     required this.sourceNotice,
@@ -137,6 +138,7 @@ class VideoPlayTabContentView extends StatelessWidget {
   final List<VideoSourceItem> sources;
   final String selectedSourceId;
   final String selectedSourceName;
+  final String? playingSourceId;
   final void Function(VideoSourceItem src, [SourceSearchResult? hit, List<SourceChapterRoad>? cachedRoads]) onSourceSelected;
   final SourceAggregator aggregator;
   final String? sourceNotice;
@@ -180,6 +182,7 @@ class VideoPlayTabContentView extends StatelessWidget {
             EpisodeSourcePod(
               selectedSourceId: selectedSourceId,
               selectedSourceName: selectedSourceName,
+              playingSourceId: playingSourceId,
               sources: sources,
               onSourceSelected: onSourceSelected,
               onSelectHit: (src, hit, [roads]) => onSourceSelected(src, hit, roads),

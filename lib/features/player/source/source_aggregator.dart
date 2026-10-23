@@ -116,6 +116,12 @@ class SourceAggregator extends ChangeNotifier {
   List<AggregatedSourceState> get items => _states.values.toList();
   int get activeJobsCount => _activeJobs;
 
+  @visibleForTesting
+  void setSourceStateForTest(String sourceId, AggregatedSourceState state) {
+    _states[sourceId] = state;
+    notifyListeners();
+  }
+
   /// 获取当前所有正在探测中或排队中的源列表
   List<String> get inFlightSources {
     final set = <String>{};

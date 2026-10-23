@@ -42,6 +42,7 @@ class PlayerSidePanel extends StatefulWidget {
     this.onSelectSlot,
     required this.sources,
     required this.selectedSourceId,
+    this.playingSourceId,
     required this.onSourceSelected,
     this.onSelectHit,
     this.aggregator,
@@ -74,6 +75,7 @@ class PlayerSidePanel extends StatefulWidget {
   // 视频源相关
   final List<VideoSourceItem> sources;
   final String selectedSourceId;
+  final String? playingSourceId;
   final ValueChanged<VideoSourceItem> onSourceSelected;
   final SourceHitSelectCallback? onSelectHit;
   final SourceAggregator? aggregator;
@@ -504,6 +506,7 @@ class _PlayerSidePanelState extends State<PlayerSidePanel> {
       key: const ValueKey('side_panel_sources'),
       sources: widget.sources,
       selectedSourceId: widget.selectedSourceId,
+      playingSourceId: widget.playingSourceId,
       aggregator: widget.aggregator,
       onSourceSelected: (src) {
         widget.onSourceSelected(src);

@@ -80,6 +80,7 @@ class EpisodeSourcePod extends StatelessWidget {
     super.key,
     required this.selectedSourceId,
     required this.selectedSourceName,
+    this.playingSourceId,
     required this.sources,
     required this.onSourceSelected,
     this.onSelectHit,
@@ -104,6 +105,7 @@ class EpisodeSourcePod extends StatelessWidget {
 
   final String selectedSourceId;
   final String selectedSourceName;
+  final String? playingSourceId;
   final List<VideoSourceItem> sources;
   final ValueChanged<VideoSourceItem> onSourceSelected;
   final SourceHitSelectCallback? onSelectHit;
@@ -259,6 +261,7 @@ class EpisodeSourcePod extends StatelessWidget {
                               VideoSourceView(
                                 sources: sources,
                                 selectedSourceId: selectedSourceId,
+                                playingSourceId: playingSourceId,
                                 aggregator: aggregator,
                                 keywordOptions: keywordOptions,
                                 onSourceSelected: (src) {
@@ -618,8 +621,11 @@ class EpisodeSourcePod extends StatelessWidget {
         separatorBuilder: (_, _) => const SizedBox(width: 7),
         itemBuilder: (context, index) {
           final slot = slots[index];
-          final isPlaying = currentEpisode != null && slot.canonicalEp == currentEpisode;
-          final isRoadPlaying = playingRoadIndex == null || playingRoadIndex == selectedRoadIndex;
+          // 特殊处理说明：
+          // 线路与分集在播态严格由外部 playingRoadIndex 驱动；
+          // 当 playingRoadIndex 为 null 时代表当前源未处于在播态，绝不盲目高亮。
+          final isRoadPlaying = playingRoadIndex != null && playingRoadIndex == selectedRoadIndex;
+          final isPlaying = isRoadPlaying && currentEpisode != null && slot.canonicalEp == currentEpisode;
 
           return BouncingScaleCard(
             scaleDown: 0.92,
@@ -650,7 +656,7 @@ class EpisodeSourcePod extends StatelessWidget {
                     : null,
               ),
               alignment: Alignment.center,
-              child: isPlaying && isRoadPlaying
+              child: isPlaying
                   ? const _PodPlayingBarsAnimation()
                   : Text(
                       '${slot.canonicalEp}',

@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zakoway/features/player/controller/playback_controller.dart';
 import 'package:zakoway/features/player/pages/video_play_page.dart';
+import 'package:zakoway/features/player/source/models/source_models.dart';
+import 'package:zakoway/features/player/source/source_aggregator.dart';
 import 'package:zakoway/features/player/widgets/episode_picker_section.dart';
 import 'package:zakoway/features/player/widgets/episode_source_pod.dart';
 import 'package:zakoway/features/player/widgets/video_player_layouts.dart';
+import 'package:zakoway/features/player/widgets/video_player_placeholder.dart';
+import 'package:zakoway/features/player/widgets/video_player_surface_with_controls.dart';
 import 'package:zakoway/features/player/widgets/video_source_view.dart';
 import 'package:zakoway/features/player/widgets/watch_comments_section.dart';
 import 'package:zakoway/features/player/widgets/watch_meta_view.dart';
@@ -385,6 +390,125 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byType(VideoPlayPage), findsNothing);
+    });
+
+    testWidgets('13. 异源在播态隔离：非在播源 (playingRoadIndex == null) 时绝不高亮第 1 集且显示「共 X 话」', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EpisodePickerSection(
+              episodeCount: 12,
+              currentEpisode: 1, // 虽然外部存在活跃集数 1
+              playingRoadIndex: null, // 但当前源没有线路处于在播状态
+              onSelectEpisode: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 验证标题显示「共 12 话」而非「1/12 话」
+      expect(find.text('共 12 话'), findsOneWidget);
+      expect(find.text('1/12 话'), findsNothing);
+
+      // 验证第 1 集没有在播动画
+      final ep1Finder = find.ancestor(
+        of: find.text('第 1 话'),
+        matching: find.byType(Container),
+      );
+      expect(ep1Finder, findsWidgets);
+    });
+
+    testWidgets('14. VideoSourceView 精确区分在播源与查看源：在播源显示[在播]，查看源显示[当前查看]，其余显示[切换]', (tester) async {
+      const sources = [
+        VideoSourceItem(id: 'sourceA', name: '视频源A', description: '描述A', isReady: true),
+        VideoSourceItem(id: 'sourceB', name: '视频源B', description: '描述B', isReady: true),
+        VideoSourceItem(id: 'sourceC', name: '视频源C', description: '描述C', isReady: true),
+      ];
+
+      final aggregator = SourceAggregator();
+      aggregator.setSourceStateForTest('sourceA', const AggregatedSourceState(
+        meta: SourceMeta(id: 'sourceA', name: '视频源A', version: '1.0.0'),
+        status: SourceProbeStatus.ready,
+      ));
+      aggregator.setSourceStateForTest('sourceB', const AggregatedSourceState(
+        meta: SourceMeta(id: 'sourceB', name: '视频源B', version: '1.0.0'),
+        status: SourceProbeStatus.ready,
+      ));
+      aggregator.setSourceStateForTest('sourceC', const AggregatedSourceState(
+        meta: SourceMeta(id: 'sourceC', name: '视频源C', version: '1.0.0'),
+        status: SourceProbeStatus.ready,
+      ));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: VideoSourceView(
+              sources: sources,
+              selectedSourceId: 'sourceB', // 当前用户正在查看源 B
+              playingSourceId: 'sourceA', // 但播放器中实际在播的是源 A
+              aggregator: aggregator,
+              onSourceSelected: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 验证源 A 药丸显示「在播」
+      expect(find.text('在播'), findsOneWidget);
+      // 验证源 B 药丸显示「当前查看」
+      expect(find.text('当前查看'), findsOneWidget);
+      // 验证源 C 药丸显示「切换」
+      expect(find.text('切换'), findsOneWidget);
+    });
+
+    testWidgets('15. 错误域隔离：分集同步错误仅在选集区展示，播放器画面绝不弹出居中报错卡片', (tester) async {
+      final controller = ZakowayPlaybackController();
+      addTearDown(() => controller.dispose());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                // 模拟正在正常解码播放的原视频播放器表面
+                SizedBox(
+                  height: 300,
+                  child: VideoPlayerSurfaceWithControls(
+                    controller: controller,
+                    title: '测试播放器',
+                    onToggleFullscreen: () {},
+                    onBackPressed: () {},
+                    primaryColor: Colors.blue,
+                    onRetryResolve: () {},
+                    onSwitchSource: () {},
+                    resolveError: null, // 播放流未报错
+                  ),
+                ),
+                // 模拟右侧选集面板（切换到失效源时分集同步报错 403）
+                Expanded(
+                  child: EpisodePickerSection(
+                    episodeCount: 0,
+                    errorMessage: '分集同步失败: 视频源请求被拒绝 (HTTP 403)',
+                    sourceName: '次元城',
+                    onSelectEpisode: (_) {},
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // 验证选集区域正确展示分集错误引导提示
+      expect(find.text('「次元城」暂无可播放分集'), findsOneWidget);
+      expect(find.text('分集同步失败: 视频源请求被拒绝 (HTTP 403)'), findsOneWidget);
+
+      // 验证播放器画面上绝无 VideoPlayerResolveErrorCard 居中错误遮罩卡片
+      expect(find.byType(VideoPlayerResolveErrorCard), findsNothing);
     });
   });
 }
