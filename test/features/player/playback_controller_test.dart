@@ -1,5 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zakoway/features/player/controller/playback_controller.dart';
+import 'package:zakoway/features/player/core/fsm/playback_event.dart';
+import 'package:zakoway/features/player/core/fsm/playback_fsm_context.dart';
+import 'package:zakoway/features/player/core/fsm/playback_transition.dart';
+import 'package:zakoway/features/player/core/models/playback_state.dart' as core_state;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -165,6 +169,25 @@ void main() {
     test('控制器 dispose 后资源与定时器安全销毁', () async {
       await controller.dispose();
       expect(controller.isDisposed, isTrue);
+    });
+
+    test('状态机在 Error 状态下检测到物理出画时自愈迁移至 Playing 且清除错误', () {
+      // 模拟先前进入 error 状态，但底层随后成功输出了物理画面尺寸与播放位移
+      const context = PlaybackFsmContext(
+        hasValidDimensions: true,
+        hasPositionAdvanced: true,
+        autoplay: true,
+      );
+
+      final result = evaluateTransition(
+        currentState: core_state.PlaybackState.error,
+        context: context,
+        event: const FirstFrameRenderedEvent(),
+      );
+
+      expect(result.targetState, equals(core_state.PlaybackState.playing));
+      expect(result.nextContext.firstFrameRendered, isTrue);
+      expect(result.nextContext.lastFailure, isNull);
     });
   });
 }

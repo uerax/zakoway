@@ -15,11 +15,10 @@ const Duration kRebufferingTimeout = Duration(seconds: 30);
 /// 达到 5.0 秒画面未出时，UI 主动弹出【切换线路】提示条，播放器后台继续等待
 const Duration kFirstFrameCoverPromptWait = Duration(seconds: 5);
 
-/// 首帧出画等待硬上限 / 打开阶段看门狗超时 (12.0 秒)
+/// 首帧出画等待硬上限 / 打开阶段极端挂死兜底看门狗超时 (30.0 秒)
 ///
-/// 针对慢响应头场景（实测 9.045s），超时必须 >= 10s 以免误杀合法慢起播；
-/// 满 12.0 秒无存活证据时看门狗强制熔断
-const Duration kFirstFrameTimeout = Duration(seconds: 12);
+/// 避免在正常慢速拉流（12~18s）时过早误杀；对齐重缓冲超时 30 秒作为最终防挂死兜底
+const Duration kFirstFrameTimeout = Duration(seconds: 30);
 
 /// 自愈恢复退避等待时延 (500 毫秒)
 const Duration kRecoveryBackoffDelay = Duration(milliseconds: 500);

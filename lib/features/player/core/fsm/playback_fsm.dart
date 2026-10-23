@@ -257,6 +257,15 @@ class PlaybackFsm {
     _state = result.targetState;
     _context = result.nextContext;
 
+    // 特殊处理说明：
+    // 首帧事实出画自愈保护：
+    // 若先前因网络抖动或看门狗短暂进入 error，但在底层终于成功解码出画后，
+    // 事实出画具有最高权威，同步清空历史 failure，彻底防止旧报错遮罩残留。
+    if (_state != PlaybackState.error && _context.firstFrameRendered) {
+      _lastFailure = null;
+      _failureNotifier.value = null;
+    }
+
     // 同步更新 UI 只读状态
     _syncCoreNotifier();
 

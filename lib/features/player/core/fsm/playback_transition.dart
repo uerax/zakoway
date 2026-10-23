@@ -879,13 +879,20 @@ TransitionResult _onError(PlaybackFsmContext context, PlaybackEvent event) {
           ResolveMediaEffect(bypassCache: true),
         ],
       ),
+    // 特殊处理说明：
+    // 首帧事实出画自愈保护：
+    // 当底层解码成功输出真实物理画面（有效尺寸且位置产生前进位移）时，
+    // 事实出画具有最高权威，即使曾进入 error 态也直接自愈转入 playing，彻底消除残留的超时报错。
+    FirstFrameRenderedEvent() => _evaluateFirstFrameRendered(
+        context,
+        currentState: PlaybackState.error,
+      ),
     PauseRequestEvent() ||
     PlayRequestEvent() ||
     SeekRequestEvent() ||
     FatalErrorReceivedEvent() ||
     BufferingStartedEvent() ||
     BufferingEndedEvent() ||
-    FirstFrameRenderedEvent() ||
     CompletedReceivedEvent() ||
     DisposeRequestEvent() ||
     ResolveSuccessEvent() ||
@@ -908,7 +915,10 @@ TransitionResult _onError(PlaybackFsmContext context, PlaybackEvent event) {
 /// 1. 播放意图：尺寸有效 且 位置推进 (>0)；
 /// 2. 暂停意图：解码出物理首帧后被底层暂停定格，时钟保持在 0ms，尺寸有效即可；
 /// 3. 纯音频媒体：realVideoTrackCount == 0，无视频尺寸事件，位置推进即可。
-TransitionResult _evaluateFirstFrameRendered(PlaybackFsmContext context) {
+TransitionResult _evaluateFirstFrameRendered(
+  PlaybackFsmContext context, {
+  PlaybackState currentState = PlaybackState.prebuffering,
+}) {
   final isPausedIntent = !context.autoplay ||
       context.targetPhaseAfterFirstFrame == PlaybackState.paused;
 
@@ -927,7 +937,7 @@ TransitionResult _evaluateFirstFrameRendered(PlaybackFsmContext context) {
   if (canTrigger) {
     return _onFirstFrameSuccess(context);
   } else {
-    return TransitionResult.ignore(PlaybackState.prebuffering, context);
+    return TransitionResult.ignore(currentState, context);
   }
 }
 
@@ -949,6 +959,7 @@ TransitionResult _onFirstFrameSuccess(PlaybackFsmContext context) {
     disposition: TransitionDisposition.exec,
     nextContext: context.copyWith(
       firstFrameRendered: true,
+      clearLastFailure: true,
       pendingSeekPosition: null,
       clearPendingSeekPosition: true,
     ),
