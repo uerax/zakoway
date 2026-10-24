@@ -218,33 +218,6 @@ class LocalMediaProxyServer {
       } catch (_) {}
     }
 
-    // 1.5 单文件流 (MKV / MP4) 头部 1MB 元数据块缓存击穿检测
-    final headCacheFile = File('${_cacheDir?.path}/head_1m_$urlHash.dat');
-    final rangeHeader = clientReq.headers.value('range');
-    if (!isSegmentRequest && _cacheDir != null && headCacheFile.existsSync() && rangeHeader != null) {
-      try {
-        final rangeMatch = RegExp(r'bytes=(\d+)-(\d+)?').firstMatch(rangeHeader);
-        if (rangeMatch != null) {
-          final start = int.parse(rangeMatch.group(1)!);
-          final end = rangeMatch.group(2) != null ? int.parse(rangeMatch.group(2)!) : null;
-          final cachedLen = headCacheFile.lengthSync();
-          if (start == 0 && end != null && end < cachedLen) {
-            final chunkLen = end - start + 1;
-            clientResp.statusCode = HttpStatus.partialContent;
-            clientResp.headers.set('Content-Type', 'video/x-matroska');
-            clientResp.headers.set('Content-Length', chunkLen.toString());
-            clientResp.headers.set('Content-Range', 'bytes 0-$end/*');
-            clientResp.headers.set('Access-Control-Allow-Origin', '*');
-            clientResp.headers.set('Accept-Ranges', 'bytes');
-            clientResp.headers.set('X-Proxy-Cache', 'HIT-HEAD');
-
-            await headCacheFile.openRead(start, end + 1).pipe(clientResp).catchError((Object _) {});
-            return;
-          }
-        }
-      } catch (_) {}
-    }
-
     // =========================================================================
     // 2. 缓存未命中 -> 通过长连接池向远程发起请求 (Cache Miss & Cache-as-you-go)
     // =========================================================================
@@ -444,53 +417,6 @@ class LocalMediaProxyServer {
 
     clientResp.add(bytes);
     await clientResp.close().catchError((_) {});
-  }
-
-  /// 显式预拉取单文件媒体流 (MKV / MP4) 头部 1MB 元数据块 (含 EBML/SeekHead/MOOV Atom)
-  Future<bool> prefetchHeadChunk(String remoteUrl, {Map<String, String>? headers}) async {
-    await ensureStarted();
-    if (_httpClient == null || _cacheDir == null) return false;
-
-    final urlHash = md5.convert(utf8.encode(remoteUrl)).toString();
-    final targetFile = File('${_cacheDir!.path}/head_1m_$urlHash.dat');
-
-    if (targetFile.existsSync() && targetFile.lengthSync() > 0) {
-      return true;
-    }
-    if (_inflightPrefetch.contains(remoteUrl)) {
-      return false;
-    }
-
-    _inflightPrefetch.add(remoteUrl);
-    try {
-      final targetUri = Uri.parse(remoteUrl);
-      final req = await _httpClient!.openUrl('GET', targetUri);
-      req.headers.set('Range', 'bytes=0-1048575');
-      if (headers != null) {
-        headers.forEach((k, v) {
-          req.headers.set(k, v);
-        });
-      }
-
-      final resp = await req.close();
-      if (resp.statusCode == HttpStatus.partialContent || resp.statusCode == HttpStatus.ok) {
-        final tempFile = File('${_cacheDir!.path}/tmp_head_$urlHash.tmp');
-        final sink = tempFile.openWrite();
-        await resp.pipe(sink);
-        if (tempFile.existsSync() && tempFile.lengthSync() > 0) {
-          await tempFile.rename(targetFile.path);
-          if (kDebugMode) {
-            debugPrint('🎯 [LocalMediaProxy] 单文件媒体头部 1MB 预拉取就绪 -> $remoteUrl');
-          }
-          return true;
-        }
-      }
-      return false;
-    } catch (_) {
-      return false;
-    } finally {
-      _inflightPrefetch.remove(remoteUrl);
-    }
   }
 
   /// 显式预拉取指定分片并写入本地磁盘缓存

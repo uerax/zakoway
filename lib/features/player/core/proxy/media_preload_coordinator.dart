@@ -45,9 +45,6 @@ class MediaPreloadCoordinator {
         // 1. 若为 HLS M3U8 流，拉取播放列表并提前下载前 1~2 个 TS 切片
         if (directUrl.contains('.m3u8')) {
           await _preloadM3u8LeadingSegments(directUrl, headers);
-        } else {
-          // 2. 若为单文件流 (如 MKV / MP4)，预拉取前 1MB 头部数据块 (包含 EBML Header / SeekHead / MOOV Atom)
-          await LocalMediaProxyServer.instance.prefetchHeadChunk(directUrl, headers: headers);
         }
 
         if (kDebugMode) {

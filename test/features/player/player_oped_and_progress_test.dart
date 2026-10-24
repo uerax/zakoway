@@ -61,6 +61,12 @@ malformed line
       expect(result.length, equals(1));
       expect(result[1]?.opStart, equals(90));
     });
+
+    test('3. getCachedOpedData 边界与无缓存保护', () {
+      final service = BangumiOpedService.instance;
+      expect(service.getCachedOpedData(-1), isNull);
+      expect(service.getCachedOpedData(99999999), isNull);
+    });
   });
 
   group('PlayerProgressBar 复合进度条渲染与交互测试', () {

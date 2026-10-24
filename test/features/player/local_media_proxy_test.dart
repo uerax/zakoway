@@ -28,7 +28,7 @@ void main() {
             '#EXTINF:10.0,\n'
             'seg1.ts\n'
             '#EXTINF:10.0,\n'
-            'https://cdn.example.com/seg2.ts\n'
+            'seg2.ts\n'
             '#EXT-X-ENDLIST\n',
           );
           await req.response.close();
@@ -49,6 +49,11 @@ void main() {
           req.response.statusCode = HttpStatus.ok;
           req.response.headers.set('Content-Type', 'video/MP2T');
           req.response.write('TS_SEGMENT_1_CONTENT');
+          await req.response.close();
+        } else if (req.uri.path == '/seg2.ts') {
+          req.response.statusCode = HttpStatus.ok;
+          req.response.headers.set('Content-Type', 'video/MP2T');
+          req.response.write('TS_SEGMENT_2_CONTENT');
           await req.response.close();
         } else {
           req.response.statusCode = HttpStatus.notFound;

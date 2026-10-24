@@ -66,6 +66,12 @@ class BangumiOpedService {
   // Single-Flight 并发请求锁
   final Map<int, Future<Map<int, EpisodeOpedSegment>>> _inflight = {};
 
+  /// 同步读取指定 Bangumi 番剧已缓存的 OP/ED 打点数据 (无则返回 null)
+  Map<int, EpisodeOpedSegment>? getCachedOpedData(int subjectId) {
+    if (subjectId <= 0) return null;
+    return _cache.get(subjectId);
+  }
+
   /// 获取指定 Bangumi 番剧 ID 的全集 OP/ED 时间标记映射 (Key 为集数编号 1, 2, 3...)
   Future<Map<int, EpisodeOpedSegment>> getOpedData(int subjectId) async {
     if (subjectId <= 0) return const {};
