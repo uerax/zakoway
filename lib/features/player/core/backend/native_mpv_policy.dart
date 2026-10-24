@@ -39,6 +39,17 @@ class NativeMpvPolicy {
     this.cscale = 'spline36',
     this.sigmoidUpscaling = true,
     this.correctDownscaling = true,
+    this.subFont =
+        'Microsoft YaHei UI, PingFang SC, Segoe UI, sans-serif',
+    this.subFontSize = 48,
+    this.subColor = '#FFFFFFFF',
+    this.subBorderColor = '#D0000000',
+    this.subBorderSize = 2.2,
+    this.subShadowOffset = 1.2,
+    this.subShadowColor = '#60000000',
+    this.subMarginY = 38,
+    this.subAssOverride = 'scale',
+    this.subAssForceMargins = true,
   });
 
   /// 1. 音频滤镜：倍速音高自动修正
@@ -90,6 +101,18 @@ class NativeMpvPolicy {
   final bool sigmoidUpscaling;
   final bool correctDownscaling;
 
+  /// 12. 字幕排版与质感增强配置（严防 Windows 跌入宋体，保障高质感柔和描边与合适边距）
+  final String subFont;
+  final int subFontSize;
+  final String subColor;
+  final String subBorderColor;
+  final double subBorderSize;
+  final double subShadowOffset;
+  final String subShadowColor;
+  final int subMarginY;
+  final String subAssOverride;
+  final bool subAssForceMargins;
+
   /// 计算在指定网络与操作系统平台下的完整 MPV 属性字典
   Map<String, String> toMpvProperties({
     required bool isMeteredNetwork,
@@ -125,6 +148,16 @@ class NativeMpvPolicy {
       'tls-verify': tlsVerify ? 'yes' : 'no',
       'hwdec-codecs': hwdecCodecs,
       'hwdec': isAndroid ? 'auto-safe' : 'auto',
+      'sub-font': subFont,
+      'sub-font-size': subFontSize.toString(),
+      'sub-color': subColor,
+      'sub-border-color': subBorderColor,
+      'sub-border-size': subBorderSize.toString(),
+      'sub-shadow-offset': subShadowOffset.toString(),
+      'sub-shadow-color': subShadowColor,
+      'sub-margin-y': subMarginY.toString(),
+      'sub-ass-override': subAssOverride,
+      'sub-ass-force-margins': subAssForceMargins ? 'yes' : 'no',
     };
 
     if (isAndroid) {

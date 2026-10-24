@@ -76,6 +76,7 @@ class AnimakuServerClient {
   String normalizeSourceId(String sourceId) {
     final norm = sourceId.trim().toLowerCase();
     if (norm == 'xifan_next' || norm == 'xifannext' || norm == 'xifan') return 'xifan-next';
+    if (norm == 'neosek') return 'neosekai';
     return norm;
   }
 

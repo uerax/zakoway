@@ -18,6 +18,7 @@ import 'package:zakoway/features/player/source/sources/lzizy_source.dart';
 import 'package:zakoway/features/player/source/sources/mifun_source.dart';
 import 'package:zakoway/features/player/source/sources/moonci_source.dart';
 import 'package:zakoway/features/player/source/sources/mxdm_source.dart';
+import 'package:zakoway/features/player/source/sources/neosek_source.dart';
 import 'package:zakoway/features/player/source/sources/omofun_source.dart';
 import 'package:zakoway/features/player/source/sources/remote_server_source.dart';
 import 'package:zakoway/features/player/source/sources/sorani_source.dart';
@@ -145,6 +146,7 @@ class NativeSourceRuntime {
     registerSource(AnimoeSource(dio: _dio));
     registerSource(GuguSource(dio: _dio));
     registerSource(MxdmSource(dio: _dio));
+    registerSource(NeosekSource(dio: _dio));
     registerSource(TvTFunSource(dio: _dio));
     registerSource(Anime1Source(dio: _dio));
     registerSource(OmofunSource(dio: _dio));

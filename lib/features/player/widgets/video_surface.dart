@@ -53,6 +53,23 @@ class VideoSurface extends StatelessWidget {
                       fit: coreState.videoFit,
                       pauseUponEnteringBackgroundMode: false,
                       resumeUponEnteringForegroundMode: true,
+                      subtitleViewConfiguration: const SubtitleViewConfiguration(
+                        style: TextStyle(
+                          height: 1.5,
+                          fontSize: 40,
+                          color: Colors.white,
+                          backgroundColor: Colors.transparent, // 彻底去除默认半透明黑底
+                          fontFamily: 'Microsoft YaHei UI',
+                          fontFamilyFallback: FontManager.fallbackFontFamilies,
+                          shadows: [
+                            // 360° 全向平滑抗锯齿深黑描边（零位移渐进羽化，彻底消灭重叠毛刺）
+                            Shadow(offset: Offset.zero, blurRadius: 3.0, color: Colors.black),
+                            Shadow(offset: Offset.zero, blurRadius: 5.0, color: Colors.black),
+                            Shadow(offset: Offset.zero, blurRadius: 8.0, color: Colors.black),
+                            Shadow(offset: Offset(0, 1.5), blurRadius: 2.0, color: Colors.black),
+                          ],
+                        ),
+                      ),
                     ),
                   );
                 },
