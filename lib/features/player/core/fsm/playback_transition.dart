@@ -82,13 +82,19 @@ TransitionResult evaluateTransition({
     if (currentState == PlaybackState.disposed) {
       return TransitionResult.ignore(currentState, context);
     }
+    // 特殊处理说明：
+    // 依赖倒置与所有权解耦 (Dependency Inversion & Resource Ownership)：
+    // [PlaybackFsm] 仅管理单次播放会话的状态流转，[backend] 作为外部注入的底层引擎，
+    // 其物理生命周期属于外层管理者（如 PlaybackEnginePool 或 Controller）。
+    // 会话终结时 FSM 仅执行静音暂停与定时器撤销，严禁越权物理销毁外部注入的底层引擎，
+    // 确保 GPU 硬件加速纹理与 mpv 实例能够被跨会话安全保活与池化复用。
     return TransitionResult(
       targetState: PlaybackState.disposed,
       disposition: TransitionDisposition.exec,
       nextContext: context,
       sideEffects: const [
         CancelTimersEffect(),
-        CallBackendDisposeEffect(),
+        CallBackendPauseEffect(),
       ],
     );
   }
@@ -118,34 +124,67 @@ TransitionResult evaluateTransition({
 // 各状态迁移私有实现（严格匹配 03 设计矩阵，无任何 default fallback）
 // =============================================================================
 
+/// 统一加载与切集请求处理逻辑
+///
+/// 特殊处理说明：
+/// 若 [event.isPreResolved] 为 true（外部业务层已提前通过源运行时解析出真实媒体直链），
+/// 状态机直接跳过 [PlaybackState.resolving] 阶段与冗余的网络空转，直接转入 [PlaybackState.preparing]
+/// 并派发 [CallBackendOpenEffect]；
+/// 若为 false，则维持原有标准流程，先执行 [ResolveMediaEffect] 获取媒体直链。
+TransitionResult _handleLoadRequest(
+  PlaybackFsmContext context,
+  LoadRequestEvent event,
+) {
+  final nextContext = context.copyWith(
+    attemptId: context.attemptId + 1,
+    currentUri: event.uri,
+    initialResumePosition: event.startPosition,
+    autoplay: event.autoplay,
+    headers: event.headers,
+    resolvedUrl: event.isPreResolved ? event.uri : null,
+    currentPosition: event.startPosition ?? Duration.zero,
+    targetPhaseAfterFirstFrame: null,
+    clearTargetPhaseAfterFirstFrame: true,
+    pendingSeekPosition: null,
+    clearPendingSeekPosition: true,
+    recoveryAttempts: 0,
+    eofRecoveryCount: 0,
+    firstFrameRendered: false,
+    hasValidDimensions: false,
+    hasPositionAdvanced: false,
+  );
+
+  if (event.isPreResolved) {
+    return TransitionResult(
+      targetState: PlaybackState.preparing,
+      disposition: TransitionDisposition.exec,
+      nextContext: nextContext,
+      sideEffects: [
+        const CancelTimersEffect(),
+        CallBackendOpenEffect(
+          url: event.uri,
+          start: event.startPosition,
+          autoplay: event.autoplay,
+          headers: event.headers,
+        ),
+      ],
+    );
+  }
+
+  return TransitionResult(
+    targetState: PlaybackState.resolving,
+    disposition: TransitionDisposition.exec,
+    nextContext: nextContext,
+    sideEffects: const [
+      CancelTimersEffect(),
+      ResolveMediaEffect(bypassCache: false),
+    ],
+  );
+}
+
 TransitionResult _onIdle(PlaybackFsmContext context, PlaybackEvent event) {
   return switch (event) {
-    LoadRequestEvent(:final uri, :final startPosition, :final autoplay, :final headers) =>
-      TransitionResult(
-        targetState: PlaybackState.resolving,
-        disposition: TransitionDisposition.exec,
-        nextContext: context.copyWith(
-          attemptId: context.attemptId + 1,
-          currentUri: uri,
-          initialResumePosition: startPosition,
-          autoplay: autoplay,
-          headers: headers,
-          currentPosition: startPosition ?? Duration.zero,
-          targetPhaseAfterFirstFrame: null,
-          clearTargetPhaseAfterFirstFrame: true,
-          pendingSeekPosition: null,
-          clearPendingSeekPosition: true,
-          recoveryAttempts: 0,
-          eofRecoveryCount: 0,
-          firstFrameRendered: false,
-          hasValidDimensions: false,
-          hasPositionAdvanced: false,
-        ),
-        sideEffects: const [
-          CancelTimersEffect(),
-          ResolveMediaEffect(bypassCache: false),
-        ],
-      ),
+    LoadRequestEvent() => _handleLoadRequest(context, event),
     PauseRequestEvent() ||
     PlayRequestEvent() ||
     SeekRequestEvent() ||
@@ -171,25 +210,7 @@ TransitionResult _onIdle(PlaybackFsmContext context, PlaybackEvent event) {
 TransitionResult _onResolving(
     PlaybackFsmContext context, PlaybackEvent event) {
   return switch (event) {
-    LoadRequestEvent(:final uri, :final startPosition, :final autoplay, :final headers) =>
-      TransitionResult(
-        targetState: PlaybackState.resolving,
-        disposition: TransitionDisposition.exec,
-        nextContext: context.copyWith(
-          attemptId: context.attemptId + 1,
-          currentUri: uri,
-          initialResumePosition: startPosition,
-          autoplay: autoplay,
-          headers: headers,
-          firstFrameRendered: false,
-          hasValidDimensions: false,
-          hasPositionAdvanced: false,
-        ),
-        sideEffects: const [
-          CancelTimersEffect(),
-          ResolveMediaEffect(bypassCache: false),
-        ],
-      ),
+    LoadRequestEvent() => _handleLoadRequest(context, event),
     PauseRequestEvent() => TransitionResult.queue(
         PlaybackState.resolving,
         context.copyWith(targetPhaseAfterFirstFrame: PlaybackState.paused),
@@ -270,25 +291,7 @@ TransitionResult _onResolving(
 TransitionResult _onPreparing(
     PlaybackFsmContext context, PlaybackEvent event) {
   return switch (event) {
-    LoadRequestEvent(:final uri, :final startPosition, :final autoplay, :final headers) =>
-      TransitionResult(
-        targetState: PlaybackState.resolving,
-        disposition: TransitionDisposition.exec,
-        nextContext: context.copyWith(
-          attemptId: context.attemptId + 1,
-          currentUri: uri,
-          initialResumePosition: startPosition,
-          autoplay: autoplay,
-          headers: headers,
-          firstFrameRendered: false,
-          hasValidDimensions: false,
-          hasPositionAdvanced: false,
-        ),
-        sideEffects: const [
-          CancelTimersEffect(),
-          ResolveMediaEffect(bypassCache: false),
-        ],
-      ),
+    LoadRequestEvent() => _handleLoadRequest(context, event),
     PauseRequestEvent() => TransitionResult.queue(
         PlaybackState.preparing,
         context.copyWith(targetPhaseAfterFirstFrame: PlaybackState.paused),
@@ -333,25 +336,7 @@ TransitionResult _onPreparing(
 TransitionResult _onPrebuffering(
     PlaybackFsmContext context, PlaybackEvent event) {
   return switch (event) {
-    LoadRequestEvent(:final uri, :final startPosition, :final autoplay, :final headers) =>
-      TransitionResult(
-        targetState: PlaybackState.resolving,
-        disposition: TransitionDisposition.exec,
-        nextContext: context.copyWith(
-          attemptId: context.attemptId + 1,
-          currentUri: uri,
-          initialResumePosition: startPosition,
-          autoplay: autoplay,
-          headers: headers,
-          firstFrameRendered: false,
-          hasValidDimensions: false,
-          hasPositionAdvanced: false,
-        ),
-        sideEffects: const [
-          CancelTimersEffect(),
-          ResolveMediaEffect(bypassCache: false),
-        ],
-      ),
+    LoadRequestEvent() => _handleLoadRequest(context, event),
     PauseRequestEvent() => TransitionResult.queue(
         PlaybackState.prebuffering,
         context.copyWith(targetPhaseAfterFirstFrame: PlaybackState.paused),
@@ -396,25 +381,7 @@ TransitionResult _onPrebuffering(
 TransitionResult _onPlaying(
     PlaybackFsmContext context, PlaybackEvent event) {
   return switch (event) {
-    LoadRequestEvent(:final uri, :final startPosition, :final autoplay, :final headers) =>
-      TransitionResult(
-        targetState: PlaybackState.resolving,
-        disposition: TransitionDisposition.exec,
-        nextContext: context.copyWith(
-          attemptId: context.attemptId + 1,
-          currentUri: uri,
-          initialResumePosition: startPosition,
-          autoplay: autoplay,
-          headers: headers,
-          firstFrameRendered: false,
-          hasValidDimensions: false,
-          hasPositionAdvanced: false,
-        ),
-        sideEffects: const [
-          CancelTimersEffect(),
-          ResolveMediaEffect(bypassCache: false),
-        ],
-      ),
+    LoadRequestEvent() => _handleLoadRequest(context, event),
     PauseRequestEvent() => TransitionResult(
         targetState: PlaybackState.paused,
         disposition: TransitionDisposition.exec,
@@ -466,25 +433,7 @@ TransitionResult _onPlaying(
 
 TransitionResult _onPaused(PlaybackFsmContext context, PlaybackEvent event) {
   return switch (event) {
-    LoadRequestEvent(:final uri, :final startPosition, :final autoplay, :final headers) =>
-      TransitionResult(
-        targetState: PlaybackState.resolving,
-        disposition: TransitionDisposition.exec,
-        nextContext: context.copyWith(
-          attemptId: context.attemptId + 1,
-          currentUri: uri,
-          initialResumePosition: startPosition,
-          autoplay: autoplay,
-          headers: headers,
-          firstFrameRendered: false,
-          hasValidDimensions: false,
-          hasPositionAdvanced: false,
-        ),
-        sideEffects: const [
-          CancelTimersEffect(),
-          ResolveMediaEffect(bypassCache: false),
-        ],
-      ),
+    LoadRequestEvent() => _handleLoadRequest(context, event),
     PauseRequestEvent() =>
       TransitionResult.ignore(PlaybackState.paused, context),
     PlayRequestEvent() => TransitionResult(
@@ -527,25 +476,7 @@ TransitionResult _onPaused(PlaybackFsmContext context, PlaybackEvent event) {
 
 TransitionResult _onSeeking(PlaybackFsmContext context, PlaybackEvent event) {
   return switch (event) {
-    LoadRequestEvent(:final uri, :final startPosition, :final autoplay, :final headers) =>
-      TransitionResult(
-        targetState: PlaybackState.resolving,
-        disposition: TransitionDisposition.exec,
-        nextContext: context.copyWith(
-          attemptId: context.attemptId + 1,
-          currentUri: uri,
-          initialResumePosition: startPosition,
-          autoplay: autoplay,
-          headers: headers,
-          firstFrameRendered: false,
-          hasValidDimensions: false,
-          hasPositionAdvanced: false,
-        ),
-        sideEffects: const [
-          CancelTimersEffect(),
-          ResolveMediaEffect(bypassCache: false),
-        ],
-      ),
+    LoadRequestEvent() => _handleLoadRequest(context, event),
     PauseRequestEvent() => TransitionResult.queue(
         PlaybackState.seeking,
         context.copyWith(phaseBeforeSeeking: PlaybackState.paused),
@@ -598,25 +529,7 @@ TransitionResult _onSeeking(PlaybackFsmContext context, PlaybackEvent event) {
 TransitionResult _onRebuffering(
     PlaybackFsmContext context, PlaybackEvent event) {
   return switch (event) {
-    LoadRequestEvent(:final uri, :final startPosition, :final autoplay, :final headers) =>
-      TransitionResult(
-        targetState: PlaybackState.resolving,
-        disposition: TransitionDisposition.exec,
-        nextContext: context.copyWith(
-          attemptId: context.attemptId + 1,
-          currentUri: uri,
-          initialResumePosition: startPosition,
-          autoplay: autoplay,
-          headers: headers,
-          firstFrameRendered: false,
-          hasValidDimensions: false,
-          hasPositionAdvanced: false,
-        ),
-        sideEffects: const [
-          CancelTimersEffect(),
-          ResolveMediaEffect(bypassCache: false),
-        ],
-      ),
+    LoadRequestEvent() => _handleLoadRequest(context, event),
     PauseRequestEvent() => TransitionResult(
         targetState: PlaybackState.paused,
         disposition: TransitionDisposition.exec,
@@ -678,25 +591,7 @@ TransitionResult _onRebuffering(
 TransitionResult _onRecovering(
     PlaybackFsmContext context, PlaybackEvent event) {
   return switch (event) {
-    LoadRequestEvent(:final uri, :final startPosition, :final autoplay, :final headers) =>
-      TransitionResult(
-        targetState: PlaybackState.resolving,
-        disposition: TransitionDisposition.exec,
-        nextContext: context.copyWith(
-          attemptId: context.attemptId + 1,
-          currentUri: uri,
-          initialResumePosition: startPosition,
-          autoplay: autoplay,
-          headers: headers,
-          firstFrameRendered: false,
-          hasValidDimensions: false,
-          hasPositionAdvanced: false,
-        ),
-        sideEffects: const [
-          CancelTimersEffect(),
-          ResolveMediaEffect(bypassCache: false),
-        ],
-      ),
+    LoadRequestEvent() => _handleLoadRequest(context, event),
     PauseRequestEvent() => TransitionResult.queue(
         PlaybackState.recovering,
         context.copyWith(targetPhaseAfterFirstFrame: PlaybackState.paused),
@@ -787,25 +682,7 @@ TransitionResult _onRecovering(
 TransitionResult _onCompleted(
     PlaybackFsmContext context, PlaybackEvent event) {
   return switch (event) {
-    LoadRequestEvent(:final uri, :final startPosition, :final autoplay, :final headers) =>
-      TransitionResult(
-        targetState: PlaybackState.resolving,
-        disposition: TransitionDisposition.exec,
-        nextContext: context.copyWith(
-          attemptId: context.attemptId + 1,
-          currentUri: uri,
-          initialResumePosition: startPosition,
-          autoplay: autoplay,
-          headers: headers,
-          firstFrameRendered: false,
-          hasValidDimensions: false,
-          hasPositionAdvanced: false,
-        ),
-        sideEffects: const [
-          CancelTimersEffect(),
-          ResolveMediaEffect(bypassCache: false),
-        ],
-      ),
+    LoadRequestEvent() => _handleLoadRequest(context, event),
     PlayRequestEvent() => TransitionResult(
         targetState: PlaybackState.seeking,
         disposition: TransitionDisposition.exec,
@@ -849,25 +726,7 @@ TransitionResult _onCompleted(
 
 TransitionResult _onError(PlaybackFsmContext context, PlaybackEvent event) {
   return switch (event) {
-    LoadRequestEvent(:final uri, :final startPosition, :final autoplay, :final headers) =>
-      TransitionResult(
-        targetState: PlaybackState.resolving,
-        disposition: TransitionDisposition.exec,
-        nextContext: context.copyWith(
-          attemptId: context.attemptId + 1,
-          currentUri: uri,
-          initialResumePosition: startPosition,
-          autoplay: autoplay,
-          headers: headers,
-          firstFrameRendered: false,
-          hasValidDimensions: false,
-          hasPositionAdvanced: false,
-        ),
-        sideEffects: const [
-          CancelTimersEffect(),
-          ResolveMediaEffect(bypassCache: false),
-        ],
-      ),
+    LoadRequestEvent() => _handleLoadRequest(context, event),
     RetryRequestEvent() => TransitionResult(
         targetState: PlaybackState.resolving,
         disposition: TransitionDisposition.exec,

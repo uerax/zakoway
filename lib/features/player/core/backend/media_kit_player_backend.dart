@@ -83,6 +83,7 @@ class MediaKitPlayerBackend implements PlayerBackend {
   bool _hasEmittedErrorForCurrentOpen = false;
   int _cachedRealVideoTrackCount = 1;
   bool _isDisposed = false;
+  bool get isDisposed => _isDisposed;
 
   int? _streamWidth;
   int? _streamHeight;
@@ -179,6 +180,9 @@ class MediaKitPlayerBackend implements PlayerBackend {
 
     // 确保底层 mpv C 实例与日志订阅管道完全就绪
     await _player.platform?.waitForPlayerInitialization;
+
+    // 起播阶段重置为极速起播水线 (预读 1s 即出画)
+    await resetToStartupWatermark();
 
     final media = Media(
       uri,
@@ -490,6 +494,26 @@ class MediaKitPlayerBackend implements PlayerBackend {
       final props = policy.getDemuxerWatermarkProperties(
         isMeteredNetwork: isMeteredNetwork,
       );
+      for (final entry in props.entries) {
+        await _setProperty(entry.key, entry.value);
+      }
+    } catch (_) {}
+  }
+
+  /// 将解复用器缓冲水线动态提升至巡航水位 (首帧物理出画后平滑提升蓄水量)
+  Future<void> boostToSteadyWatermark() async {
+    try {
+      final props = policy.getSteadyBufferingProperties();
+      for (final entry in props.entries) {
+        await _setProperty(entry.key, entry.value);
+      }
+    } catch (_) {}
+  }
+
+  /// 重置为极速起播缓冲水线 (仅需 1s 数据即可完成解码出画)
+  Future<void> resetToStartupWatermark() async {
+    try {
+      final props = policy.getStartupBufferingProperties();
       for (final entry in props.entries) {
         await _setProperty(entry.key, entry.value);
       }

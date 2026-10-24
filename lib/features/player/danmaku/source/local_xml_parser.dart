@@ -45,7 +45,7 @@ class LocalXmlDanmakuParser {
       throw Exception('选取的 XML 文件内容为空');
     }
 
-    final rawList = BilibiliXmlParser.parse(content);
+    final rawList = await BilibiliXmlParser.parseAsync(content);
     final taggedList = rawList
         .map((c) => c.copyWith(source: 'upload'))
         .toList();

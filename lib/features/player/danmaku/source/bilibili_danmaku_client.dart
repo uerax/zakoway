@@ -474,9 +474,9 @@ class BilibiliDanmakuClient {
       throw Exception('未解析到有效的视频 cid');
     }
 
-    // 5. 拉取 XML 弹幕 (带 Gzip / Deflate 自动解码)
+    // 5. 拉取 XML 弹幕 (带 Gzip / Deflate 自动解码，后台 Worker Isolate 异步解析)
     final xmlContent = await _fetchXmlDanmaku(cid);
-    final comments = BilibiliXmlParser.parse(xmlContent);
+    final comments = await BilibiliXmlParser.parseAsync(xmlContent);
 
     return BilibiliDanmakuResult(
       comments: comments,

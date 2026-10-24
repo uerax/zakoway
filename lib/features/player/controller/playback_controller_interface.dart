@@ -34,11 +34,15 @@ abstract interface class PlaybackController {
   Future<void> initialize();
 
   /// 起播或切集打开视频媒体
+  ///
+  /// 若 [isPreResolved] 为 true（默认），标记传入的 [uri] 已经由业务层解析为真实可播直链，
+  /// 底层状态机将 0ms 跳过 resolving 状态直达 preparing 并触发底层硬件解码，避免二次网络解析空转。
   Future<void> open(
     String uri, {
     Map<String, String>? httpHeaders,
     Duration? start,
     bool autoplay = true,
+    bool isPreResolved = true,
   });
 
   /// 播放 / 暂停切换

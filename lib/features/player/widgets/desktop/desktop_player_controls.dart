@@ -885,8 +885,8 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
         builder: (context, constraints) {
           final playerWidth = constraints.maxWidth;
           final playerHeight = constraints.maxHeight;
-          final isNarrow = playerWidth < 600;
-          final isUltraNarrow = playerWidth < 460;
+          final isNarrow = playerWidth < 640;
+          final isUltraNarrow = playerWidth < 520;
           final speedPopupWidth = isUltraNarrow ? 82.0 : 86.0;
           final btnSpacing = isUltraNarrow ? 2.5 : (isNarrow ? 4.0 : 6.0);
           final barHorizontalPadding =
@@ -1256,19 +1256,21 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                         );
                                       },
                                     ),
-                                    SizedBox(width: btnSpacing),
-                                    _buildBarButton(
-                                      icon: DanmakuSettingsIcon(
-                                        size: mainIconSize,
-                                        color: _activePanel ==
-                                                _DesktopActivePanel.danmaku
-                                            ? primaryColor
-                                            : Colors.white,
+                                    if (!isUltraNarrow) ...[
+                                      SizedBox(width: btnSpacing),
+                                      _buildBarButton(
+                                        icon: DanmakuSettingsIcon(
+                                          size: mainIconSize,
+                                          color: _activePanel ==
+                                                  _DesktopActivePanel.danmaku
+                                              ? primaryColor
+                                              : Colors.white,
+                                        ),
+                                        size: mainBtnSize,
+                                        onTap: () =>
+                                            _togglePanel(_DesktopActivePanel.danmaku),
                                       ),
-                                      size: mainBtnSize,
-                                      onTap: () =>
-                                          _togglePanel(_DesktopActivePanel.danmaku),
-                                    ),
+                                    ],
                                     SizedBox(width: btnSpacing),
                                   ],
 
@@ -1384,9 +1386,10 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
 
                                   SizedBox(width: btnSpacing),
 
-                                  // 剧场模式切换 (T)
+                                  // 剧场模式切换 (T，小窗时自适应隐藏以腾出弹性空间)
                                   if (widget.onToggleTheaterMode != null &&
-                                      !widget.isFullscreen) ...[
+                                      !widget.isFullscreen &&
+                                      !isUltraNarrow) ...[
                                     _buildBarButton(
                                       icon: Icon(
                                         widget.isTheaterMode
@@ -1406,26 +1409,28 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                     SizedBox(width: btnSpacing),
                                   ],
 
-                                  // 全屏切换
+                                  // 全屏切换 (极窄小窗下折叠应用全屏，仅保留真全屏主入口)
                                   if (widget.onToggleAppFullscreen != null &&
                                       widget.onToggleTrueFullscreen != null) ...[
-                                    _buildBarButton(
-                                      icon: Icon(
-                                        widget.isAppFullscreen
-                                            ? Icons.close_fullscreen_rounded
-                                            : Icons.fit_screen_rounded,
-                                        color: widget.isAppFullscreen
-                                            ? primaryColor
-                                            : Colors.white,
-                                        size: mainIconSize,
+                                    if (!isUltraNarrow) ...[
+                                      _buildBarButton(
+                                        icon: Icon(
+                                          widget.isAppFullscreen
+                                              ? Icons.close_fullscreen_rounded
+                                              : Icons.fit_screen_rounded,
+                                          color: widget.isAppFullscreen
+                                              ? primaryColor
+                                              : Colors.white,
+                                          size: mainIconSize,
+                                        ),
+                                        size: mainBtnSize,
+                                        onTap: () {
+                                          _handleUserActivity();
+                                          widget.onToggleAppFullscreen?.call();
+                                        },
                                       ),
-                                      size: mainBtnSize,
-                                      onTap: () {
-                                        _handleUserActivity();
-                                        widget.onToggleAppFullscreen?.call();
-                                      },
-                                    ),
-                                    SizedBox(width: btnSpacing),
+                                      SizedBox(width: btnSpacing),
+                                    ],
                                     _buildBarButton(
                                       icon: Icon(
                                         widget.isTrueFullscreen

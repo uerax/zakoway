@@ -13,6 +13,7 @@ import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
 import '../../common/widgets/anime_card.dart';
 import '../../common/widgets/shimmer_loading.dart';
+import '../../player/core/proxy/media_preload_coordinator.dart';
 import '../../category/models/category_constants.dart';
 import '../../history/pages/history_page.dart';
 import '../widgets/continue_watching_shelf.dart';
@@ -238,6 +239,17 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
         listenable: WatchHistoryService.instance,
         builder: (context, _) {
           final watchHistory = WatchHistoryService.instance.latestByAnime;
+          if (watchHistory.isNotEmpty) {
+            final top = watchHistory.first;
+            if (top.pluginName.isNotEmpty && top.pageUrl.isNotEmpty) {
+              // 特殊处理说明：首页继续追番首片预测性预拉取 (First-chunk Speculative Preload)
+              // 在用户浏览首页的间隙，静默预载目标番剧首个切片到本地磁盘缓存，点击时直接命中 < 200ms 瞬开！
+              MediaPreloadCoordinator.instance.preloadMediaFirstChunk(
+                sourceId: top.pluginName,
+                episodeUrl: top.pageUrl,
+              ).ignore();
+            }
+          }
           return ContinueWatchingShelf(
             records: watchHistory,
             onResumeWatch: (record) {

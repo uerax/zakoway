@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/danmaku_item.dart';
 
@@ -13,7 +14,22 @@ class BilibiliXmlParser {
   static final RegExp _decEntityRegex = RegExp(r'&#(\d+);');
   static final RegExp _hexEntityRegex = RegExp(r'&#x([0-9a-fA-F]+);');
 
-  /// 解析 XML 字符串为 DanmakuItem 列表
+  /// 异步在后台 Worker Isolate 解析 XML 字符串为 DanmakuItem 列表
+  ///
+  /// 特殊处理说明：
+  /// B 站全量弹幕文件往往达到几百 KB 至数 MB，包含上万个标签。
+  /// 在主 Isolate 中执行正则匹配与大规模排序会导致 UI 事件循环卡顿 100~300ms；
+  /// 对于中大型文本，自动调度至 [compute] 后台线程解析，杜绝起播瞬间的掉帧阻塞。
+  static Future<List<DanmakuItem>> parseAsync(String xmlContent) async {
+    if (xmlContent.isEmpty) return const [];
+    // 文本较小（< 16KB）时直接主线程同步解析，避免线程间内存拷贝开销
+    if (xmlContent.length < 16 * 1024) {
+      return parse(xmlContent);
+    }
+    return compute(parse, xmlContent);
+  }
+
+  /// 同步解析 XML 字符串为 DanmakuItem 列表
   static List<DanmakuItem> parse(String xmlContent) {
     if (xmlContent.isEmpty) return const [];
     final out = <DanmakuItem>[];

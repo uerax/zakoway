@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:zakoway/features/player/controller/playback_controller.dart';
 import 'package:zakoway/features/player/core/fsm/playback_event.dart';
 import 'package:zakoway/features/player/core/fsm/playback_fsm_context.dart';
+import 'package:zakoway/features/player/core/fsm/playback_side_effect.dart';
 import 'package:zakoway/features/player/core/fsm/playback_transition.dart';
 import 'package:zakoway/features/player/core/models/playback_state.dart' as core_state;
 
@@ -188,6 +189,29 @@ void main() {
       expect(result.targetState, equals(core_state.PlaybackState.playing));
       expect(result.nextContext.firstFrameRendered, isTrue);
       expect(result.nextContext.lastFailure, isNull);
+    });
+
+    test('isPreResolved=true 直通跳过 resolving 状态直达 preparing 并触发底层 open', () {
+      const context = PlaybackFsmContext();
+      const event = LoadRequestEvent(
+        uri: 'https://example.com/video.mp4',
+        isPreResolved: true,
+        autoplay: true,
+      );
+
+      final result = evaluateTransition(
+        currentState: core_state.PlaybackState.idle,
+        context: context,
+        event: event,
+      );
+
+      // 验证直接流转至 preparing，且 sideEffects 包含 CallBackendOpenEffect
+      expect(result.targetState, equals(core_state.PlaybackState.preparing));
+      expect(result.nextContext.resolvedUrl, equals('https://example.com/video.mp4'));
+      expect(
+        result.sideEffects.any((e) => e is CallBackendOpenEffect),
+        isTrue,
+      );
     });
   });
 }

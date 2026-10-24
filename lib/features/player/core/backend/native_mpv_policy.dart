@@ -22,6 +22,7 @@ class NativeMpvPolicy {
     this.cachePause = true,
     this.cachePauseInitial = false,
     this.cachePauseWaitSecs = 0.2,
+    this.startupReadaheadSecs = 1.0,
     this.demuxerReadaheadSecs = 15,
     this.cacheSecs = 30,
     this.wifiMaxBytes = 32 * 1024 * 1024,
@@ -74,6 +75,11 @@ class NativeMpvPolicy {
   final bool cachePause;
   final bool cachePauseInitial;
   final double cachePauseWaitSecs;
+
+  /// 起播阶段极速预读水线（秒，起播只要 1s 左右数据即刻物理出画）
+  final double startupReadaheadSecs;
+
+  /// 巡航播放阶段平稳预读水线（秒）
   final int demuxerReadaheadSecs;
   final int cacheSecs;
 
@@ -137,8 +143,9 @@ class NativeMpvPolicy {
       'cache': cache ? 'yes' : 'no',
       'cache-pause': cachePause ? 'yes' : 'no',
       'cache-pause-initial': cachePauseInitial ? 'yes' : 'no',
-      'cache-pause-wait': cachePauseWaitSecs.toString(),
-      'demuxer-readahead-secs': demuxerReadaheadSecs.toString(),
+      // 特殊处理说明：起播初始水线极速化，仅预读 1s 数据即刻出画，出画后平滑提升至巡航水位
+      'cache-pause-wait': '0.1',
+      'demuxer-readahead-secs': startupReadaheadSecs.toString(),
       'cache-secs': cacheSecs.toString(),
       'demuxer-max-bytes': maxBytes.toString(),
       'demuxer-max-back-bytes': maxBackBytes.toString(),
@@ -184,6 +191,22 @@ class NativeMpvPolicy {
     return {
       'demuxer-max-bytes': maxBytes.toString(),
       'demuxer-max-back-bytes': maxBackBytes.toString(),
+    };
+  }
+
+  /// 提取用于首帧出画后平滑提升至巡航水位的属性字典
+  Map<String, String> getSteadyBufferingProperties() {
+    return {
+      'demuxer-readahead-secs': demuxerReadaheadSecs.toString(),
+      'cache-pause-wait': cachePauseWaitSecs.toString(),
+    };
+  }
+
+  /// 提取用于起播前极速抢出画的水线属性字典
+  Map<String, String> getStartupBufferingProperties() {
+    return {
+      'demuxer-readahead-secs': startupReadaheadSecs.toString(),
+      'cache-pause-wait': '0.1',
     };
   }
 

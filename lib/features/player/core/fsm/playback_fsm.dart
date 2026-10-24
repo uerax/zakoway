@@ -629,6 +629,7 @@ class PlaybackFsm {
     Duration? startPosition,
     bool autoplay = true,
     Map<String, String>? headers,
+    bool isPreResolved = false,
   }) async {
     if (_isDisposed) return;
     _requestStartTime = _clock();
@@ -638,6 +639,7 @@ class PlaybackFsm {
       startPosition: startPosition,
       autoplay: autoplay,
       headers: headers,
+      isPreResolved: isPreResolved,
     ));
   }
 

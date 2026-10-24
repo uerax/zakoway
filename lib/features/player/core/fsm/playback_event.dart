@@ -22,6 +22,7 @@ class LoadRequestEvent extends PlaybackEvent {
     this.startPosition,
     this.autoplay = true,
     this.headers,
+    this.isPreResolved = false,
   });
 
   final String uri;
@@ -29,9 +30,13 @@ class LoadRequestEvent extends PlaybackEvent {
   final bool autoplay;
   final Map<String, String>? headers;
 
+  /// 标记传入的 uri 是否已经为解析完成的可用直链
+  /// 若为 true，状态机直接跳过 resolving 状态与二次网络请求，0ms 派发底层 open
+  final bool isPreResolved;
+
   @override
   String toString() =>
-      'LoadRequest(uri: $uri, start: $startPosition, autoplay: $autoplay)';
+      'LoadRequest(uri: $uri, start: $startPosition, autoplay: $autoplay, preResolved: $isPreResolved)';
 }
 
 /// 用户发起暂停请求 (PAUSE_REQ)

@@ -19,6 +19,8 @@ import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
 import '../controller/playback_controller.dart';
 import '../core/models/resolved_media.dart';
+import '../core/proxy/media_preload_coordinator.dart';
+import '../core/utils/playback_tracer.dart';
 import '../danmaku/danmaku.dart';
 import '../services/player_preferences_service.dart';
 import '../source/auto_source_pick_coordinator.dart';
@@ -147,6 +149,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   bool _isValidPlayReported = false;
   double _lastPlayTick = 0.0;
   int _lastSaveTimeMs = 0;
+  bool _hasNextEpisodePreloaded = false;
 
   int get _currentCanonicalEp => _activeEpisode ?? 1;
 
@@ -375,6 +378,18 @@ class _VideoPlayPageState extends State<VideoPlayPage>
           widget.videoUrl!.isNotEmpty) {
         _hasStartedPlayback = true;
         _initPlayback();
+      } else if (_currentPlayingPageUrl != null &&
+          _currentPlayingPageUrl!.isNotEmpty &&
+          _activeEpisode != null) {
+        // 特殊处理说明：
+        // 播放与章节双轨解耦（Dual-Track Pipeline）：
+        // 若已知目标集的分集页面 URL (如首页“继续追番”、历史记录传入的 initialPageUrl)，
+        // 绝不等待全季 12~24 集所有线路的完整 Chapters 抓取并校验完成！
+        // 立即高优先级启动目标集的直链解析并直通底层起播；
+        // 与此同时，分集抓取（Chapters）在后台静默发起，抓取完毕后异步刷新选集面板 UI。
+        _hasStartedPlayback = true;
+        _startFastTrackPlayback(_currentPlayingPageUrl!, _activeEpisode!);
+        _startDefaultSourceSearch(autoPlayFirst: false);
       } else {
         // 启动主流程：先查绑定，再查指定/默认源，未命中则后台探测保底源
         _startDefaultSourceSearch(autoPlayFirst: _activeEpisode != null);
@@ -413,6 +428,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     String url, {
     Map<String, String>? httpHeaders,
     Duration? start,
+    bool isPreResolved = true,
   }) async {
     await _waitForRouteAnimationIfNeeded();
     if (!mounted) return;
@@ -420,6 +436,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       url,
       httpHeaders: httpHeaders,
       start: start,
+      isPreResolved: isPreResolved,
     );
   }
 
@@ -459,6 +476,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     _isValidPlayReported = false;
     _lastPlayTick = 0.0;
     _lastSaveTimeMs = 0;
+    _hasNextEpisodePreloaded = false;
   }
 
   /// 计算初始断点续播时间点并加入片尾与极短播放防卡死保护
@@ -587,10 +605,33 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       WatchedEpisodesService.instance.markWatched(_effectiveBangumiId, canonicalEp);
     }
 
+    // 2.5 连播预载：播放超过 75% 时后台静默预载下一集前 2 个切片
+    _preloadNextEpisodeIfNeeded(t, d);
+
     // 3. 周期保存历史进度：仅在达到有效播放门槛（满 15s）后，每 10s 同步一次最新进度
     if (_isValidPlayReported && now - _lastSaveTimeMs >= 10000) {
       _lastSaveTimeMs = now;
       _saveCurrentProgress(t, d);
+    }
+  }
+
+  /// 特殊处理说明：下一集首片预载流水线 (Next-Episode Seamless Handover)
+  /// 在当前集播放达 75% 准备进入片尾时，后台异步提前解析并下载下一集前 2 个分片，
+  /// 使得自动连播切集时 0ms 无缝衔接。
+  void _preloadNextEpisodeIfNeeded(double t, double d) {
+    if (_hasNextEpisodePreloaded || d <= 30 || (t / d < 0.75)) return;
+    _hasNextEpisodePreloaded = true;
+
+    final slots = _currentSlots;
+    if (slots.isEmpty) return;
+
+    final currentIdx = slots.indexWhere((s) => s.canonicalEp == _currentCanonicalEp);
+    if (currentIdx != -1 && currentIdx + 1 < slots.length) {
+      final nextSlot = slots[currentIdx + 1];
+      MediaPreloadCoordinator.instance.preloadMediaFirstChunk(
+        sourceId: _selectedSourceId,
+        episodeUrl: nextSlot.pageUrl,
+      ).ignore();
     }
   }
 
@@ -613,13 +654,20 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         ? _effectiveBangumiItem!.nameCn
         : (_effectiveBangumiItem?.name ?? widget.title);
 
-    _danmakuCoordinator.autoMatchAndLoad(
-      bangumiId: _effectiveBangumiId,
-      episode: ep,
-      title: effectiveTitle,
-      pluginName: _selectedSourceId,
-      titleAliases: _titleRefs,
-    ).ignore();
+    // 特殊处理说明：
+    // 起播网络避震：
+    // 弹幕匹配与拉取包含跨站 DandanPlay/Bilibili 搜索，
+    // 微延迟 350ms 发起，避免与起播瞬间视频流建立 TCP 连接抢占出口带宽
+    Future<void>.delayed(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      _danmakuCoordinator.autoMatchAndLoad(
+        bangumiId: _effectiveBangumiId,
+        episode: ep,
+        title: effectiveTitle,
+        pluginName: _selectedSourceId,
+        titleAliases: _titleRefs,
+      ).ignore();
+    });
   }
 
   /// 异步补全 Bangumi 官方数据 (用于弹幕检索与选集映射)
@@ -711,6 +759,10 @@ class _VideoPlayPageState extends State<VideoPlayPage>
           final roads = await runtime.chapters(_selectedSourceId, binding.sourceUrl);
           if (roads.isNotEmpty && roads.any((r) => r.episodes.isNotEmpty)) {
             if (!mounted) return;
+            PlaybackTracer.instance.current?.markChaptersFetched(
+              roadCount: roads.length,
+              episodeCount: roads.first.episodes.length,
+            );
             setState(() {
               _chapterRoads = roads;
               _selectedRoadIndex = (widget.initialRoad != null &&
@@ -778,6 +830,10 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         final roads = await runtime.chapters(_selectedSourceId, bestHit.url);
         if (roads.isNotEmpty && roads.any((r) => r.episodes.isNotEmpty)) {
           if (!mounted) return;
+          PlaybackTracer.instance.current?.markChaptersFetched(
+            roadCount: roads.length,
+            episodeCount: roads.first.episodes.length,
+          );
           setState(() {
             _chapterRoads = roads;
             _selectedRoadIndex = (widget.initialRoad != null &&
@@ -1014,19 +1070,101 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     }
   }
 
-  /// 通过 PlayableSlot 起播 (严格按照 Bangumi 映射对应真实媒体地址，彻底杜绝 PV/花絮错位)
-  Future<void> _selectSlot(PlayableSlot slot) async {
-    _autoPicker.onUserAction();
+  /// 统一单集直链解析与安全起播核心管道 (双轨解耦与 Tracer 接入)
+  Future<void> _resolveAndStartPlayback({
+    required String pageUrl,
+    required int canonicalEp,
+    required int sessionToken,
+  }) async {
+    final tracer = PlaybackTracer.instance.startSession(
+      title: widget.title,
+      episode: canonicalEp,
+      sourceId: _selectedSourceId,
+    );
 
-    final runtime = SourceBundleManager.instance.runtime;
-    if (!AppPreferences.isServerModeEnabled() && !runtime.isLocalSource(_selectedSourceId)) {
-      _showHudToast('当前源依赖服务端模式，无法解析播放，请开启服务端模式或手动换源');
+    _resetPlaybackStats();
+    widget.onEpisodeSelected?.call(canonicalEp);
+    _loadDanmakuForCurrentEpisode();
+
+    final startPos = _resolveInitialResumePosition(canonicalEp);
+
+    // 1. 若有预置直接流地址 (或单测环境测试流)
+    if (widget.videoUrl != null && widget.videoUrl!.isNotEmpty) {
+      tracer.markResolveSuccess(preResolved: true);
+      await _safeOpenPlayback(
+        widget.videoUrl!,
+        httpHeaders: widget.httpHeaders,
+        start: startPos,
+        isPreResolved: true,
+      );
       return;
     }
 
-    // 立即停止当前播放并重置画面为加载态（瞬间覆盖清除上一集画面与声音），并归零重置上一集弹幕状态
-    _playbackController.stop().ignore();
-    _danmakuController.reset();
+    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+      tracer.markResolveSuccess(preResolved: true);
+      await _safeOpenPlayback(pageUrl, start: startPos, isPreResolved: true);
+      return;
+    }
+
+    // 2. 否则通过当前视频源解析真实直链
+    try {
+      tracer.markResolveStarted();
+      final runtime = SourceBundleManager.instance.runtime;
+      final result = await runtime.resolve(_selectedSourceId, pageUrl);
+
+      // 若解析期间用户已切换至其他集数或组件已销毁，放弃旧请求响应
+      if (sessionToken != _episodeResolveToken || !mounted) return;
+
+      if (result.url.isEmpty) {
+        throw Exception('视频源未能生成有效媒体地址');
+      }
+
+      tracer.markResolveSuccess(preResolved: true);
+      await _safeOpenPlayback(
+        result.url,
+        httpHeaders: result.headers,
+        start: startPos,
+        isPreResolved: true,
+      );
+
+      // 后台静默预热下一集
+      final slots = _currentSlots;
+      final currentIdx = slots.indexWhere((s) => s.canonicalEp == canonicalEp);
+      if (currentIdx != -1 && currentIdx + 1 < slots.length) {
+        runtime.resolve(_selectedSourceId, slots[currentIdx + 1].pageUrl).ignore();
+      }
+    } catch (e) {
+      if (sessionToken != _episodeResolveToken || !mounted) return;
+      tracer.markFailure(e.toString());
+      setState(() {
+        _playbackError = cleanErrorMessage(e, prefix: '播放解析失败');
+      });
+    }
+  }
+
+  /// 双轨解耦优化：直接使用已知目标集 URL 启动快轨播放，不阻塞等待 Chapters
+  Future<void> _startFastTrackPlayback(String pageUrl, int ep) async {
+    final sessionToken = ++_episodeResolveToken;
+
+    setState(() {
+      _activeEpisode = ep;
+      _currentPlayingPageUrl = pageUrl;
+      _hasStartedPlayback = true;
+      _playingRoadIndex = _selectedRoadIndex;
+      _playingSourceId = _selectedSourceId;
+      _playbackError = null;
+      _chaptersError = null;
+    });
+
+    await _resolveAndStartPlayback(
+      pageUrl: pageUrl,
+      canonicalEp: ep,
+      sessionToken: sessionToken,
+    );
+  }
+
+  /// 用户从槽位列表中点击选集
+  Future<void> _selectSlot(PlayableSlot slot) async {
     final sessionToken = ++_episodeResolveToken;
 
     setState(() {
@@ -1039,57 +1177,11 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       _chaptersError = null;
     });
 
-    _resetPlaybackStats();
-    widget.onEpisodeSelected?.call(slot.canonicalEp);
-    _loadDanmakuForCurrentEpisode();
-
-    final startPos = _resolveInitialResumePosition(slot.canonicalEp);
-
-    // 1. 若有预置直接流地址 (或单测环境测试流)
-    if (widget.videoUrl != null && widget.videoUrl!.isNotEmpty) {
-      await _safeOpenPlayback(
-        widget.videoUrl!,
-        httpHeaders: widget.httpHeaders,
-        start: startPos,
-      );
-      return;
-    }
-
-    if (Platform.environment.containsKey('FLUTTER_TEST')) {
-      await _safeOpenPlayback(slot.pageUrl, start: startPos);
-      return;
-    }
-
-    // 2. 否则通过当前视频源解析真实直链
-    try {
-      final runtime = SourceBundleManager.instance.runtime;
-      final result = await runtime.resolve(_selectedSourceId, slot.pageUrl);
-
-      // 若解析期间用户已切换至其他集数或组件已销毁，放弃旧请求响应
-      if (sessionToken != _episodeResolveToken || !mounted) return;
-
-      if (result.url.isEmpty) {
-        throw Exception('视频源未能生成有效媒体地址');
-      }
-
-      await _safeOpenPlayback(
-        result.url,
-        httpHeaders: result.headers,
-        start: startPos,
-      );
-
-      // 后台静默预热下一集
-      final slots = _currentSlots;
-      final currentIdx = slots.indexOf(slot);
-      if (currentIdx != -1 && currentIdx + 1 < slots.length) {
-        runtime.resolve(_selectedSourceId, slots[currentIdx + 1].pageUrl).ignore();
-      }
-    } catch (e) {
-      if (sessionToken != _episodeResolveToken || !mounted) return;
-      setState(() {
-        _playbackError = cleanErrorMessage(e, prefix: '播放解析失败');
-      });
-    }
+    await _resolveAndStartPlayback(
+      pageUrl: slot.pageUrl,
+      canonicalEp: slot.canonicalEp,
+      sessionToken: sessionToken,
+    );
   }
 
   /// 用户点击选集起播 (严格对应视频源真实分集，mapping 通过 index 互相链接)
@@ -1142,53 +1234,11 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       _chaptersError = null;
     });
 
-    _resetPlaybackStats();
-    widget.onEpisodeSelected?.call(mappedOfficialEp);
-    final startPos = _resolveInitialResumePosition(mappedOfficialEp);
-
-    // 1. 若有预置直接流地址 (或单测环境测试流)
-    if (widget.videoUrl != null && widget.videoUrl!.isNotEmpty) {
-      await _safeOpenPlayback(
-        widget.videoUrl!,
-        httpHeaders: widget.httpHeaders,
-        start: startPos,
-      );
-      return;
-    }
-
-    if (Platform.environment.containsKey('FLUTTER_TEST')) {
-      await _safeOpenPlayback(targetEp.url, start: startPos);
-      return;
-    }
-
-    // 2. 否则通过当前视频源解析真实直链
-    try {
-      final runtime = SourceBundleManager.instance.runtime;
-      final result = await runtime.resolve(_selectedSourceId, targetEp.url);
-
-      // 若解析期间用户已切换至其他集数或组件已销毁，放弃旧请求响应
-      if (sessionToken != _episodeResolveToken || !mounted) return;
-
-      if (result.url.isEmpty) {
-        throw Exception('视频源未能生成有效媒体地址');
-      }
-
-      await _safeOpenPlayback(
-        result.url,
-        httpHeaders: result.headers,
-        start: startPos,
-      );
-
-      // 后台静默预热下一集播放直链
-      if (epIndex + 1 < episodes.length) {
-        runtime.resolve(_selectedSourceId, episodes[epIndex + 1].url).ignore();
-      }
-    } catch (e) {
-      if (sessionToken != _episodeResolveToken || !mounted) return;
-      setState(() {
-        _playbackError = cleanErrorMessage(e, prefix: '播放解析失败');
-      });
-    }
+    await _resolveAndStartPlayback(
+      pageUrl: targetEp.url,
+      canonicalEp: mappedOfficialEp,
+      sessionToken: sessionToken,
+    );
   }
 
   void _onPlaybackCoreStateChanged() {

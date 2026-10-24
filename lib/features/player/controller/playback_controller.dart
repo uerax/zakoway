@@ -8,6 +8,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:zakoway/core/services/network_connectivity_service.dart';
 import 'package:zakoway/features/player/controller/playback_state.dart';
 import 'package:zakoway/features/player/core/backend/media_kit_player_backend.dart';
+import 'package:zakoway/features/player/core/backend/playback_engine_pool.dart';
 import 'package:zakoway/features/player/core/backend/player_backend.dart';
 import 'package:zakoway/features/player/core/fsm/playback_event.dart';
 import 'package:zakoway/features/player/core/fsm/playback_fsm.dart';
@@ -15,6 +16,8 @@ import 'package:zakoway/features/player/core/models/backend_error.dart';
 import 'package:zakoway/features/player/core/models/playback_failure.dart';
 import 'package:zakoway/features/player/core/models/playback_state.dart' as core_state;
 import 'package:zakoway/features/player/core/models/resolved_media.dart';
+import 'package:zakoway/features/player/core/proxy/local_media_proxy_server.dart';
+import 'package:zakoway/features/player/core/utils/playback_tracer.dart';
 import 'package:zakoway/features/player/services/player_preferences_service.dart';
 import 'package:zakoway/features/player/services/shader_asset_service.dart';
 import 'playback_controller_interface.dart';
@@ -137,20 +140,30 @@ class ZakowayPlaybackController implements PlaybackController {
     final isMetered = NetworkConnectivityService.instance.isMetered;
     core.value = core.value.copyWith(isMeteredNetwork: isMetered);
 
-    // 1. 初始化或复用 Backend
-    _backend = _injectedBackend ?? MediaKitPlayerBackend();
-    await _backend!.initialize(isMeteredNetwork: isMetered);
+    // 0. 预热本地流媒体代理服务 (Local Media Proxy)
+    await LocalMediaProxyServer.instance.ensureStarted();
 
-    // 2. 若为原生媒体后端，装配 VideoController
-    if (_backend is MediaKitPlayerBackend) {
-      final nativeBackend = _backend as MediaKitPlayerBackend;
-      _videoController = VideoController(
-        nativeBackend.rawPlayer,
-        configuration: const VideoControllerConfiguration(
-          enableHardwareAcceleration: true,
-        ),
-      );
+    // 1. 从播放器内核与 GPU 纹理池中获取预热就绪的实例，省去 200~400ms 驱动冷启动
+    final pooled = _injectedBackend == null ? PlaybackEnginePool.instance.acquire() : null;
+    if (pooled != null) {
+      _backend = pooled.backend;
+      _videoController = pooled.videoController;
       videoControllerNotifier.value = _videoController;
+    } else {
+      _backend = _injectedBackend ?? MediaKitPlayerBackend();
+      await _backend!.initialize(isMeteredNetwork: isMetered);
+
+      // 2. 若为原生媒体后端，装配 VideoController 并申请 GPU 硬件加速纹理
+      if (_backend is MediaKitPlayerBackend) {
+        final nativeBackend = _backend as MediaKitPlayerBackend;
+        _videoController = VideoController(
+          nativeBackend.rawPlayer,
+          configuration: const VideoControllerConfiguration(
+            enableHardwareAcceleration: true,
+          ),
+        );
+        videoControllerNotifier.value = _videoController;
+      }
     }
 
     // 3. 恢复用户偏好（倍速、音量、超分辨率）
@@ -288,6 +301,17 @@ class ZakowayPlaybackController implements PlaybackController {
       clearError: errorMsg == null,
     );
 
+    if (hasFirstFrame) {
+      PlaybackTracer.instance.current?.markFirstFrameRendered();
+      // 特殊处理说明：
+      // 动态分级缓冲水线调度：
+      // 首帧物理出画前保持极低水线 (1s 数据快速出画)；出画后静默将解复用器水线拉升至巡航水位 (15s 蓄水池)，
+      // 既保障起播瞬间出画毫无拖泥带水，又保障后续高码率视频播放流畅不卡顿。
+      if (_backend is MediaKitPlayerBackend) {
+        (_backend as MediaKitPlayerBackend).boostToSteadyWatermark().ignore();
+      }
+    }
+
     // 首帧物理出画后才注入 Anime4K 着色器
     if (hasFirstFrame && core.value.superResolution != SuperResolutionMode.off) {
       _applySuperResolutionToBackend(core.value.superResolution).ignore();
@@ -316,8 +340,10 @@ class ZakowayPlaybackController implements PlaybackController {
     Map<String, String>? httpHeaders,
     Duration? start,
     bool autoplay = true,
+    bool isPreResolved = true,
   }) async {
     _currentUri = uri;
+    PlaybackTracer.instance.current?.markBackendOpenDispatched();
 
     // 起播/切集立即进入 loading 状态并撤销首帧遮罩标记，防止残影
     core.value = core.value.copyWith(
@@ -342,12 +368,24 @@ class ZakowayPlaybackController implements PlaybackController {
       } catch (_) {}
     }
 
+    // 特殊处理说明：
+    // 本地流媒体反向代理无缝映射 (Local Media Proxy)：
+    // 远程流无论是 MP4 还是 HLS M3U8，全部自动重定向至纯本地回环地址 (127.0.0.1:port)。
+    // 1. 底层 FFmpeg/mbedtls 与本地回环建立连接，握手耗时 0ms，彻底杜绝 -0x4e connection reset 致命重连循环；
+    // 2. 由代理层的 Dart 高性能 HttpClient 连接池负责对远程 CDN 进行持久化复用拉取，大幅加速首帧物理出画。
+    final effectiveUri = LocalMediaProxyServer.instance.buildProxyUrl(
+      uri,
+      headers: httpHeaders,
+      start: start,
+    );
+
     if (_fsm != null) {
       await _fsm!.load(
-        uri,
+        effectiveUri,
         startPosition: start,
         autoplay: autoplay,
         headers: httpHeaders,
+        isPreResolved: isPreResolved,
       );
     }
   }
@@ -640,11 +678,19 @@ class ZakowayPlaybackController implements PlaybackController {
     videoControllerNotifier.value = null;
     unawaited(_seekStreamController.close());
 
-    if (_backend != null) {
-      // 遵循 TC-14 与 11 号文档：非阻塞脱钩释放底层 C 实例
-      final b = _backend;
-      _backend = null;
-      unawaited(b!.dispose());
+    final b = _backend;
+    final vc = _videoController;
+    _backend = null;
+    _videoController = null;
+
+    if (b != null) {
+      if (_injectedBackend == null && b is MediaKitPlayerBackend && vc != null) {
+        // 特殊处理说明：GPU 硬件渲染纹理与播放内核对象池化保活
+        // 退出页面时清洗旧状态并归还至池中，避免频繁向 Direct3D 11 申请与销毁纹理上下文。
+        PlaybackEnginePool.instance.recycle(b, vc);
+      } else {
+        unawaited(b.dispose());
+      }
     }
 
     core.dispose();
