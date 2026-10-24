@@ -55,6 +55,7 @@ class MediaKitPlayerBackend implements PlayerBackend {
               configuration: const PlayerConfiguration(
                 title: 'zakoway Player',
                 logLevel: MPVLogLevel.error,
+                libass: true, // 开启原生 libass 特效字幕与字体排版渲染引擎
               ),
             ),
         policy = policy ?? const NativeMpvPolicy(),
