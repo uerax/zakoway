@@ -388,7 +388,7 @@ class BangumiClient {
   }
 
   /// 获取首页热门番剧列表 (带 12 小时磁盘与内存多级持久化缓存与 Single-Flight 并发去重)
-  Future<List<BangumiItem>> getTrending({int limit = 18, bool forceRefresh = false}) async {
+  Future<List<BangumiItem>> getTrending({int limit = 12, bool forceRefresh = false}) async {
     if (!forceRefresh) {
       if (_trendingCache.value != null) {
         return _trendingCache.value!;
@@ -413,27 +413,27 @@ class BangumiClient {
 
     final Future<List<BangumiItem>> future = () async {
       try {
-        final serverUrl = AppPreferences.getServerModeApiUrl();
-        final res = await _dio.get(
-          '$serverUrl/api/bangumi/trending',
-          queryParameters: {'limit': limit, 'offset': 0},
+        // 特殊处理说明：计算当前季度首日（1/4/7/10月1日），对齐 animaku 检索当季番剧
+        final now = DateTime.now();
+        final seasonMonth = ((now.month - 1) ~/ 3) * 3 + 1;
+        final seasonStart =
+            '${now.year}-${seasonMonth.toString().padLeft(2, '0')}-01';
+
+        // 默认直接走当前激活线路（mirror 或 official）的 /v0/search/subjects，不做第三方接口降级
+        final items = await search(
+          '*',
+          sort: 'heat',
+          airDate: ['>=$seasonStart'],
+          limit: limit,
         );
-        final rawData = res.data;
-        if (rawData is Map<String, dynamic> && rawData['data'] is List) {
-          final list = rawData['data'] as List;
-          final items = list
-              .whereType<Map<String, dynamic>>()
-              .map((item) => BangumiItem.fromJson(item))
-              .toList();
-          if (items.isNotEmpty) {
-            _trendingCache.set(items, items.length * 1500);
-            unawaited(_diskCache?.putJson(
-              'bangumi_trending_$limit',
-              items.map((i) => i.toJson()).toList(),
-              maxAge: const Duration(hours: 12),
-            ) ?? Future.value());
-            return items;
-          }
+        if (items.isNotEmpty) {
+          _trendingCache.set(items, items.length * 1500);
+          unawaited(_diskCache?.putJson(
+            'bangumi_trending_$limit',
+            items.map((i) => i.toJson()).toList(),
+            maxAge: const Duration(hours: 12),
+          ) ?? Future.value());
+          return items;
         }
       } catch (e) {
         developer.log('获取热门 TV 失败: $e');
@@ -465,7 +465,7 @@ class BangumiClient {
   }
 
   /// 获取热门剧场版列表 (复用结构化搜索的 12 小时多级缓存与 Single-Flight，与分类页数据互通)
-  Future<List<BangumiItem>> getHotMovies({int limit = 18, bool forceRefresh = false}) async {
+  Future<List<BangumiItem>> getHotMovies({int limit = 12, bool forceRefresh = false}) async {
     try {
       return await search(
         '',
@@ -481,7 +481,7 @@ class BangumiClient {
   }
 
   /// 获取热门 OVA 列表 (复用结构化搜索的 12 小时多级缓存与 Single-Flight，与分类页数据互通)
-  Future<List<BangumiItem>> getHotOva({int limit = 18, bool forceRefresh = false}) async {
+  Future<List<BangumiItem>> getHotOva({int limit = 12, bool forceRefresh = false}) async {
     try {
       return await search(
         '',
@@ -1397,17 +1397,21 @@ class BangumiClient {
 
     final future = () async {
       try {
-        final serverUrl = AppPreferences.getServerModeApiUrl();
-        final url = '$serverUrl/api/bangumi/subjects/$subjectId/comments';
+        final url = 'https://next.bgm.tv/p1/subjects/$subjectId/comments';
         final queryParams = <String, dynamic>{
           'limit': chunkSize,
           'offset': chunkStartOffset,
           'type': ?type,
         };
 
+        // 特殊处理说明：官方 Next 评论服务若网络不通或受限，设置 4 秒快速超时，避免详情页无限转圈加载
         final res = await _dio.get(
           url,
           queryParameters: queryParams,
+          options: Options(
+            sendTimeout: const Duration(seconds: 4),
+            receiveTimeout: const Duration(seconds: 4),
+          ),
         );
 
         final data = res.data;

@@ -110,7 +110,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
           });
 
       final tvTask = widget.client
-          .getTrending(limit: 18, forceRefresh: forceRefresh)
+          .getTrending(limit: 12, forceRefresh: forceRefresh)
           .then((items) {
             if (mounted && items.isNotEmpty) {
               setState(() => _tv = items);
@@ -123,7 +123,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
           });
 
       final moviesTask = widget.client
-          .getHotMovies(limit: 18, forceRefresh: forceRefresh)
+          .getHotMovies(limit: 12, forceRefresh: forceRefresh)
           .then((items) {
             if (mounted && items.isNotEmpty) {
               setState(() => _movies = items);
@@ -136,7 +136,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
           });
 
       final ovaTask = widget.client
-          .getHotOva(limit: 18, forceRefresh: forceRefresh)
+          .getHotOva(limit: 12, forceRefresh: forceRefresh)
           .then((items) {
             if (mounted && items.isNotEmpty) {
               setState(() => _ova = items);
