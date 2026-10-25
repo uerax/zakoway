@@ -97,8 +97,11 @@ jobs:
 
       - name: Ensure macOS platform exists
         run: |
-          if [ ! -d "macos" ]; then
+          if [ ! -d "macos/Runner.xcodeproj" ]; then
+            mkdir -p /tmp/macos_backup
+            cp -r macos/Runner /tmp/macos_backup/ 2>/dev/null || true
             flutter create . --platforms=macos
+            cp -rf /tmp/macos_backup/Runner/* macos/Runner/ 2>/dev/null || true
           fi
 
       - name: Install dependencies
