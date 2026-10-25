@@ -41,13 +41,13 @@ class PanelSwitchRow extends StatelessWidget {
   final String subtitle;
   final bool value;
   final Color primaryColor;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: () => onChanged(!value),
+      onTap: onChanged == null ? null : () => onChanged!(!value),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 2),
         child: Row(

@@ -152,13 +152,10 @@ class PlayerSettingsPanelBody extends StatelessWidget {
             builder: (context, preferWebview, _) {
               return PanelSwitchRow(
                 title: '强兼容模式',
-                subtitle: preferWebview ? '开启（内存占用高 / 兼容性强）' : '关闭（内存占用小 / 速度快）',
-                value: preferWebview,
+                subtitle: '暂不可开启 (维护重构中)',
+                value: false,
                 primaryColor: primaryColor,
-                onChanged: (val) {
-                  AppPreferences.setPreferWebviewSniff(val);
-                  onTriggerSkipToast?.call(val ? '已开启强兼容模式（兼容性强）' : '已关闭强兼容模式（速度快）');
-                },
+                onChanged: null,
               );
             },
           ),

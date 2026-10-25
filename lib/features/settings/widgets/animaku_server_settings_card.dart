@@ -205,7 +205,6 @@ class _AnimakuServerSettingsCardState extends State<AnimakuServerSettingsCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isServerMode = AppPreferences.isServerModeEnabled();
-    final isPreferWebview = AppPreferences.isPreferWebviewSniffEnabled();
     final currentUrl = AppPreferences.getServerModeApiUrl();
     final isCustomUrl = currentUrl != AppPreferences.defaultServerModeApiUrl;
 
@@ -279,7 +278,7 @@ class _AnimakuServerSettingsCardState extends State<AnimakuServerSettingsCard> {
         const SizedBox(height: 16),
         const M3SettingsSectionHeader(title: '视频解析模式'),
         M3SettingsCard(
-          footerText: '默认关闭以获得最快的起播速度与最小内存占用；若遇到部分番剧无法播放或网站限制，可开启强兼容模式在后台加载网页增强解析。',
+          footerText: '默认关闭以获得最快的起播速度与最小内存占用；强兼容模式底层解析引擎正在重构升级中，当前暂不可开启。',
           children: [
             M3SettingsTile(
               leading: const M3SettingsIconBox(
@@ -287,14 +286,12 @@ class _AnimakuServerSettingsCardState extends State<AnimakuServerSettingsCard> {
                 bg: Color(0xFF34C759),
               ),
               title: '强兼容模式',
-              subtitle: isPreferWebview ? '开启（内存占用高 / 兼容性强）' : '关闭（内存占用小 / 速度快）',
+              subtitle: '暂不可开启 (维护重构中)',
               showDivider: false,
               trailing: Switch.adaptive(
-                value: isPreferWebview,
+                value: false,
                 activeTrackColor: theme.colorScheme.primary,
-                onChanged: (val) {
-                  AppPreferences.setPreferWebviewSniff(val);
-                },
+                onChanged: null,
               ),
             ),
           ],

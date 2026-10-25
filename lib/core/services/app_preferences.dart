@@ -125,8 +125,8 @@ class AppPreferences {
     // 4. 恢复服务端模式偏好
     serverModeNotifier.value = prefs.getBool(_kServerModeEnabled) ?? false;
 
-    // 5. 恢复 WebView 视频流嗅探偏好
-    preferWebviewSniffNotifier.value = prefs.getBool(_kPreferWebviewSniff) ?? false;
+    // 5. 恢复 WebView 视频流嗅探偏好 (当前重构期间强制禁用)
+    preferWebviewSniffNotifier.value = false;
   }
 
   // --- 网络线路持久化 ---
@@ -393,14 +393,14 @@ class AppPreferences {
     await _prefs?.setStringList(_kServerModeCachedSources, sources);
   }
 
-  // --- WebView 视频流嗅探偏好配置 ---
+  // --- WebView 视频流嗅探偏好配置 (当前重构期间强制禁用) ---
 
   static bool isPreferWebviewSniffEnabled() {
-    return _prefs?.getBool(_kPreferWebviewSniff) ?? false;
+    return false;
   }
 
   static Future<void> setPreferWebviewSniff(bool enabled) async {
-    preferWebviewSniffNotifier.value = enabled;
-    await _prefs?.setBool(_kPreferWebviewSniff, enabled);
+    preferWebviewSniffNotifier.value = false;
+    await _prefs?.setBool(_kPreferWebviewSniff, false);
   }
 }
