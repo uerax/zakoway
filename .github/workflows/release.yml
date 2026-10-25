@@ -66,13 +66,13 @@ jobs:
 
       - name: Build Universal APK
         run: |
-          flutter build apk --release
+          flutter build apk --release --android-skip-build-dependency-validation
           TAG="${GITHUB_REF_NAME:-latest}"
           cp build/app/outputs/flutter-apk/app-release.apk "Zakoway-${TAG}-android-universal.apk"
 
       - name: Build Split-per-ABI APK (arm64-v8a)
         run: |
-          flutter build apk --release --split-per-abi
+          flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
           TAG="${GITHUB_REF_NAME:-latest}"
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "Zakoway-${TAG}-android-arm64-v8a.apk"
 
