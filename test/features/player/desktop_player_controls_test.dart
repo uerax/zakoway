@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:zakoway/features/common/widgets/app_desktop_title_bar.dart';
+import 'package:zakoway/features/player/constants/player_ui_constants.dart';
 import 'package:zakoway/features/player/controller/playback_controller.dart';
 import 'package:zakoway/features/player/widgets/controls/controls_top_bar.dart';
 import 'package:zakoway/features/player/widgets/controls/popups/player_speed_popup.dart';
@@ -493,7 +494,7 @@ void main() {
       }
     });
 
-    testWidgets('DesktopPlayerControls: 全屏播放状态下播放中 3 秒自动隐藏顶部控制栏与底部条',
+    testWidgets('DesktopPlayerControls: 全屏播放状态下播放中 2 秒自动隐藏顶部控制栏与底部条',
         (tester) async {
       await tester.binding.setSurfaceSize(const Size(1280, 720));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -526,8 +527,55 @@ void main() {
       var opacityWidget = tester.widget<AnimatedOpacity>(animatedOpacityFinder);
       expect(opacityWidget.opacity, equals(1.0));
 
-      // 等待 3 秒自动隐藏定时器触发并完成 220ms 动画
-      await tester.pump(const Duration(milliseconds: 3300));
+      // 等待自动隐藏定时器触发并完成 220ms 动画
+      await tester.pump(PlayerUiConstants.desktopControlsAutoHideDelay + const Duration(milliseconds: 300));
+
+      opacityWidget = tester.widget<AnimatedOpacity>(animatedOpacityFinder);
+      expect(opacityWidget.opacity, equals(0.0));
+
+      // 模拟鼠标移动唤醒控制栏
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await gesture.addPointer(location: const Offset(400, 300));
+      addTearDown(gesture.removePointer);
+      await tester.pump();
+
+      await gesture.moveTo(const Offset(450, 350));
+      await tester.pump();
+
+      opacityWidget = tester.widget<AnimatedOpacity>(animatedOpacityFinder);
+      expect(opacityWidget.opacity, equals(1.0));
+    });
+
+    testWidgets('DesktopPlayerControls: 视频暂停状态下静止依然会自动隐藏控制栏，鼠标移动后恢复可见',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 720));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DesktopPlayerControls(
+              controller: controller,
+              title: '暂停状态自动隐藏测试',
+              isFullscreen: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // 处于未播放/暂停状态
+      expect(controller.core.value.playing, isFalse);
+
+      final animatedOpacityFinder = find.byWidgetPredicate(
+        (w) => w is AnimatedOpacity && w.duration == const Duration(milliseconds: 220),
+      );
+      expect(animatedOpacityFinder, findsOneWidget);
+      var opacityWidget = tester.widget<AnimatedOpacity>(animatedOpacityFinder);
+      expect(opacityWidget.opacity, equals(1.0));
+
+      // 等待自动隐藏定时器触发并完成动画
+      await tester.pump(PlayerUiConstants.desktopControlsAutoHideDelay + const Duration(milliseconds: 300));
 
       opacityWidget = tester.widget<AnimatedOpacity>(animatedOpacityFinder);
       expect(opacityWidget.opacity, equals(0.0));

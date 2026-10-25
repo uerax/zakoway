@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/services/bangumi_oped_service.dart';
 import '../../../../core/utils/font_manager.dart';
+import '../../constants/player_ui_constants.dart';
 import '../../controller/playback_controller.dart';
 import '../../controller/playback_state.dart';
 import '../../danmaku/danmaku.dart';
@@ -276,7 +277,7 @@ class _MobilePlayerControlsState extends State<MobilePlayerControls> {
 
   void _startHideTimer() {
     _hideTimer?.cancel();
-    _hideTimer = Timer(const Duration(milliseconds: 3500), () {
+    _hideTimer = Timer(PlayerUiConstants.mobileControlsAutoHideDelay, () {
       if (mounted &&
           _visible &&
           !_isSeekingSlider &&
@@ -323,7 +324,7 @@ class _MobilePlayerControlsState extends State<MobilePlayerControls> {
   void _handleShowLockedNotice() {
     setState(() => _showLockButton = true);
     _lockButtonHideTimer?.cancel();
-    _lockButtonHideTimer = Timer(const Duration(seconds: 3), () {
+    _lockButtonHideTimer = Timer(PlayerUiConstants.lockButtonAutoHideDelay, () {
       if (mounted && _isLocked) {
         setState(() => _showLockButton = false);
       }

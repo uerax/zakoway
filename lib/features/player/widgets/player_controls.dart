@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:zakoway/core/services/bangumi_oped_service.dart';
+import 'package:zakoway/features/player/constants/player_ui_constants.dart';
 import 'package:zakoway/features/player/controller/playback_controller.dart';
 import 'package:zakoway/features/player/controller/playback_state.dart';
 import 'package:zakoway/features/player/danmaku/danmaku.dart';
@@ -334,7 +335,7 @@ class _PlayerControlsState extends State<PlayerControls> {
 
   void _startHideTimer() {
     _hideTimer?.cancel();
-    _hideTimer = Timer(const Duration(milliseconds: 3500), () {
+    _hideTimer = Timer(PlayerUiConstants.mobileControlsAutoHideDelay, () {
       if (mounted &&
           _visible &&
           !_isSeekingSlider &&
@@ -391,10 +392,10 @@ class _PlayerControlsState extends State<PlayerControls> {
   }
 
   void _handleShowLockedNotice() {
-    // 锁屏状态下轻点屏幕，唤出锁形按钮 3 秒供用户解锁
+    // 锁屏状态下轻点屏幕，唤出锁形按钮供用户解锁
     setState(() => _showLockButton = true);
     _lockButtonHideTimer?.cancel();
-    _lockButtonHideTimer = Timer(const Duration(seconds: 3), () {
+    _lockButtonHideTimer = Timer(PlayerUiConstants.lockButtonAutoHideDelay, () {
       if (mounted && _isLocked) {
         setState(() => _showLockButton = false);
       }

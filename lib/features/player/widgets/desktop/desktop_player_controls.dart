@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/services/bangumi_oped_service.dart';
 import '../../../../core/utils/font_manager.dart';
+import '../../constants/player_ui_constants.dart';
 import '../../controller/playback_controller.dart';
 import '../../controller/playback_state.dart';
 import '../../danmaku/danmaku.dart';
@@ -31,7 +32,7 @@ enum _DesktopActivePanel {
 }
 
 /// 桌面端专属播放器控制层：
-/// 1. 深度适配键鼠：单击即刻播放暂停（无双击判定延迟）、鼠标静止 2.5s 自动隐藏光标与控件；
+/// 1. 深度适配键鼠：单击即刻播放暂停（无双击判定延迟）、鼠标静止 1.5s 自动隐藏光标与控件；
 /// 2. 悬停展开音量滑槽，且仅在悬停区内允许滚轮微调音量；
 /// 3. Popover 浮动面板：窗口与全屏模式下均在播放器内部右下角展开，彻底杜绝移动端 BottomSheet；
 /// 4. 完备的键盘快捷键（Space/K, F/Enter, Esc, J/L, 方向键, [, ], <, >, 0-9, D, C, S, ?）。
@@ -199,18 +200,14 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
 
   void _onCoreStateChanged() {
     if (!mounted) return;
-    if (widget.controller.core.value.playing) {
-      if (_visible) {
-        _startHideTimer();
-      }
-    } else {
-      if (!_visible) {
-        setState(() {
-          _visible = true;
-        });
-      }
-      _hideTimer?.cancel();
-      _hideTimer = null;
+    if (_visible) {
+      _startHideTimer();
+    } else if (!widget.controller.core.value.playing) {
+      // 暂停时若控件处于隐藏状态，立刻唤醒展示以给予用户明确的状态反馈，并开启自动隐藏倒计时
+      setState(() {
+        _visible = true;
+      });
+      _startHideTimer();
     }
   }
 
@@ -402,7 +399,7 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
 
   void _startHideTimer() {
     _hideTimer?.cancel();
-    _hideTimer = Timer(const Duration(milliseconds: 3000), () {
+    _hideTimer = Timer(PlayerUiConstants.desktopControlsAutoHideDelay, () {
       _hideTimer = null;
       if (mounted &&
           _visible &&
@@ -410,11 +407,9 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
           _activePanel == _DesktopActivePanel.none &&
           !_showSpeedPopup &&
           !_isVolumeHovered) {
-        if (widget.controller.core.value.playing) {
-          setState(() {
-            _visible = false;
-          });
-        }
+        setState(() {
+          _visible = false;
+        });
       }
     });
   }
@@ -897,7 +892,7 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
           return Stack(
             fit: StackFit.expand,
             children: [
-              // 1. 底层桌面端鼠标感知层 (单击即刻暂停/播放、2.5s 静止隐藏光标)
+              // 1. 底层桌面端鼠标感知层 (单击即刻暂停/播放、1.5s 静止隐藏光标)
               Positioned.fill(
                 child: DesktopPlayerGestureLayer(
                   controller: widget.controller,
@@ -911,7 +906,7 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                 ),
               ),
 
-              // 2. 居中暂停水滴微光卡片（仅在真正暂停时优雅淡入，缓冲等待时严禁误显）
+              // 2. 居中暂停水滴微光卡片（仅在真正暂停且控制栏可见时优雅淡入，避免遮挡暂停帧与画面细节）
               ValueListenableBuilder<PlaybackCoreState>(
                 valueListenable: widget.controller.core,
                 builder: (context, coreState, _) {
@@ -919,12 +914,13 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                       !coreState.buffering &&
                       !coreState.loading &&
                       coreState.firstFrameRendered;
+                  final showPauseButton = isPaused && _visible;
 
                   return AnimatedOpacity(
-                    opacity: isPaused ? 1.0 : 0.0,
+                    opacity: showPauseButton ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 180),
                     child: IgnorePointer(
-                      ignoring: !isPaused,
+                      ignoring: !showPauseButton,
                       child: Center(
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
