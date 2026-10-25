@@ -51,8 +51,12 @@ class VideoSurface extends StatelessWidget {
                       controller: videoController,
                       controls: NoVideoControls, // 使用完全自研的高定制控制条
                       fit: coreState.videoFit,
-                      pauseUponEnteringBackgroundMode: false,
-                      resumeUponEnteringForegroundMode: true,
+                      // 特殊处理说明：
+                      // 切后台自动暂停 (选项 A 规范)：
+                      // 1. 进入后台时自动暂停播放，避免移动端无前台服务被系统直接 SIGKILL 强杀或后台偷跑流量耗电；
+                      // 2. 回到前台时不盲目自动起播，避免打扰用户当前环境。
+                      pauseUponEnteringBackgroundMode: true,
+                      resumeUponEnteringForegroundMode: false,
                       // 特殊处理说明：
                       // 显式禁用 Flutter 上层的纯文本 SubtitleView（visible: false），
                       // 彻底解决屏幕翻译（Sign/Screen/门牌）被剥离为死板纯文本堆积在底部的严重干扰问题；

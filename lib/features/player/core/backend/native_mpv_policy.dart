@@ -154,7 +154,13 @@ class NativeMpvPolicy {
       'user-agent': userAgent,
       'tls-verify': tlsVerify ? 'yes' : 'no',
       'hwdec-codecs': hwdecCodecs,
-      'hwdec': isAndroid ? 'auto-safe' : 'auto',
+      // 特殊处理说明：
+      // Android 平台硬解模式选择 mediacodec-copy：
+      // 1. 若使用 auto-safe/mediacodec，底层 FFmpeg 会尝试直绑 Android Surface (ff_mediacodec_surface_ref)；
+      //    在极速起播（如稀饭 xifan 的 MP4 直链）时，Flutter Texture Surface 若在毫秒级瞬态未就绪，会导致 JNI 引用空 Surface 触发 SIGSEGV 闪退；
+      // 2. mediacodec-copy 既能完整调用移动端 MediaCodec 硬件加速降低功耗与发热，又通过缓冲拷贝交由 mpv OpenGL 纹理安全上屏，彻底消除崩溃风险；
+      // 3. 桌面端（Windows/macOS）不受移动端 Surface 生命周期约束，继续保持 auto 享受零拷贝最高渲染吞吐。
+      'hwdec': isAndroid ? 'mediacodec-copy' : 'auto',
       'sub-font': subFont,
       'sub-font-size': subFontSize.toString(),
       'sub-color': subColor,

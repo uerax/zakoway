@@ -555,18 +555,35 @@ class MediaKitPlayerBackend implements PlayerBackend {
     _shaderQueueManager.reset();
 
     final p = _player;
-    if (synchronized) {
+    Future<void> safeDisposePlayer() async {
       try {
+        // 特殊处理说明：
+        // 核心竞态防御 (规避 "Callback invoked after it has been deleted" 崩溃)：
+        // 1. media_kit 在底层调用 player.dispose() 时会立即 close() 掉 Dart 的 NativeCallable 回调，
+        //    但底层 libmpv 实例被硬编码延迟了 5 秒才执行 mpv_terminate_destroy (见 real.dart L107)；
+        // 2. 若在此之前不先让底层彻底停止，mpv 后台的工作线程在被释放期间只要触发一次在途事件/唤醒，
+        //    便会命中已删除的 Dart 回调指针，触发 Dart VM 的 FATAL abort 崩溃闪退；
+        // 3. 因此在执行 player.dispose() 之前，先向底层发送 'stop' 命令立即终止 demuxer 与解码线程，
+        //    并将 'log-level' 置为 'no'，短暂排空管道后再执行 player.dispose()，极大收敛并发竞态窗口。
+        final platform = p.platform;
+        if (platform is NativePlayer) {
+          try {
+            await platform.command(['stop']);
+          } catch (_) {}
+          try {
+            await platform.setProperty('log-level', 'no');
+          } catch (_) {}
+        }
         await p.pause();
+        await Future<void>.delayed(const Duration(milliseconds: 60));
         await p.dispose();
       } catch (_) {}
+    }
+
+    if (synchronized) {
+      await safeDisposePlayer();
     } else {
-      unawaited(() async {
-        try {
-          await p.pause();
-          await p.dispose();
-        } catch (_) {}
-      }());
+      unawaited(safeDisposePlayer());
     }
   }
 }

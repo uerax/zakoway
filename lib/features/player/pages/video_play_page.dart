@@ -4,22 +4,19 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../core/models/bangumi/bangumi_episode.dart';
 import '../../../core/models/bangumi/bangumi_item.dart';
-import '../../../core/models/history/watch_history_item.dart';
 import '../../../core/network/bangumi_client.dart';
 import '../../../core/services/app_preferences.dart';
 import '../../../core/services/bangumi_oped_service.dart';
-import '../../../core/services/watch_history_service.dart';
 import '../../../core/services/watched_episodes_service.dart';
 import '../../../core/utils/adaptive_page_route.dart';
-import '../../../core/utils/anime_tag_filter.dart';
 import '../../../core/utils/appearance_manager.dart';
-import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
 import '../controller/playback_controller.dart';
+import '../controller/watch_progress_tracker.dart';
 import '../core/models/resolved_media.dart';
-import '../core/proxy/media_preload_coordinator.dart';
 import '../core/utils/playback_tracer.dart';
 import '../danmaku/danmaku.dart';
 import '../services/player_preferences_service.dart';
@@ -31,6 +28,8 @@ import '../source/source_bundle_manager.dart';
 import '../source/source_keyword_matcher.dart';
 import '../source/utils/playable_slot_engine.dart';
 import '../widgets/episode_picker_section.dart';
+import '../widgets/desktop/desktop_player_shortcuts.dart';
+import '../widgets/mobile/mobile_episode_source_sheet.dart';
 import '../widgets/player_side_panel.dart';
 import '../widgets/video_player_layouts.dart';
 import '../widgets/video_player_placeholder.dart';
@@ -111,6 +110,8 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   late final TabController _desktopRightTabController;
   late final SourceAggregator _aggregator;
   late final AutoSourcePickCoordinator _autoPicker;
+  late final AppLifecycleListener _lifecycleListener;
+  bool _lastWakelockState = false;
 
   /// 跨布局保活 Key：确保在全屏/桌面/移动端布局切换时复用同一 Element 节点，防止播放器和弹幕被卸载重建
   final GlobalKey _playerSubtreeKey = GlobalKey();
@@ -144,12 +145,8 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   int _episodeResolveToken = 0;
   String? _currentPlayingPageUrl;
 
-  // 观看统计、15秒有效播放门槛与完播仲裁状态 (对齐 animaku usePlaybackStats 核心规范)
-  double _playSecAccumulated = 0.0;
-  bool _isValidPlayReported = false;
-  double _lastPlayTick = 0.0;
-  int _lastSaveTimeMs = 0;
-  bool _hasNextEpisodePreloaded = false;
+  /// 观看历史与播放进度追踪器 (负责 15s 有效门槛、完播仲裁与自动落盘)
+  final WatchProgressTracker _progressTracker = WatchProgressTracker();
 
   int get _currentCanonicalEp => _activeEpisode ?? 1;
 
@@ -237,6 +234,24 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     _autoPlayNextNotifier =
         ValueNotifier<bool>(PlayerPreferencesService.instance.autoPlayNext);
     _activeEpisode = widget.currentEpisode;
+
+    // 特殊处理说明：
+    // 切后台自动暂停生命周期监听 (选项 A 规范)：
+    // 仅在移动操作系统 (Android / iOS) 触发后台暂停与常亮释放，
+    // 桌面端 (Windows / macOS / Linux) 保持窗口最小化或后台出声的原生桌面体验。
+    _lifecycleListener = AppLifecycleListener(
+      onPause: () {
+        if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+          if (_playbackController.core.value.playing) {
+            _playbackController.pause();
+            if (_lastWakelockState) {
+              _lastWakelockState = false;
+              WakelockPlus.disable().ignore();
+            }
+          }
+        }
+      },
+    );
 
     // 若通过“继续追番”等入口显式指定了历史源与线路，优先对齐历史上下文
     if (widget.preferredSourceId != null && widget.preferredSourceId!.isNotEmpty) {
@@ -459,168 +474,76 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     _showHudToast('跳转至 ${(percent * 100).toInt()}%');
   }
 
-  void _resetPlaybackStats() {
-    _playSecAccumulated = 0.0;
-    _isValidPlayReported = false;
-    _lastPlayTick = 0.0;
-    _lastSaveTimeMs = 0;
-    _hasNextEpisodePreloaded = false;
-  }
+  void _resetPlaybackStats() => _progressTracker.reset();
 
   /// 计算初始断点续播时间点并加入片尾与极短播放防卡死保护
-  /// 特殊处理说明：
-  /// 对齐 animaku usePlaybackResume 规范，若目标续播进度已处于视频终点附近（>= 95% 或 距离末尾不足 15s），
-  /// 判定为该集已完整看毕，强制重置为 0 从头开播，彻底杜绝“重新点开已看剧集立刻触发片尾/被连播切走”的死循环陷阱；
-  /// 若记录进度不足 15s 同样从 0 开播，避免 1~2 秒偶发抖动。
   Duration? _resolveInitialResumePosition(int canonicalEp) {
-    Duration? target;
-    if (widget.initialPosition != null && canonicalEp == widget.currentEpisode) {
-      target = widget.initialPosition;
-    } else if (_effectiveBangumiId > 0) {
-      final historyId = WatchHistoryItem.buildId(_effectiveBangumiId, canonicalEp);
-      final match = WatchHistoryService.instance.items.where((e) => e.id == historyId).firstOrNull;
-      if (match != null && match.position > 0) {
-        final d = match.duration;
-        final p = match.position;
-        if ((d > 30 && (p >= d - 15 || p / d >= 0.95)) || p < 15) {
-          return null;
-        }
-        target = Duration(milliseconds: (p * 1000).round());
-      }
-    }
-
-    if (target != null && target.inSeconds < 15) {
-      return null;
-    }
-    return target;
+    return _progressTracker.resolveInitialResumePosition(
+      bangumiId: _effectiveBangumiId,
+      canonicalEp: canonicalEp,
+      initialPosition: widget.initialPosition,
+      currentEpisodeParam: widget.currentEpisode,
+    );
   }
 
   /// 将当前播放进度正式落盘并广播至首页追番货架与历史记录页
   void _saveCurrentProgress(double position, double duration) {
-    if (_effectiveBangumiId <= 0 || position <= 0 || !position.isFinite) return;
-
-    final ep = _currentCanonicalEp;
-    final effectiveTitle = (_effectiveBangumiItem?.nameCn.isNotEmpty ?? false)
-        ? _effectiveBangumiItem!.nameCn
-        : (_effectiveBangumiItem?.name ?? widget.title);
-
-    // 提取并清洗有效题材标签，供推荐系统生成偏好词频画像
-    final rawTags = (_fullBangumiItem?.tags.isNotEmpty ?? false)
-        ? _fullBangumiItem!.tags
-        : (widget.bangumiItem?.tags ?? const <BangumiTag>[]);
-    final extractedGenres = rawTags
-        .map((t) => t.name.trim())
-        .where((t) => AnimeTagFilter.isAllowedGenre(t))
-        .toSet()
-        .toList();
-
-    // 容灾处理：若当前拉取的条目尚未填充标签，优先复用同番剧已有历史中记录的有效标签
-    final existingGenres = WatchHistoryService.instance.items
-        .where((e) => e.bangumiId == _effectiveBangumiId && e.genres.isNotEmpty)
-        .firstOrNull
-        ?.genres;
-    final finalGenres = extractedGenres.isNotEmpty
-        ? extractedGenres
-        : (existingGenres ?? const <String>[]);
-
-    final item = WatchHistoryItem(
-      id: WatchHistoryItem.buildId(_effectiveBangumiId, ep),
+    _progressTracker.saveCurrentProgress(
       bangumiId: _effectiveBangumiId,
-      title: effectiveTitle,
-      cover: _resolvedCoverUrl,
-      episode: ep,
-      road: _playingRoadIndex ?? _selectedRoadIndex,
-      pluginName: _playingSourceId ?? _selectedSourceId,
+      canonicalEp: _currentCanonicalEp,
+      title: widget.title,
+      coverUrl: _resolvedCoverUrl,
+      roadIndex: _playingRoadIndex ?? _selectedRoadIndex,
+      sourceId: _playingSourceId ?? _selectedSourceId,
       pageUrl: _currentPlayingPageUrl ?? '',
       position: position,
-      duration: duration > 0 ? duration : 1440.0,
-      updatedAt: DateTime.now().millisecondsSinceEpoch,
-      genres: finalGenres,
+      duration: duration,
+      bangumiItem: _effectiveBangumiItem,
+      fullBangumiItem: _fullBangumiItem,
     );
-
-    WatchHistoryService.instance.recordProgress(item).ignore();
   }
 
   /// 页面销毁或返回退出时的安全落盘保护
-  /// 特殊处理说明：
-  /// 严禁任何起播秒退都无脑写入历史记录！
-  /// 仅当达到 15 秒有效播放门槛或进度已达到 85% 完播兜底门槛时才执行保存，
-  /// 杜绝用户仅进入页面挑源 1~2 秒就退出时在历史列表中产生大量 0 秒垃圾记录。
   void _saveProgressOnExit() {
-    if (_effectiveBangumiId <= 0) return;
     final t = _playbackController.timeline.value.position.inMilliseconds / 1000.0;
     final d = _playbackController.timeline.value.duration.inMilliseconds / 1000.0;
-    if (t > 0 && (_isValidPlayReported || (d > 30 && t / d >= 0.85))) {
-      _saveCurrentProgress(t, d);
-    }
+    _progressTracker.saveProgressOnExit(
+      bangumiId: _effectiveBangumiId,
+      canonicalEp: _currentCanonicalEp,
+      title: widget.title,
+      coverUrl: _resolvedCoverUrl,
+      roadIndex: _playingRoadIndex ?? _selectedRoadIndex,
+      sourceId: _playingSourceId ?? _selectedSourceId,
+      pageUrl: _currentPlayingPageUrl ?? '',
+      position: t,
+      duration: d,
+      bangumiItem: _effectiveBangumiItem,
+      fullBangumiItem: _fullBangumiItem,
+    );
   }
 
-  /// 高频播放时间线监听（media_kit 250ms 节流触发）：
-  /// 1. 15 秒自然有效播放累加（Anti-Bounce 门槛）；
-  /// 2. 85% 实时完播兜底标记已看；
-  /// 3. 达到 15 秒后每 10 秒周期性节流同步最新进度至 WatchHistoryService。
+  /// 高频播放时间线监听（media_kit 250ms 节流触发）
   void _onPlaybackTimelineChanged() {
     final t = _playbackController.timeline.value.position.inMilliseconds / 1000.0;
     final d = _playbackController.timeline.value.duration.inMilliseconds / 1000.0;
     final core = _playbackController.core.value;
     final isPlaying = core.playing && !core.buffering && !core.loading && core.firstFrameRendered;
 
-    if (t < 0 || !t.isFinite) return;
-
-    final now = DateTime.now().millisecondsSinceEpoch;
-
-    // 1. 累加实际自然有效播放时长并在满 15s 时标记已看并首次正式写入观看历史
-    if (!_isValidPlayReported && _effectiveBangumiId > 0 && isPlaying) {
-      final lastTick = _lastPlayTick > 0 ? _lastPlayTick : t;
-      final tickDelta = t - lastTick;
-      // 严禁在拖拽或非正常时间跳变时累加；仅自然递增 0 < tickDelta <= 2.5s 时累加
-      if (tickDelta > 0 && tickDelta <= 2.5) {
-        _playSecAccumulated += tickDelta;
-        if (_playSecAccumulated >= 15.0) {
-          _isValidPlayReported = true;
-          final canonicalEp = _currentCanonicalEp;
-          WatchedEpisodesService.instance.markWatched(_effectiveBangumiId, canonicalEp);
-          _lastSaveTimeMs = now;
-          _saveCurrentProgress(t, d);
-        }
-      }
-    }
-    _lastPlayTick = t;
-
-    // 2. 完播兜底：单集播放接近末尾（d > 30 且 t / d >= 0.85）自动记录已看（纯客户端标记）
-    if (_effectiveBangumiId > 0 && d > 30 && t / d >= 0.85) {
-      final canonicalEp = _currentCanonicalEp;
-      WatchedEpisodesService.instance.markWatched(_effectiveBangumiId, canonicalEp);
-    }
-
-    // 2.5 连播预载：播放超过 75% 时后台静默预载下一集前 2 个切片
-    _preloadNextEpisodeIfNeeded(t, d);
-
-    // 3. 周期保存历史进度：仅在达到有效播放门槛（满 15s）后，每 10s 同步一次最新进度
-    if (_isValidPlayReported && now - _lastSaveTimeMs >= 10000) {
-      _lastSaveTimeMs = now;
-      _saveCurrentProgress(t, d);
-    }
-  }
-
-  /// 特殊处理说明：下一集首片预载流水线 (Next-Episode Seamless Handover)
-  /// 在当前集播放达 75% 准备进入片尾时，后台异步提前解析并下载下一集前 2 个分片，
-  /// 使得自动连播切集时 0ms 无缝衔接。
-  void _preloadNextEpisodeIfNeeded(double t, double d) {
-    if (_hasNextEpisodePreloaded || d <= 30 || (t / d < 0.75)) return;
-    _hasNextEpisodePreloaded = true;
-
-    final slots = _currentSlots;
-    if (slots.isEmpty) return;
-
-    final currentIdx = slots.indexWhere((s) => s.canonicalEp == _currentCanonicalEp);
-    if (currentIdx != -1 && currentIdx + 1 < slots.length) {
-      final nextSlot = slots[currentIdx + 1];
-      MediaPreloadCoordinator.instance.preloadMediaFirstChunk(
-        sourceId: _selectedSourceId,
-        episodeUrl: nextSlot.pageUrl,
-      ).ignore();
-    }
+    _progressTracker.onTimelineTick(
+      positionSeconds: t,
+      durationSeconds: d,
+      isPlaying: isPlaying,
+      bangumiId: _effectiveBangumiId,
+      canonicalEp: _currentCanonicalEp,
+      title: widget.title,
+      coverUrl: _resolvedCoverUrl,
+      roadIndex: _playingRoadIndex ?? _selectedRoadIndex,
+      sourceId: _playingSourceId ?? _selectedSourceId,
+      pageUrl: _currentPlayingPageUrl ?? '',
+      slots: _currentSlots,
+      bangumiItem: _effectiveBangumiItem,
+      fullBangumiItem: _fullBangumiItem,
+    );
   }
 
   Future<void> _initPlayback() async {
@@ -1221,8 +1144,19 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     final core = _playbackController.core.value;
     final isCompleted = core.completed;
 
+    // 联动屏幕常亮 (Wakelock)：仅在真实播放中开启常亮，暂停/完播/退场时释放
+    final isPlaying = core.playing;
+    if (isPlaying != _lastWakelockState) {
+      _lastWakelockState = isPlaying;
+      if (isPlaying) {
+        WakelockPlus.enable().ignore();
+      } else {
+        WakelockPlus.disable().ignore();
+      }
+    }
+
     // 暂停时保存：仅在已满 15 秒且视频时长有效时保存
-    if (!core.playing && _isValidPlayReported) {
+    if (!core.playing && _progressTracker.isValidPlayReported) {
       final t = _playbackController.timeline.value.position.inMilliseconds / 1000.0;
       final d = _playbackController.timeline.value.duration.inMilliseconds / 1000.0;
       if (d > 0 && t > 0) {
@@ -1233,14 +1167,19 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     if (isCompleted != _lastPlaybackCompleted) {
       _lastPlaybackCompleted = isCompleted;
       if (isCompleted) {
-        // 完播（ended）时无条件标记已看
-        if (_effectiveBangumiId > 0) {
-          WatchedEpisodesService.instance.markWatched(_effectiveBangumiId, _currentCanonicalEp);
-        }
         final d = _playbackController.timeline.value.duration.inMilliseconds / 1000.0;
-        if (d > 0) {
-          _saveCurrentProgress(d, d);
-        }
+        _progressTracker.onPlaybackEnded(
+          bangumiId: _effectiveBangumiId,
+          canonicalEp: _currentCanonicalEp,
+          title: widget.title,
+          coverUrl: _resolvedCoverUrl,
+          roadIndex: _playingRoadIndex ?? _selectedRoadIndex,
+          sourceId: _playingSourceId ?? _selectedSourceId,
+          pageUrl: _currentPlayingPageUrl ?? '',
+          durationSeconds: d,
+          bangumiItem: _effectiveBangumiItem,
+          fullBangumiItem: _fullBangumiItem,
+        );
 
         if (_autoPlayNextNotifier.value) {
           final slots = _currentSlots;
@@ -1285,6 +1224,8 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   void dispose() {
     _hudToastTimer?.cancel();
     _danmakuBridge.dispose();
+    _lifecycleListener.dispose();
+    WakelockPlus.disable().ignore();
     _saveProgressOnExit();
     DesktopTitleBarManager.instance.setPlayerFullscreen(false);
     if (_isTrueFullscreen) {
@@ -1292,6 +1233,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     } else if (_isAppFullscreen) {
       _exitAppFullscreen();
     }
+    _restorePreferredOrientations();
     _tabController.dispose();
     _desktopRightTabController.dispose();
     _playbackController.timeline.removeListener(_onPlaybackTimelineChanged);
@@ -1309,6 +1251,33 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     super.dispose();
   }
 
+  void _restorePreferredOrientations() {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      // 特殊处理说明：
+      // 退出全屏或页面销毁时按设备物理形态智能恢复屏幕方向：
+      // 1. 紧凑型手机 (最短边 < 600dp)：恢复为标准竖屏 (portraitUp)，避免倾斜手机误触发非播放页横屏挤压；
+      // 2. 平板与大折叠屏 (最短边 >= 600dp)：恢复自适应旋转，允许平板横握使用。
+      try {
+        final shortestSide = MediaQuery.sizeOf(context).shortestSide;
+        if (shortestSide < AppBreakpoints.compact) {
+          SystemChrome.setPreferredOrientations([
+            DeviceOrientation.portraitUp,
+          ]);
+        } else {
+          SystemChrome.setPreferredOrientations([
+            DeviceOrientation.portraitUp,
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ]);
+        }
+      } catch (_) {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+        ]);
+      }
+    }
+  }
+
   Future<void> _enterAppFullscreen() async {
     if (_isTrueFullscreen) {
       if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
@@ -1317,9 +1286,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         } catch (_) {}
       } else {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-        SystemChrome.setPreferredOrientations([
-          DeviceOrientation.portraitUp,
-        ]);
+        _restorePreferredOrientations();
       }
     }
     if (!mounted) return;
@@ -1385,9 +1352,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       } catch (_) {}
     } else {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-      ]);
+      _restorePreferredOrientations();
     }
   }
 
@@ -1489,181 +1454,48 @@ class _VideoPlayPageState extends State<VideoPlayPage>
     final pageContent = PopScope(
       canPop: !_isFullscreen && !_isSidePanelOpen && !_isTheaterMode,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) {
-          if (_isSidePanelOpen) {
-            setState(() => _isSidePanelOpen = false);
-          } else if (_isFullscreen) {
-            _exitFullscreen();
-          } else if (_isTheaterMode) {
-            _toggleTheaterMode();
-          }
+        if (didPop) {
+          // 特殊处理说明：
+          // 当用户使用 Android 侧滑返回手势或物理返回键退出播放页时，
+          // 在退场过渡动画（250~350ms）起始的第 0 毫秒立即静音底层播放器并暂停，
+          // 杜绝退场动画期间杂音外放，并安全释放常亮锁。
+          _playbackController.pause();
+          _playbackController.muteForExit();
+          WakelockPlus.disable().ignore();
+          return;
+        }
+        if (_isSidePanelOpen) {
+          setState(() => _isSidePanelOpen = false);
+        } else if (_isFullscreen) {
+          _exitFullscreen();
+        } else if (_isTheaterMode) {
+          _toggleTheaterMode();
         }
       },
-      child: Focus(
-        autofocus: true,
-        canRequestFocus: true,
-        onKeyEvent: (node, event) {
-          // 特殊处理说明：桌面端页面级播放快捷键全局兜底守护
-          // 原因：Flutter 的 KeyEvent 是从当前拥有焦点的节点沿父节点链单向向上冒泡，绝不向下分发。
-          // 当用户点击右侧选集网格、线路 Tab 或页面空白处时，主焦点会离开播放器内部组件。
-          // 若此处不兜底，所有媒体快捷键将彻底失灵。
-          // 规则：只要当前用户未聚焦在输入框（EditableText 打字态），所有核心媒体快捷键一律安全路由至控制器。
-          if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-            return KeyEventResult.ignored;
+      child: DesktopPlayerShortcuts(
+        playbackController: _playbackController,
+        danmakuController: _danmakuController,
+        hasStartedPlayback: _hasStartedPlayback,
+        isFullscreen: _isFullscreen,
+        onBackPressed: _handleBackPressed,
+        onToggleFullscreen: _toggleFullscreen,
+        onToggleTheaterMode: _toggleTheaterMode,
+        onSeekToPercent: _seekToPercent,
+        onShowHudToast: _showHudToast,
+        onPreviousEpisode: (_activeEpisode != null && _activeEpisode! > 1)
+            ? () {
+                _selectEpisode(_activeEpisode! - 1);
+                _showHudToast('正在切换至上一集');
+              }
+            : null,
+        onNextEpisode: () {
+          final maxCount = _currentSlots.isNotEmpty
+              ? _currentSlots.length
+              : _currentEpisodes.length;
+          if (_activeEpisode != null && _activeEpisode! < maxCount) {
+            _selectEpisode(_activeEpisode! + 1);
+            _showHudToast('正在切换至下一集');
           }
-
-          final primaryWidget =
-              FocusManager.instance.primaryFocus?.context?.widget;
-          if (primaryWidget is EditableText) {
-            return KeyEventResult.ignored;
-          }
-
-          final key = event.logicalKey;
-
-          // 1. Esc 优先分级退出（全屏退出全屏，常规窗口返回上一页）
-          if (key == LogicalKeyboardKey.escape) {
-            _handleBackPressed();
-            return KeyEventResult.handled;
-          }
-
-          // 未起播占位态下，不劫持播放控制键
-          if (!_hasStartedPlayback) {
-            return KeyEventResult.ignored;
-          }
-
-          // 2. 播放 / 暂停 (Space / K)
-          if (key == LogicalKeyboardKey.space || key == LogicalKeyboardKey.keyK) {
-            _playbackController.togglePlay();
-            return KeyEventResult.handled;
-          }
-
-          // 3. 快退 / 快进 (左右方向键 5秒，J / L 10秒)
-          if (key == LogicalKeyboardKey.arrowLeft) {
-            _playbackController.seekBy(const Duration(seconds: -5));
-            return KeyEventResult.handled;
-          }
-          if (key == LogicalKeyboardKey.arrowRight) {
-            _playbackController.seekBy(const Duration(seconds: 5));
-            return KeyEventResult.handled;
-          }
-          if (key == LogicalKeyboardKey.keyJ) {
-            _playbackController.seekBy(const Duration(seconds: -10));
-            return KeyEventResult.handled;
-          }
-          if (key == LogicalKeyboardKey.keyL) {
-            _playbackController.seekBy(const Duration(seconds: 10));
-            return KeyEventResult.handled;
-          }
-
-          // 4. 音量调节 (上下方向键)
-          if (key == LogicalKeyboardKey.arrowUp) {
-            final curVol = _playbackController.core.value.volume;
-            final nextVol = (curVol + 0.05).clamp(0.0, 1.0);
-            _playbackController.setVolume(nextVol);
-            _showHudToast('音量：${(nextVol * 100).round()}%');
-            return KeyEventResult.handled;
-          }
-          if (key == LogicalKeyboardKey.arrowDown) {
-            final curVol = _playbackController.core.value.volume;
-            final nextVol = (curVol - 0.05).clamp(0.0, 1.0);
-            _playbackController.setVolume(nextVol);
-            _showHudToast('音量：${(nextVol * 100).round()}%');
-            return KeyEventResult.handled;
-          }
-
-          // 5. 静音切换 (M)
-          if (key == LogicalKeyboardKey.keyM) {
-            _playbackController.toggleMute();
-            final isMuted = _playbackController.core.value.muted;
-            _showHudToast(isMuted ? '已静音' : '取消静音');
-            return KeyEventResult.handled;
-          }
-
-          // 6. 全屏切换 (F)
-          if (key == LogicalKeyboardKey.keyF) {
-            _toggleFullscreen();
-            return KeyEventResult.handled;
-          }
-
-          // 6.1. 剧场模式切换 (T)
-          if (key == LogicalKeyboardKey.keyT) {
-            if (!_isFullscreen) {
-              _toggleTheaterMode();
-              return KeyEventResult.handled;
-            }
-          }
-
-          // 7. 切集 ([ / ])
-          if (key == LogicalKeyboardKey.bracketLeft) {
-            if (_activeEpisode != null && _activeEpisode! > 1) {
-              _selectEpisode(_activeEpisode! - 1);
-              _showHudToast('正在切换至上一集');
-            }
-            return KeyEventResult.handled;
-          }
-          if (key == LogicalKeyboardKey.bracketRight) {
-            final maxCount = _currentSlots.isNotEmpty
-                ? _currentSlots.length
-                : _currentEpisodes.length;
-            if (_activeEpisode != null && _activeEpisode! < maxCount) {
-              _selectEpisode(_activeEpisode! + 1);
-              _showHudToast('正在切换至下一集');
-            }
-            return KeyEventResult.handled;
-          }
-
-          // 8. 弹幕状态切换 (D)
-          if (key == LogicalKeyboardKey.keyD) {
-            final cfg = _danmakuController.settings;
-            if (!cfg.enabled) {
-              _danmakuController.updateSettings(
-                  cfg.copyWith(enabled: true, simplify: false));
-              _showHudToast('弹幕：全量开启');
-            } else if (!cfg.simplify) {
-              _danmakuController.updateSettings(
-                  cfg.copyWith(enabled: true, simplify: true));
-              _showHudToast('弹幕：智能精简');
-            } else {
-              _danmakuController.updateSettings(cfg.copyWith(enabled: false));
-              _showHudToast('弹幕：已关闭');
-            }
-            return KeyEventResult.handled;
-          }
-
-          // 9. 百分比跳转 (0 ~ 9)
-          if (key == LogicalKeyboardKey.digit0) {
-            _seekToPercent(0.0);
-            return KeyEventResult.handled;
-          } else if (key == LogicalKeyboardKey.digit1) {
-            _seekToPercent(0.1);
-            return KeyEventResult.handled;
-          } else if (key == LogicalKeyboardKey.digit2) {
-            _seekToPercent(0.2);
-            return KeyEventResult.handled;
-          } else if (key == LogicalKeyboardKey.digit3) {
-            _seekToPercent(0.3);
-            return KeyEventResult.handled;
-          } else if (key == LogicalKeyboardKey.digit4) {
-            _seekToPercent(0.4);
-            return KeyEventResult.handled;
-          } else if (key == LogicalKeyboardKey.digit5) {
-            _seekToPercent(0.5);
-            return KeyEventResult.handled;
-          } else if (key == LogicalKeyboardKey.digit6) {
-            _seekToPercent(0.6);
-            return KeyEventResult.handled;
-          } else if (key == LogicalKeyboardKey.digit7) {
-            _seekToPercent(0.7);
-            return KeyEventResult.handled;
-          } else if (key == LogicalKeyboardKey.digit8) {
-            _seekToPercent(0.8);
-            return KeyEventResult.handled;
-          } else if (key == LogicalKeyboardKey.digit9) {
-            _seekToPercent(0.9);
-            return KeyEventResult.handled;
-          }
-
-          return KeyEventResult.ignored;
         },
         child: ListenableBuilder(
           listenable: AppearanceManager.instance,
@@ -1821,170 +1653,40 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   }
 
   /// 呼出全功能选集与多视频源看板抽屉
-  /// 呼出全功能选集与多视频源看板抽屉
   void _showFullSourceSheet() {
     _autoPicker.onUserAction();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: isDark ? 0.65 : 0.45),
-      builder: (bottomSheetContext) {
-        final screenHeight = MediaQuery.of(bottomSheetContext).size.height;
-        return GestureDetector(
-          // 点击半透明空白背景立即秒关
-          behavior: HitTestBehavior.opaque,
-          onTap: () => Navigator.of(bottomSheetContext).pop(),
-          child: Align(
-            alignment: Alignment.bottomCenter,
-            child: GestureDetector(
-              // 阻断内容区点击冒泡
-              behavior: HitTestBehavior.opaque,
-              onTap: () {},
-              child: SizedBox(
-                height: screenHeight * 0.82,
-                child: DefaultTabController(
-                  length: 2,
-                  initialIndex: 1, // 直接定位至视频源看板
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF16161A) : Colors.white,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
-                          blurRadius: 20,
-                          offset: const Offset(0, -4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 10),
-                        Container(
-                          width: 36,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.white24 : Colors.black12,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  height: 36,
-                                  padding: const EdgeInsets.all(3),
-                                  decoration: BoxDecoration(
-                                    color: isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(8),
-                                    borderRadius: BorderRadius.circular(18),
-                                  ),
-                                  child: TabBar(
-                                    splashFactory: NoSplash.splashFactory,
-                                    overlayColor: WidgetStateProperty.all(Colors.transparent),
-                                    dividerColor: Colors.transparent,
-                                    indicatorSize: TabBarIndicatorSize.tab,
-                                    indicator: BoxDecoration(
-                                      color: isDark ? Colors.white.withValues(alpha: 0.16) : Colors.white,
-                                      borderRadius: BorderRadius.circular(15),
-                                    ),
-                                    labelColor: isDark ? Colors.white : Theme.of(context).colorScheme.primary,
-                                    unselectedLabelColor: Theme.of(context).textTheme.bodySmall?.color,
-                                    labelStyle: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: 'MiSans',
-                                      fontFamilyFallback: FontManager.fallbackFontFamilies,
-                                    ),
-                                    unselectedLabelStyle: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: 'MiSans',
-                                      fontFamilyFallback: FontManager.fallbackFontFamilies,
-                                    ),
-                                    tabs: const [
-                                      Tab(text: '选集网格'),
-                                      Tab(text: '切换视频源'),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              IconButton(
-                                icon: const Icon(Icons.close_rounded, size: 20),
-                                onPressed: () => Navigator.of(bottomSheetContext).pop(),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Divider(height: 12, thickness: 0.5),
-                        Expanded(
-                          child: TabBarView(
-                            children: [
-                              EpisodePickerSection(
-                                episodeCount: _displayEpisodeCount,
-                                currentEpisode: _activeEpisode,
-                                slots: _currentSlots,
-                                roads: _roadNames,
-                                activeRoadIndex: _selectedRoadIndex,
-                                playingRoadIndex: _hasStartedPlayback && _selectedSourceId == _playingSourceId ? _playingRoadIndex : null,
-                                episodeTitles: _mappedEpisodeTitles,
-                                isLoading: _isLoadingChapters,
-                                sourceName: _selectedSourceName,
-                                errorMessage: _chaptersError,
-                                onEnableServerMode: (!AppPreferences.isServerModeEnabled() &&
-                                        !SourceBundleManager.instance.runtime.isLocalSource(_selectedSourceId))
-                                    ? () => AppPreferences.setServerModeEnabled(true)
-                                    : null,
-                                onSwitchSource: () {
-                                  DefaultTabController.of(bottomSheetContext).animateTo(1);
-                                },
-                                onRoadSelected: (idx) {
-                                  if (_selectedRoadIndex == idx) return;
-                                  setState(() => _selectedRoadIndex = idx);
-                                },
-                                onSelectEpisode: (ep) {
-                                  _selectEpisode(ep);
-                                  Navigator.of(bottomSheetContext).pop();
-                                },
-                                onSelectSlot: (slot) {
-                                  _selectSlot(slot);
-                                  Navigator.of(bottomSheetContext).pop();
-                                },
-                                onRefresh: () => _startDefaultSourceSearch(autoPlayFirst: false),
-                              ),
-                              VideoSourceView(
-                                sources: _sources,
-                                selectedSourceId: _selectedSourceId,
-                                playingSourceId: _hasStartedPlayback ? _playingSourceId : null,
-                                aggregator: _aggregator,
-                                keywordOptions: _keywordOptions,
-                                onSourceSelected: (src) {
-                                  _handleSourceSelected(src);
-                                  Navigator.of(bottomSheetContext).pop();
-                                },
-                                onSelectHit: (src, hit, [roads]) {
-                                  _handleSourceSelected(src, hit, roads);
-                                  Navigator.of(bottomSheetContext).pop();
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
+    MobileEpisodeSourceSheet.show(
+      context,
+      bangumiId: _effectiveBangumiId,
+      displayEpisodeCount: _displayEpisodeCount,
+      currentEpisode: _activeEpisode,
+      currentSlots: _currentSlots,
+      roadNames: _roadNames,
+      selectedRoadIndex: _selectedRoadIndex,
+      playingRoadIndex:
+          _hasStartedPlayback && _selectedSourceId == _playingSourceId
+              ? _playingRoadIndex
+              : null,
+      mappedEpisodeTitles: _mappedEpisodeTitles,
+      isLoadingChapters: _isLoadingChapters,
+      selectedSourceName: _selectedSourceName,
+      chaptersError: _chaptersError,
+      selectedSourceId: _selectedSourceId,
+      playingSourceId: _hasStartedPlayback ? _playingSourceId : null,
+      hasStartedPlayback: _hasStartedPlayback,
+      sources: _sources,
+      aggregator: _aggregator,
+      keywordOptions: _keywordOptions,
+      onSelectEpisode: _selectEpisode,
+      onSelectSlot: _selectSlot,
+      onRoadSelected: (idx) {
+        if (_selectedRoadIndex == idx) return;
+        setState(() => _selectedRoadIndex = idx);
       },
+      onRefresh: () => _startDefaultSourceSearch(autoPlayFirst: false),
+      onSourceSelected: _handleSourceSelected,
+      onSelectHit: _handleSourceSelected,
+      initialTabIndex: 1,
     );
   }
 

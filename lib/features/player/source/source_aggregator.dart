@@ -99,6 +99,7 @@ class SourceAggregator extends ChangeNotifier {
   final Set<String> _probeDone = {};
   final Set<String> _activeAutoJobs = {};
   final Set<String> _autoProbedSources = {};
+  final Set<String> _userActionSources = {};
   final Map<String, String> _customKeywords = {};
   int _activeJobs = 0;
   bool _disposed = false;
@@ -336,7 +337,19 @@ class SourceAggregator extends ChangeNotifier {
     // 插队至队首
     _queue.remove(sId);
     _queue.insert(0, sId);
+    if (isUserAction) {
+      _userActionSources.add(sId);
+    }
     _processQueue();
+  }
+
+  /// 动态更新选源面板是否处于展开状态 (供移动端 BottomSheet 展开与收起时同步)
+  void setOpen(bool isOpen) {
+    if (_isOpen == isOpen) return;
+    _isOpen = isOpen;
+    if (_isOpen) {
+      _processQueue();
+    }
   }
 
   /// 手动重新探测指定视频源 (支持传入自定义关键词或胶囊关键词，强制绕过缓存)
@@ -359,16 +372,25 @@ class SourceAggregator extends ChangeNotifier {
     );
     notifyListeners();
 
+    _userActionSources.add(sourceId.trim());
     prioritizeSource(sourceId, isUserAction: true);
   }
 
   /// 内部队列消费者 (维持最大 3 并发)
   Future<void> _processQueue() async {
-    final shouldProbe = _isOpen || _autoProbeOnFallback;
-    if (!shouldProbe) return;
-
     while (_activeJobs < concurrencyLimit && _queue.isNotEmpty) {
+      final nextSourceId = _queue.first;
+      final isUserAction = _userActionSources.contains(nextSourceId);
+
+      // 特殊处理说明：
+      // 用户主动触发的探活或重搜操作 (isUserAction = true) 具有最高执行权威，
+      // 绝不应被面板未展开(_isOpen)或非保底模式(_autoProbeOnFallback)的静态门禁阻断；
+      // 仅纯后台自动静默探测才严格遵循面板展开与保底状态门禁。
+      final shouldProbe = isUserAction || _isOpen || _autoProbeOnFallback;
+      if (!shouldProbe) return;
+
       final sourceId = _queue.removeAt(0);
+      _userActionSources.remove(sourceId);
       if (_probeDone.contains(sourceId)) continue;
 
       final source = SourceBundleManager.instance.runtime.getSource(sourceId);

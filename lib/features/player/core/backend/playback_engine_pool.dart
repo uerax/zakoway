@@ -28,9 +28,19 @@ class PlaybackEnginePool {
 
   PooledPlaybackEngine? _cachedEngine;
 
+  bool get _isPoolSupported {
+    if (Platform.environment.containsKey('FLUTTER_TEST')) return false;
+    // 特殊处理说明：
+    // 播放器与纹理池化仅在桌面端 (Windows / macOS / Linux) 启用：
+    // 桌面端 Direct3D 11 与 Metal 的 GPU 纹理上下文为进程常驻级，复用可省去 200~400ms 驱动冷启动；
+    // 移动端（特别是 Android）依赖 TextureRegistry.SurfaceProducer，Surface 生命周期与页面 Widget 树强绑定，
+    // 跨页面复用易因旧 Surface 在后台被清理导致 MediaCodec 硬件解码空指针崩溃，故移动端按原生生命周期安全独立创建与销毁。
+    return Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+  }
+
   /// 从池中获取已预热就绪的播放器内核与 GPU 纹理 (无则返回 null)
   PooledPlaybackEngine? acquire() {
-    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+    if (!_isPoolSupported) {
       return null;
     }
     final engine = _cachedEngine;
@@ -46,7 +56,7 @@ class PlaybackEnginePool {
 
   /// 将使用完毕的播放器与视频控制器清洗后归还至池中保活
   void recycle(MediaKitPlayerBackend backend, VideoController videoController) {
-    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+    if (!_isPoolSupported) {
       backend.dispose().ignore();
       return;
     }
