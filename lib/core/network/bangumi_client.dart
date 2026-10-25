@@ -412,30 +412,18 @@ class BangumiClient {
     }
 
     final Future<List<BangumiItem>> future = () async {
-      // 1. 优先尝试 next.bgm.tv /p1/trending/subjects (若无跨域限制或在原生平台)
       try {
+        final serverUrl = AppPreferences.getServerModeApiUrl();
         final res = await _dio.get(
-          'https://next.bgm.tv/p1/trending/subjects',
-          queryParameters: {'type': 2, 'limit': limit, 'offset': 0},
+          '$serverUrl/api/bangumi/trending',
+          queryParameters: {'limit': limit, 'offset': 0},
         );
         final rawData = res.data;
         if (rawData is Map<String, dynamic> && rawData['data'] is List) {
           final list = rawData['data'] as List;
           final items = list
               .whereType<Map<String, dynamic>>()
-              .map((entry) {
-                final subject = entry['subject'] is Map<String, dynamic>
-                    ? Map<String, dynamic>.from(entry['subject'] as Map<String, dynamic>)
-                    : Map<String, dynamic>.from(entry);
-                // 关键：next.bgm.tv 返回的热度值保存在外层 entry['count'] 中，需合并注入到 subject 中以正确生成 item.heat
-                if (entry['count'] != null) {
-                  subject['heat'] = entry['count'];
-                }
-                if (entry['watchers'] != null) {
-                  subject['watchers'] = entry['watchers'];
-                }
-                return BangumiItem.fromJson(subject);
-              })
+              .map((item) => BangumiItem.fromJson(item))
               .toList();
           if (items.isNotEmpty) {
             _trendingCache.set(items, items.length * 1500);
@@ -447,37 +435,13 @@ class BangumiClient {
             return items;
           }
         }
-      } catch (_) {
-        // 容错降级（如 Web 端 CORS 限制拦截时自动平滑走标准检索接口）
+      } catch (e) {
+        developer.log('获取热门 TV 失败: $e');
       }
-
-      // 2. 降级使用标准 v0 接口按近半年时间 + 热度排行检索 (全端/跨域 100% 兼容)
-      try {
-        final now = DateTime.now();
-        final halfYearAgo = now.subtract(const Duration(days: 180));
-        final dateStr =
-            '${halfYearAgo.year}-${halfYearAgo.month.toString().padLeft(2, '0')}-01';
-
-        final items = await search(
-          '',
-          sort: 'heat',
-          airDate: ['>=$dateStr'],
-          limit: limit,
-        );
-        if (items.isNotEmpty) {
-          _trendingCache.set(items, items.length * 1500);
-          unawaited(_diskCache?.putJson(
-            'bangumi_trending_$limit',
-            items.map((i) => i.toJson()).toList(),
-            maxAge: const Duration(hours: 12),
-          ) ?? Future.value());
-          return items;
-        }
-      } catch (_) {}
 
       if (_trendingCache.staleValue != null) return _trendingCache.staleValue!;
 
-      // 特殊处理说明：网络异常时从磁盘缓存兜底，坚决避免返回空列表导致页面货架空白
+      // 特殊处理说明：网络异常时从磁盘缓存读取，坚决避免返回空列表导致页面货架空白
       final diskFallback = await _diskCache?.getJson('bangumi_trending_$limit');
       if (diskFallback is List) {
         final items = diskFallback

@@ -14,7 +14,6 @@ import '../../../core/utils/responsive.dart';
 import '../../common/widgets/anime_card.dart';
 import '../../common/widgets/shimmer_loading.dart';
 import '../../player/core/proxy/media_preload_coordinator.dart';
-import '../../category/models/category_constants.dart';
 import '../../history/pages/history_page.dart';
 import '../widgets/continue_watching_shelf.dart';
 import '../widgets/daily_spotlight_card.dart';
@@ -572,11 +571,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                   items: _tv!,
                   defaultStatType: 'heat',
                   viewAllSubtitle: '浏览全部 TV',
-                  onViewAllTap: () => _onShelfViewAllTap(
-                    'TV',
-                    year: CategoryConstants.currentYear,
-                    month: CategoryConstants.currentSeasonMonth,
-                  ),
+                  onViewAllTap: () => _onShelfViewAllTap('TV'),
                 ),
         ),
       ),
