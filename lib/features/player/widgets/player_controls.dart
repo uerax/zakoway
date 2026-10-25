@@ -15,7 +15,7 @@ import 'package:zakoway/features/player/widgets/player_skip_toast.dart';
 
 import 'package:zakoway/features/player/services/player_preferences_service.dart';
 
-import 'controls/controls_bottom_bar.dart';
+import 'mobile/mobile_player_bottom_bar.dart';
 import 'controls/controls_top_bar.dart';
 import 'controls/panels/player_danmaku_panel.dart';
 import 'controls/panels/player_floating_panel.dart';

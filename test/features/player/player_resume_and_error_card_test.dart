@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zakoway/features/player/controller/playback_controller.dart';
 import 'package:zakoway/features/player/controller/playback_state.dart';
-import 'package:zakoway/features/player/widgets/controls/controls_bottom_bar.dart';
+import 'package:zakoway/features/player/widgets/mobile/mobile_player_bottom_bar.dart';
 import 'package:zakoway/features/player/widgets/video_player_placeholder.dart';
 
 void main() {

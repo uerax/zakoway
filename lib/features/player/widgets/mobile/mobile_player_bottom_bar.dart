@@ -6,7 +6,7 @@ import 'package:zakoway/features/player/controller/playback_state.dart';
 import 'package:zakoway/features/player/danmaku/danmaku.dart';
 import 'package:zakoway/features/player/services/player_preferences_service.dart';
 import 'package:zakoway/features/player/widgets/player_progress_bar.dart';
-import 'danmaku_settings_icon.dart';
+import '../controls/danmaku_settings_icon.dart';
 
 /// 底部控制栏响应式尺寸度量规范
 class _BottomBarMetrics {
@@ -112,9 +112,9 @@ class _BottomBarMetrics {
   }
 }
 
-/// 播放器底部控制通栏（包含全宽流体进度条与主流对齐的经典通栏控制行）
-class PlayerControlsBottomBar extends StatelessWidget {
-  const PlayerControlsBottomBar({
+/// 移动端专用播放器底部控制通栏（包含全宽流体进度条与触控对齐的经典通栏控制行）
+class MobilePlayerBottomBar extends StatelessWidget {
+  const MobilePlayerBottomBar({
     super.key,
     required this.controller,
     required this.primaryColor,
@@ -226,6 +226,10 @@ class PlayerControlsBottomBar extends StatelessWidget {
               onTap: onUserInteraction,
               child: SafeArea(
                 top: false,
+                // 特殊处理说明：
+                // 仅在全屏横屏 (贴合屏幕物理底边) 时按需避让系统底部横条，
+                // 非全屏竖屏下位于屏幕中部，严禁避让，避免控制栏异常悬空。
+                bottom: isFullscreen,
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(
                     metrics.horizontalPadding,
@@ -285,7 +289,7 @@ class PlayerControlsBottomBar extends StatelessWidget {
                                 size: metrics.playIconSize,
                               ),
                               size: metrics.buttonSize,
-                              tooltip: coreState.playing ? '暂停 (Space)' : '播放 (Space)',
+                              tooltip: coreState.playing ? '暂停' : '播放',
                               onTap: () {
                                 onUserInteraction();
                                 controller.togglePlay();
@@ -382,7 +386,7 @@ class PlayerControlsBottomBar extends StatelessWidget {
                                   checkColor: primaryColor,
                                 ),
                                 size: metrics.buttonSize,
-                                tooltip: isEnabled ? '关闭弹幕 (D)' : '开启弹幕 (D)',
+                                tooltip: isEnabled ? '关闭弹幕' : '开启弹幕',
                                 onTap: () {
                                   onUserInteraction();
                                   final current = danmakuController!.settings;
@@ -485,7 +489,7 @@ class PlayerControlsBottomBar extends StatelessWidget {
                                 size: metrics.iconSize,
                               ),
                               size: metrics.buttonSize,
-                              tooltip: isMuted ? '取消静音 (M)' : '音量调节',
+                              tooltip: isMuted ? '取消静音' : '音量调节',
                               onTap: onToggleVolumeSlider,
                             );
                           },
@@ -520,7 +524,7 @@ class PlayerControlsBottomBar extends StatelessWidget {
                               size: metrics.iconSize,
                             ),
                             size: metrics.buttonSize,
-                            tooltip: isTrueFullscreen ? '退出全屏 (F)' : '全屏 (F)',
+                            tooltip: isTrueFullscreen ? '退出全屏' : '全屏',
                             onTap: () {
                               onUserInteraction();
                               onToggleTrueFullscreen?.call();
@@ -558,3 +562,6 @@ class PlayerControlsBottomBar extends StatelessWidget {
     );
   }
 }
+
+/// 兼容类型别名（无缝过渡）
+typedef PlayerControlsBottomBar = MobilePlayerBottomBar;

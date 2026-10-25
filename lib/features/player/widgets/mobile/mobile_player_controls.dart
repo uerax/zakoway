@@ -10,7 +10,7 @@ import '../../controller/playback_controller.dart';
 import '../../controller/playback_state.dart';
 import '../../danmaku/danmaku.dart';
 import '../../services/player_preferences_service.dart';
-import '../controls/controls_bottom_bar.dart';
+import 'mobile_player_bottom_bar.dart';
 import '../controls/controls_top_bar.dart';
 import '../controls/panels/player_danmaku_panel.dart';
 import '../controls/panels/player_floating_panel.dart';
@@ -739,7 +739,7 @@ class _MobilePlayerControlsState extends State<MobilePlayerControls> {
                       bottom: 0,
                       left: 0,
                       right: 0,
-                      child: PlayerControlsBottomBar(
+                      child: MobilePlayerBottomBar(
                         controller: widget.controller,
                         primaryColor: primaryColor,
                         danmakuController: widget.danmakuController,
