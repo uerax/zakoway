@@ -1,0 +1,170 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows
+        run: flutter build windows --release
+
+      - name: Package Windows ZIP
+        shell: pwsh
+        run: |
+          $tag = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "latest" }
+          Rename-Item -Path "build\windows\x64\runner\Release" -NewName "zakoway"
+          Compress-Archive -Path "build\windows\x64\runner\zakoway" -DestinationPath "Zakoway-$tag-windows-x64.zip"
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifact
+          path: Zakoway-*-windows-x64.zip
+
+  build-android:
+    name: Build Android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Universal APK
+        run: |
+          flutter build apk --release
+          TAG="${GITHUB_REF_NAME:-latest}"
+          cp build/app/outputs/flutter-apk/app-release.apk "Zakoway-${TAG}-android-universal.apk"
+
+      - name: Build Split-per-ABI APK (arm64-v8a)
+        run: |
+          flutter build apk --release --split-per-abi
+          TAG="${GITHUB_REF_NAME:-latest}"
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "Zakoway-${TAG}-android-arm64-v8a.apk"
+
+      - name: Upload Android Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-artifact
+          path: Zakoway-*-android-*.apk
+
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Ensure macOS platform exists
+        run: |
+          if [ ! -d "macos" ]; then
+            flutter create . --platforms=macos
+          fi
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build macOS
+        run: flutter build macos --release
+
+      - name: Package macOS ZIP
+        run: |
+          TAG="${GITHUB_REF_NAME:-latest}"
+          cd build/macos/Build/Products/Release
+          zip -r -y "../../../../../Zakoway-${TAG}-macos-universal.zip" *.app
+
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifact
+          path: Zakoway-*-macos-universal.zip
+
+  build-ios:
+    name: Build iOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build iOS (unsigned)
+        run: flutter build ios --release --no-codesign
+
+      - name: Package Unsigned IPA
+        run: |
+          TAG="${GITHUB_REF_NAME:-latest}"
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/*.app Payload/
+          zip -r "Zakoway-${TAG}-ios.ipa" Payload
+
+      - name: Upload iOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-artifact
+          path: Zakoway-*-ios.ipa
+
+  release:
+    name: Publish GitHub Release
+    needs: [build-windows, build-android, build-macos, build-ios]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
