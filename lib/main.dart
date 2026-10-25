@@ -8,6 +8,7 @@ import 'package:window_manager/window_manager.dart';
 import 'core/network/bangumi_client.dart';
 import 'core/providers/bangumi_providers.dart';
 import 'core/services/app_preferences.dart';
+import 'core/services/display_mode_service.dart';
 import 'core/services/network_connectivity_service.dart';
 import 'core/services/watch_history_service.dart';
 import 'core/services/watched_episodes_service.dart';
@@ -29,6 +30,9 @@ void main() async {
 
   // 1. 初始化并恢复本地持久化配置（网络线路、字体、壁纸等）
   await AppPreferences.init();
+  if (!kIsWeb && Platform.isAndroid) {
+    unawaited(DisplayModeService.initialize());
+  }
   await WatchHistoryService.instance.getHistory();
   await WatchedEpisodesService.instance.initialize();
 

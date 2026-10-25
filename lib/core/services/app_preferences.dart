@@ -39,6 +39,7 @@ class AppPreferences {
   static const _kServerModeApiUrl = 'pref_server_mode_api_url';
   static const _kServerModeCachedSources = 'pref_server_mode_cached_sources';
   static const _kPreferWebviewSniff = 'pref_prefer_webview_sniff';
+  static const _kDisplayMode = 'pref_display_mode';
 
   /// 默认公开免费 Animaku 服务端地址
   static const String defaultServerModeApiUrl = 'https://bakasine.eu.org';
@@ -402,5 +403,15 @@ class AppPreferences {
   static Future<void> setPreferWebviewSniff(bool enabled) async {
     preferWebviewSniffNotifier.value = false;
     await _prefs?.setBool(_kPreferWebviewSniff, false);
+  }
+
+  // --- 屏幕刷新率偏好配置 (Android 平台) ---
+
+  static String? getDisplayMode() {
+    return _prefs?.getString(_kDisplayMode);
+  }
+
+  static Future<void> saveDisplayMode(String modeStr) async {
+    await _prefs?.setString(_kDisplayMode, modeStr);
   }
 }
