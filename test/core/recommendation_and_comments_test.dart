@@ -62,6 +62,35 @@ void main() {
       expect(comment.createdAt, isNotNull);
     });
 
+    test('fromJson mapping with server mode payload format', () {
+      final json = {
+        'id': 33288836,
+        'source': 'bangumi',
+        'author': {
+          'id': 908733,
+          'username': 'nakamonaka',
+          'nickname': 'なかもなか',
+          'avatar': 'https://lain.bgm.tv/pic/user/l/icon.jpg',
+          'userGroup': 10,
+          'sign': '',
+        },
+        'content': '测试吐槽内容',
+        'rate': 8,
+        'collectionType': 2,
+        'createdAt': '2026-10-24T14:31:35.000Z',
+      };
+
+      final comment = BangumiCommentItem.fromJson(json);
+      expect(comment.id, 33288836);
+      expect(comment.author.nickname, 'なかもなか');
+      expect(comment.author.avatarUrl, 'https://lain.bgm.tv/pic/user/l/icon.jpg');
+      expect(comment.content, '测试吐槽内容');
+      expect(comment.rate, 8);
+      expect(comment.collectionType, 2);
+      expect(comment.collectionTypeLabel, '看过');
+      expect(comment.createdAt, DateTime.parse('2026-10-24T14:31:35.000Z'));
+    });
+
     test('Collection type labels mapping', () {
       expect(
         const BangumiCommentItem(

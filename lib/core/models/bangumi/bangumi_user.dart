@@ -25,6 +25,8 @@ class BangumiUser {
       a.forEach((k, v) {
         if (v != null) avatarMap[k.toString()] = v.toString();
       });
+    } else if (json['avatar'] is String && (json['avatar'] as String).isNotEmpty) {
+      avatarMap['large'] = json['avatar'] as String;
     }
 
     return BangumiUser(

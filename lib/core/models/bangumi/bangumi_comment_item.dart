@@ -51,7 +51,7 @@ class BangumiCommentItem {
   }
 
   factory BangumiCommentItem.fromJson(Map<String, dynamic> json, [int fallbackIndex = 0]) {
-    final userJson = (json['user'] as Map<String, dynamic>?) ?? {};
+    final userJson = (json['user'] ?? json['author']) as Map<String, dynamic>? ?? {};
     final user = BangumiUser.fromJson(userJson);
 
     final rawRate = json['rate'];
@@ -60,16 +60,16 @@ class BangumiCommentItem {
         : (int.tryParse('$rawRate') ?? 0);
     final rate = (rateNum >= 1 && rateNum <= 10) ? rateNum : null;
 
-    final rawType = json['type'];
+    final rawType = json['type'] ?? json['collectionType'];
     final colType = (rawType is num)
         ? rawType.toInt()
         : (int.tryParse('$rawType'));
 
-    final rawComment = json['comment']?.toString() ?? '';
-    final content = decodeHtmlEntities(rawComment).trim();
+    final rawComment = json['comment'] ?? json['content'] ?? '';
+    final content = decodeHtmlEntities(rawComment.toString()).trim();
 
     DateTime? parsedDate;
-    final rawUpdated = json['updated_at'] ?? json['updatedAt'];
+    final rawUpdated = json['updated_at'] ?? json['updatedAt'] ?? json['createdAt'];
     String updatedStr = '';
     if (rawUpdated is num) {
       parsedDate = DateTime.fromMillisecondsSinceEpoch(rawUpdated.toInt() * 1000);

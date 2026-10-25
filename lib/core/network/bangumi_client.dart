@@ -1397,8 +1397,8 @@ class BangumiClient {
 
     final future = () async {
       try {
-        // 特殊处理说明：Bangumi 官方 v0 API 未开放评论列表，必须直接请求 Next 官方服务
-        final url = 'https://next.bgm.tv/p1/subjects/$subjectId/comments';
+        final serverUrl = AppPreferences.getServerModeApiUrl();
+        final url = '$serverUrl/api/bangumi/subjects/$subjectId/comments';
         final queryParams = <String, dynamic>{
           'limit': chunkSize,
           'offset': chunkStartOffset,
@@ -1408,12 +1408,6 @@ class BangumiClient {
         final res = await _dio.get(
           url,
           queryParameters: queryParams,
-          options: Options(
-            headers: {
-              'User-Agent': defaultUserAgent,
-              'Accept': 'application/json',
-            },
-          ),
         );
 
         final data = res.data;
