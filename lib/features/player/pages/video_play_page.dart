@@ -1579,8 +1579,8 @@ class _VideoPlayPageState extends State<VideoPlayPage>
             return KeyEventResult.handled;
           }
 
-          // 6. 全屏切换 (F / Enter)
-          if (key == LogicalKeyboardKey.keyF || key == LogicalKeyboardKey.enter) {
+          // 6. 全屏切换 (F)
+          if (key == LogicalKeyboardKey.keyF) {
             _toggleFullscreen();
             return KeyEventResult.handled;
           }

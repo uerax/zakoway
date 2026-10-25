@@ -656,8 +656,8 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
       return KeyEventResult.handled;
     }
 
-    // 2. 全屏切换
-    if (key == LogicalKeyboardKey.keyF || key == LogicalKeyboardKey.enter) {
+    // 2. 全屏切换 (F)
+    if (key == LogicalKeyboardKey.keyF) {
       if (widget.onToggleTrueFullscreen != null) {
         widget.onToggleTrueFullscreen?.call();
       } else {

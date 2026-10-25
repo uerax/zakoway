@@ -142,7 +142,7 @@ void main() {
       expect(find.text('键盘快捷键指南'), findsOneWidget);
       expect(find.text('Space / K'), findsOneWidget);
       expect(find.text('播放 / 暂停'), findsOneWidget);
-      expect(find.text('F / Enter'), findsOneWidget);
+      expect(find.text('F'), findsOneWidget);
       expect(find.text('切换全屏'), findsOneWidget);
     });
 
@@ -150,12 +150,14 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(1280, 720));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
+      bool fullscreenToggled = false;
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: DesktopPlayerControls(
               controller: controller,
               title: '测试桌面控制层',
+              onToggleTrueFullscreen: () => fullscreenToggled = true,
             ),
           ),
         ),
@@ -174,6 +176,15 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.keyM);
       await tester.pump();
       expect(controller.core.value.muted, isTrue);
+
+      // 验证快捷键 Enter 不触发全屏，仅 F 键触发全屏
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(fullscreenToggled, isFalse);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.pump();
+      expect(fullscreenToggled, isTrue);
     });
 
     testWidgets('DesktopPlayerControls: 小窗口 (448px) 与极窄窗口 (380px) 渲染零 overflow 溢出',
