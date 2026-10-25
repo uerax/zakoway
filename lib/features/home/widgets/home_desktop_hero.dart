@@ -441,6 +441,7 @@ class _HomeDesktopHeroState extends State<HomeDesktopHero> {
         child: AnimeCard(
           item: items[index],
           compact: true,
+          glassOverlay: true,
         ),
       );
     }

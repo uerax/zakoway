@@ -471,6 +471,58 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('周六'), findsOneWidget);
     });
+
+    testWidgets('HomeDesktopHero renders AnimeCard with glass overlay and single Chinese title', (tester) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final todayWeekday = DateTime.now().weekday;
+      final mockCalendarDays = [
+        BangumiCalendarDay(
+          weekday: BangumiWeekday(id: todayWeekday, en: '', cn: '今日', ja: ''),
+          items: const [
+            BangumiItem(
+              id: 999,
+              type: 2,
+              name: 'Japanese Title',
+              nameCn: '中文番剧名',
+              summary: '',
+              airDate: '',
+              airWeekday: 1,
+              rank: 0,
+              images: {},
+              tags: [],
+              alias: [],
+              ratingScore: 8.5,
+              votes: 100,
+              eps: 12,
+              totalEpisodes: 12,
+              doing: 1400,
+            ),
+          ],
+        ),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HomeDesktopHero(
+              calendarDays: mockCalendarDays,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 验证卡片直接覆盖呈现单行中文名
+      expect(find.text('中文番剧名'), findsOneWidget);
+      // 验证未显示日文原名
+      expect(find.text('Japanese Title'), findsNothing);
+      // 验证在看角标与评分角标正常呈现
+      expect(find.text('在看'), findsWidgets);
+      expect(find.text('8.5'), findsWidgets);
+    });
   });
 
   group('HomeBannerCarousel infinite loop tests', () {

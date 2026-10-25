@@ -44,6 +44,9 @@ class AnimeCard extends StatelessWidget {
   /// 松手后触发跳转的微延迟时长（毫秒），默认为 null（自动继承 [BouncingScaleCard.defaultTapDelayMs]）
   final int? tapDelayMs;
 
+  /// 是否启用底部自适应半透明毛玻璃覆盖层（封面铺满整卡，适用于大屏横比卡片）
+  final bool glassOverlay;
+
   const AnimeCard({
     super.key,
     required this.item,
@@ -51,6 +54,7 @@ class AnimeCard extends StatelessWidget {
     this.compact = false,
     this.loadDelayMs = 0,
     this.tapDelayMs,
+    this.glassOverlay = false,
   });
 
   @override
@@ -75,148 +79,251 @@ class AnimeCard extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: cardRadius,
+          child: glassOverlay
+              ? _buildGlassOverlayCard(context, theme, bottomStat, cardRadius)
+              : _buildStandardCard(context, theme, bottomStat),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGlassOverlayCard(
+    BuildContext context,
+    ThemeData theme,
+    ({String count, String label, Color color})? bottomStat,
+    BorderRadius cardRadius,
+  ) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // 1. 封面图 100% 完整铺满整张卡片
+        CachedAnimeImage(
+          imageUrl: item.thumbnailUrl.isNotEmpty
+              ? item.thumbnailUrl
+              : item.coverUrl,
+          fit: BoxFit.cover,
+          loadDelayMs: loadDelayMs,
+        ),
+
+        // 2. 底部自然暗色渐变（与 B 站一致，确保标题在浅色画面上清晰可读）
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: compact ? 42 : 52,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.78),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // 3. 左上角状态/已看/在看/热度角标 (与右上角评分左右呼应)
+        if (bottomStat != null)
+          Positioned(
+            top: compact ? 4 : 6,
+            left: compact ? 4 : 6,
+            child: _buildBottomStatBadge(bottomStat, compact),
+          ),
+
+        // 4. 右上角评分角标 (M3 Stadium 胶囊徽标)
+        if (item.ratingScore > 0)
+          Positioned(
+            top: compact ? 4 : 6,
+            right: compact ? 4 : 6,
+            child: _buildRatingBadge(compact),
+          ),
+
+        // 5. 底部贴边中文标题（与 B 站一致直接印在画面底部暗部上方）
+        Positioned(
+          left: compact ? 7.0 : 9.0,
+          right: compact ? 7.0 : 9.0,
+          bottom: compact ? 5.0 : 7.0,
+          child: Text(
+            item.preferredName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: Colors.white,
+              fontSize: compact ? 10.0 : 11.5,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.15,
+              shadows: const [
+                Shadow(
+                  color: Colors.black54,
+                  offset: Offset(0, 1),
+                  blurRadius: 3,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStandardCard(
+    BuildContext context,
+    ThemeData theme,
+    ({String count, String label, Color color})? bottomStat,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CachedAnimeImage(
+                imageUrl: item.thumbnailUrl.isNotEmpty
+                    ? item.thumbnailUrl
+                    : item.coverUrl,
+                fit: BoxFit.cover,
+                loadDelayMs: loadDelayMs,
+              ),
+              // 封面底部暗色渐变遮罩
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: compact ? 28 : 38,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.72),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // 右上角评分角标 (M3 Stadium 胶囊徽标)
+              if (item.ratingScore > 0)
+                Positioned(
+                  top: compact ? 4 : 6,
+                  right: compact ? 4 : 6,
+                  child: _buildRatingBadge(compact),
+                ),
+              // 左下角状态/已看/在看/热度角标 (M3 Stadium 胶囊徽标)
+              if (bottomStat != null)
+                Positioned(
+                  bottom: compact ? 4 : 5,
+                  left: compact ? 4 : 6,
+                  child: _buildBottomStatBadge(bottomStat, compact),
+                ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: compact
+              ? const EdgeInsets.symmetric(horizontal: 6.0, vertical: 5.0)
+              : const EdgeInsets.all(8.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  CachedAnimeImage(
-                    imageUrl: item.thumbnailUrl.isNotEmpty
-                        ? item.thumbnailUrl
-                        : item.coverUrl,
-                    fit: BoxFit.cover,
-                    loadDelayMs: loadDelayMs,
-                  ),
-                  // 封面底部暗色渐变遮罩
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: compact ? 28 : 38,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.72),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  // 右上角评分角标 (M3 Stadium 胶囊徽标)
-                  if (item.ratingScore > 0)
-                    Positioned(
-                      top: compact ? 4 : 6,
-                      right: compact ? 4 : 6,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: compact ? 6 : 8,
-                          vertical: compact ? 2 : 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.65),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.star_rounded,
-                              size: compact ? 11 : 13,
-                              color: Colors.amber,
-                            ),
-                            SizedBox(width: compact ? 2 : 2.5),
-                            Text(
-                              '${item.ratingScore}',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: compact ? 9.5 : 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  // 左下角状态/已看/在看/热度角标 (M3 Stadium 胶囊徽标)
-                  if (bottomStat != null)
-                    Positioned(
-                      bottom: compact ? 4 : 5,
-                      left: compact ? 4 : 6,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: compact ? 6 : 7,
-                          vertical: compact ? 2 : 2.5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.60),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              bottomStat.count,
-                              style: TextStyle(
-                                color: bottomStat.color,
-                                fontSize: compact ? 8.5 : 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(width: compact ? 2 : 2.5),
-                            Text(
-                              bottomStat.label,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.85),
-                                fontSize: compact ? 8 : 9,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
+              Text(
+                item.preferredName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: compact ? 11.5 : 12.5,
+                ),
               ),
-            ),
-            Padding(
-              padding: compact
-                  ? const EdgeInsets.symmetric(horizontal: 6.0, vertical: 5.0)
-                  : const EdgeInsets.all(8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.preferredName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: compact ? 11.5 : 12.5,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    item.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: compact ? 9 : 10,
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 2),
+              Text(
+                item.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontSize: compact ? 9 : 10,
+                ),
               ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRatingBadge(bool compact) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 6 : 8,
+        vertical: compact ? 2 : 3,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.star_rounded,
+            size: compact ? 11 : 13,
+            color: Colors.amber,
+          ),
+          SizedBox(width: compact ? 2 : 2.5),
+          Text(
+            '${item.ratingScore}',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: compact ? 9.5 : 11,
+              fontWeight: FontWeight.bold,
             ),
-          ],
-        ),
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomStatBadge(
+    ({String count, String label, Color color}) bottomStat,
+    bool compact,
+  ) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 6 : 7,
+        vertical: compact ? 2 : 2.5,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.60),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          Text(
+            bottomStat.count,
+            style: TextStyle(
+              color: bottomStat.color,
+              fontSize: compact ? 8.5 : 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(width: compact ? 2 : 2.5),
+          Text(
+            bottomStat.label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: compact ? 8 : 9,
+            ),
+          ),
+        ],
       ),
     );
   }
