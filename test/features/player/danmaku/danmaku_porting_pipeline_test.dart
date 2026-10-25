@@ -270,6 +270,44 @@ void main() {
       coord.dispose();
       controller.dispose();
     });
+
+    test('clearEpisodeComments 切集瞬时原子归零测试', () async {
+      final controller = DanmakuController();
+      final coord = DanmakuSessionCoordinator(danmakuController: controller);
+
+      coord.poolsManager.writePool(
+        DanmakuPoolId.dandan,
+        [
+          DanmakuItem(text: '第一集弹幕1', timeMs: 1000),
+          DanmakuItem(text: '第一集弹幕2', timeMs: 2000),
+        ],
+      );
+      coord.poolsManager.writePool(
+        DanmakuPoolId.bilibiliAuto,
+        [DanmakuItem(text: '第一集B站弹幕', timeMs: 3000)],
+      );
+
+      // 等待初始异步拍平完成
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(coord.poolsManager.totalLoadedCount, equals(3));
+      expect(controller.items.length, equals(3));
+
+      // 模拟切集：触发原子清空
+      var notified = false;
+      coord.addListener(() => notified = true);
+
+      coord.clearEpisodeComments();
+
+      // 验证池和控制器被同步清空，没有任何延迟残留
+      expect(coord.poolsManager.totalLoadedCount, equals(0));
+      expect(controller.items.isEmpty, isTrue);
+      expect(coord.selectedEpisodeId, isNull);
+      expect(coord.status, equals('匹配弹幕…'));
+      expect(notified, isTrue);
+
+      coord.dispose();
+      controller.dispose();
+    });
   });
 
   group('DanmakuFilterEngine 滑动窗口精简测试', () {

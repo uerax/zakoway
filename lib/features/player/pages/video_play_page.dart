@@ -1132,6 +1132,15 @@ class _VideoPlayPageState extends State<VideoPlayPage>
 
   /// 用户从槽位列表中点击选集
   Future<void> _selectSlot(PlayableSlot slot) async {
+    _autoPicker.onUserAction();
+
+    // 特殊处理说明：
+    // 切集瞬时原子归零：
+    // 立即停止当前播放并重置画面为加载态（瞬间覆盖清除上一集画面与声音），
+    // 并彻底清空上一集弹幕池与控制器，避免第二集起播期间错播上一集弹幕。
+    _playbackController.stop().ignore();
+    _danmakuCoordinator.clearEpisodeComments();
+
     final sessionToken = ++_episodeResolveToken;
 
     setState(() {
@@ -1176,9 +1185,9 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       return;
     }
 
-    // 立即停止当前播放并重置画面为加载态（瞬间覆盖清除上一集画面与声音），并归零重置上一集弹幕状态
+    // 立即停止当前播放并重置画面为加载态（瞬间覆盖清除上一集画面与声音），并彻底归零清空上一集弹幕池与控制器
     _playbackController.stop().ignore();
-    _danmakuController.reset();
+    _danmakuCoordinator.clearEpisodeComments();
     final sessionToken = ++_episodeResolveToken;
 
     final epIndex = ep - 1;

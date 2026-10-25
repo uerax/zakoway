@@ -297,6 +297,11 @@ class DanmakuSessionCoordinator extends ChangeNotifier {
       biliPart = cached.bilibiliPart;
     } else {
       _status = '正在加载弹幕…';
+      // 特殊处理说明：
+      // 未命中本地 L1 秒开缓存时，在发起网络拉取前主动清空上一集的弹幕池与控制器，
+      // 避免跨站拉取网络等待期间在屏残留上一集旧弹幕。
+      poolsManager.clearAll();
+      danmakuController.clearAll();
       notifyListeners();
 
       // 并行请求：弹弹分集弹幕 + B 站跨站关联弹幕 (带安全闭包异常吸收，防止未决 Future 逃逸为 Unhandled Exception)
@@ -498,6 +503,21 @@ class DanmakuSessionCoordinator extends ChangeNotifier {
         await loadCommentsByEpisodeId(matched.episodeId, targetEpNum: _episode);
       }
     }
+  }
+
+  /// 特殊处理说明：
+  /// 切集弹幕瞬时原子归零机制：
+  /// 当视频分集切换时，必须立即废弃旧集正在进行的异步加载（递增 _autoMatchGen），
+  /// 并同步清空弹幕池（poolsManager）与弹幕控制器（danmakuController），
+  /// 彻底杜绝上一集弹幕在新一集起播与跨站网络加载等待期间在屏错乱播放。
+  void clearEpisodeComments() {
+    if (_disposed) return;
+    _autoMatchGen++;
+    _selectedEpisodeId = null;
+    _status = '匹配弹幕…';
+    poolsManager.clearAll();
+    danmakuController.clearAll();
+    notifyListeners();
   }
 
   /// 手动追加 B 站弹幕 (支持 BV/ep/ss/av/链接/分P)
