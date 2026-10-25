@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:zakoway/core/services/app_preferences.dart';
 import 'package:zakoway/features/player/source/models/source_models.dart';
+import 'package:zakoway/features/player/source/server/adapters/animaku_source_adapter.dart';
 
 /// Animaku 服务端健康检查与连通性结果
 class AnimakuHealthResult {
@@ -170,92 +171,131 @@ class AnimakuServerClient {
   /// 搜索番剧
   Future<List<SourceSearchResult>> search(String sourceId, String keyword) async {
     final normSource = normalizeSourceId(sourceId);
+    final adapter = AnimakuAdapterRegistry.get(normSource);
     final url = '$baseUrl/api/source/search';
-    final res = await _dio.post(
-      url,
-      data: {
-        'source': normSource,
-        'keyword': keyword.trim(),
-      },
-    );
 
-    if (res.statusCode == 200 && res.data is Map) {
-      final data = res.data['data'];
-      if (data is Map && data['items'] is List) {
-        final items = data['items'] as List;
-        final results = <SourceSearchResult>[];
-        for (final it in items) {
-          if (it is Map) {
-            final name = it['name']?.toString() ?? '';
-            final src = it['src']?.toString() ?? '';
-            if (name.isNotEmpty && src.isNotEmpty) {
-              results.add(
-                SourceSearchResult(
-                  name: name,
-                  url: src,
-                ),
-              );
+    try {
+      final res = await _dio.post(
+        url,
+        data: {
+          'source': normSource,
+          'keyword': keyword.trim(),
+        },
+      );
+
+      if (res.statusCode == 200 && res.data is Map) {
+        final data = res.data['data'];
+        if (data is Map && data['items'] is List) {
+          final items = data['items'] as List;
+          final results = <SourceSearchResult>[];
+          for (final it in items) {
+            if (it is Map) {
+              final name = it['name']?.toString() ?? '';
+              final src = it['src']?.toString() ?? '';
+              if (name.isNotEmpty && src.isNotEmpty) {
+                results.add(
+                  SourceSearchResult(
+                    name: name,
+                    url: src,
+                  ),
+                );
+              }
             }
           }
+          return adapter.transformSearch(results, keyword: keyword);
         }
-        return results;
       }
+      return adapter.transformSearch(const [], keyword: keyword);
+    } catch (e) {
+      final fallback = await adapter.onSearchFallback(e, keyword: keyword);
+      if (fallback != null) {
+        return fallback;
+      }
+      rethrow;
     }
-    return const [];
   }
 
   /// 获取线路与分集列表
   Future<List<SourceChapterRoad>> chapters(String sourceId, String animeUrl) async {
     final normSource = normalizeSourceId(sourceId);
+    final adapter = AnimakuAdapterRegistry.get(normSource);
     final url = '$baseUrl/api/source/chapters';
-    final res = await _dio.post(
-      url,
-      data: {
-        'source': normSource,
-        'url': animeUrl.trim(),
-      },
-    );
 
-    if (res.statusCode == 200 && res.data is Map) {
-      final data = res.data['data'];
-      if (data is Map && data['roads'] is List) {
-        final roads = data['roads'] as List;
-        final results = <SourceChapterRoad>[];
-        for (final r in roads) {
-          if (r is Map) {
-            final roadName = r['name']?.toString() ?? '默认线路';
-            final rawData = r['data'];
-            final rawId = r['identifier'];
+    try {
+      final res = await _dio.post(
+        url,
+        data: {
+          'source': normSource,
+          'url': animeUrl.trim(),
+        },
+      );
 
-            final epUrls = rawData is List ? rawData.map((e) => e.toString()).toList() : <String>[];
-            final epTitles = rawId is List ? rawId.map((e) => e.toString()).toList() : <String>[];
+      if (res.statusCode == 200 && res.data is Map) {
+        final data = res.data['data'];
+        if (data is Map && data['roads'] is List) {
+          final roads = data['roads'] as List;
+          final results = <SourceChapterRoad>[];
+          for (final r in roads) {
+            if (r is Map) {
+              final roadName = r['name']?.toString() ?? '默认线路';
+              final rawData = r['data'];
+              final rawId = r['identifier'];
 
-            final episodes = <SourceEpisode>[];
-            final count = epUrls.length;
-            for (var i = 0; i < count; i++) {
-              final epTitle = i < epTitles.length ? epTitles[i] : '第${i + 1}集';
-              episodes.add(
-                SourceEpisode(
-                  name: epTitle,
-                  url: epUrls[i],
-                ),
-              );
-            }
+              final epUrls = rawData is List ? rawData.map((e) => e.toString()).toList() : <String>[];
+              final epTitles = rawId is List ? rawId.map((e) => e.toString()).toList() : <String>[];
 
-            if (episodes.isNotEmpty) {
-              results.add(
-                SourceChapterRoad(
-                  name: roadName,
-                  episodes: episodes,
-                ),
-              );
+              final episodes = <SourceEpisode>[];
+              final count = epUrls.length;
+              for (var i = 0; i < count; i++) {
+                final epTitle = i < epTitles.length ? epTitles[i] : '第${i + 1}集';
+                episodes.add(
+                  SourceEpisode(
+                    name: epTitle,
+                    url: epUrls[i],
+                  ),
+                );
+              }
+
+              if (episodes.isNotEmpty) {
+                results.add(
+                  SourceChapterRoad(
+                    name: roadName,
+                    episodes: episodes,
+                  ),
+                );
+              }
             }
           }
+
+          final transformed = adapter.transformChapters(results, animeUrl: animeUrl);
+          if (transformed.isEmpty || transformed.every((r) => r.episodes.isEmpty)) {
+            final fallback = await adapter.onChaptersFallback(
+              Exception('服务端未返回有效分集数据'),
+              animeUrl: animeUrl,
+            );
+            if (fallback != null) return fallback;
+          }
+          return transformed;
         }
-        return results;
       }
+
+      final transformed = adapter.transformChapters(const [], animeUrl: animeUrl);
+      if (transformed.isNotEmpty && transformed.any((r) => r.episodes.isNotEmpty)) {
+        return transformed;
+      }
+      final fallback = await adapter.onChaptersFallback(
+        Exception('服务端分集响应异常: 状态码 ${res.statusCode}'),
+        animeUrl: animeUrl,
+      );
+      if (fallback != null) return fallback;
+      return const [];
+    } catch (e) {
+      final fallback = await adapter.onChaptersFallback(e, animeUrl: animeUrl);
+      if (fallback != null) {
+        return fallback;
+      }
+      rethrow;
     }
-    return const [];
   }
 
   /// 解析播放直链并组装媒体地址
@@ -263,55 +303,68 @@ class AnimakuServerClient {
   /// 仅当 playUrl 为空时才降级回退至服务端受控流地址 streamUrl。
   Future<SourceResolveResult> resolve(String sourceId, String episodeUrl) async {
     final normSource = normalizeSourceId(sourceId);
+    final adapter = AnimakuAdapterRegistry.get(normSource);
     final url = '$baseUrl/api/source/resolve';
-    final res = await _dio.post(
-      url,
-      data: {
-        'source': normSource,
-        'pageUrl': episodeUrl.trim(),
-      },
-    );
 
-    if (res.statusCode == 200 && res.data is Map) {
-      final data = res.data['data'];
-      if (data is Map) {
-        final playUrl = data['playUrl']?.toString() ?? '';
-        final streamUrl = data['streamUrl']?.toString() ?? '';
-        final format = data['format']?.toString().toLowerCase() ?? 'hls';
-        final headers = <String, String>{};
+    try {
+      final res = await _dio.post(
+        url,
+        data: {
+          'source': normSource,
+          'pageUrl': episodeUrl.trim(),
+        },
+      );
 
-        if (data['headers'] is Map) {
-          (data['headers'] as Map).forEach((k, v) {
-            if (k != null && v != null && v.toString().isNotEmpty) {
-              headers[k.toString()] = v.toString();
-            }
-          });
-        }
+      if (res.statusCode == 200 && res.data is Map) {
+        final data = res.data['data'];
+        if (data is Map) {
+          final playUrl = data['playUrl']?.toString() ?? '';
+          final streamUrl = data['streamUrl']?.toString() ?? '';
+          final format = data['format']?.toString().toLowerCase() ?? 'hls';
+          final headers = <String, String>{};
 
-        // 1. 优先源站原始播放地址直连（零服务器代理带宽原则，原生注入 Referer/Cookie/UA）
-        if (playUrl.isNotEmpty) {
-          return SourceResolveResult(
-            url: playUrl,
-            format: format == 'mp4' ? 'mp4' : 'hls',
-            headers: headers,
-          );
-        }
+          if (data['headers'] is Map) {
+            (data['headers'] as Map).forEach((k, v) {
+              if (k != null && v != null && v.toString().isNotEmpty) {
+                headers[k.toString()] = v.toString();
+              }
+            });
+          }
 
-        // 2. 兜底回退：若服务端未给出原始 playUrl，使用受控代理流地址
-        if (streamUrl.isNotEmpty) {
-          final fullStreamUrl = streamUrl.startsWith('http://') || streamUrl.startsWith('https://')
-              ? streamUrl
-              : '$baseUrl${streamUrl.startsWith('/') ? '' : '/'}$streamUrl';
+          SourceResolveResult? rawResult;
+          // 1. 优先源站原始播放地址直连（零服务器代理带宽原则，原生注入 Referer/Cookie/UA）
+          if (playUrl.isNotEmpty) {
+            rawResult = SourceResolveResult(
+              url: playUrl,
+              format: format == 'mp4' ? 'mp4' : 'hls',
+              headers: headers,
+            );
+          } else if (streamUrl.isNotEmpty) {
+            // 2. 兜底回退：若服务端未给出原始 playUrl，使用受控代理流地址
+            final fullStreamUrl = streamUrl.startsWith('http://') || streamUrl.startsWith('https://')
+                ? streamUrl
+                : '$baseUrl${streamUrl.startsWith('/') ? '' : '/'}$streamUrl';
 
-          return SourceResolveResult(
-            url: fullStreamUrl,
-            format: format == 'mp4' ? 'mp4' : 'hls',
-            headers: headers,
-          );
+            rawResult = SourceResolveResult(
+              url: fullStreamUrl,
+              format: format == 'mp4' ? 'mp4' : 'hls',
+              headers: headers,
+            );
+          }
+
+          if (rawResult != null) {
+            return await adapter.transformResolve(rawResult, episodeUrl: episodeUrl);
+          }
         }
       }
+      throw Exception('服务端解析播放地址失败: 未返回有效的 playUrl 或 streamUrl');
+    } catch (e) {
+      final fallback = await adapter.onResolveFallback(e, episodeUrl: episodeUrl);
+      if (fallback != null) {
+        return fallback;
+      }
+      rethrow;
     }
-    throw Exception('服务端解析播放地址失败: 未返回有效的 playUrl 或 streamUrl');
   }
 
   /// 清空客户端对服务端的内存状态缓存

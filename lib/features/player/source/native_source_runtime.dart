@@ -5,109 +5,76 @@ import 'package:dio/dio.dart';
 import 'package:zakoway/core/network/player_media_disk_cache_manager.dart';
 import 'package:zakoway/core/services/app_preferences.dart';
 import 'package:zakoway/core/utils/timed_cache.dart';
+import 'package:zakoway/features/player/source/engines/animaku_server_engine.dart';
+import 'package:zakoway/features/player/source/engines/local_source_engine.dart';
 import 'package:zakoway/features/player/source/models/source_models.dart';
-import 'package:zakoway/features/player/source/server/animaku_server_client.dart';
 import 'package:zakoway/features/player/source/source_bundle_manager.dart';
-import 'package:zakoway/features/player/source/sources/anime1_source.dart';
-import 'package:zakoway/features/player/source/sources/animoe_source.dart';
-import 'package:zakoway/features/player/source/sources/cycani_source.dart';
-import 'package:zakoway/features/player/source/sources/girigiri_source.dart';
-import 'package:zakoway/features/player/source/sources/gugu_source.dart';
-import 'package:zakoway/features/player/source/sources/libvio_source.dart';
-import 'package:zakoway/features/player/source/sources/lzizy_source.dart';
-import 'package:zakoway/features/player/source/sources/mifun_source.dart';
-import 'package:zakoway/features/player/source/sources/moonci_source.dart';
-import 'package:zakoway/features/player/source/sources/mxdm_source.dart';
-import 'package:zakoway/features/player/source/sources/neosek_source.dart';
-import 'package:zakoway/features/player/source/sources/omofun_source.dart';
-import 'package:zakoway/features/player/source/sources/remote_server_source.dart';
-import 'package:zakoway/features/player/source/sources/sorani_source.dart';
-import 'package:zakoway/features/player/source/sources/tvtfun_source.dart';
 import 'package:zakoway/features/player/source/sources/video_source.dart';
-import 'package:zakoway/features/player/source/sources/xifan_next_source.dart';
-import 'package:zakoway/features/player/source/webview/webview_video_sniffer.dart';
 
-/// 100% 纯原生 Dart 视频源运行时与统一缓存调度中心
-/// 涵盖 animaku 全部 12 个核心视频源，配备 L1 内存 + L2 硬盘持久化双层缓存体系
+/// 统一视频源调度中心与双模路由协调器 (Source Routing Coordinator)
+///
+/// 架构职责划分：
+/// 1. 负责 L1 内存缓存 + L2 硬盘持久化缓存的统一维护与前缀命名空间物理隔离；
+/// 2. 负责 In-Flight 单飞请求去重锁，杜绝并发探测时的网络风暴；
+/// 3. 作为门面协调器，将底层执行解耦并平级委派给：
+///    - [LocalSourceEngine]：负责 15 个本地原生 Dart 爬虫源与 WebView 视频流嗅探；
+///    - [AnimakuServerEngine]：负责 Animaku 服务端代理交互与动态扩展源生命周期管理。
 class NativeSourceRuntime {
-  // 默认 Dio 显式注入 connectTimeout 与 receiveTimeout，防止境外源在 TCP 握手时陷入系统底层 20~60 秒假死
-  NativeSourceRuntime({Dio? dio})
-      : _dio = dio ??
-            Dio(
-              BaseOptions(
-                connectTimeout: const Duration(seconds: 5),
-                receiveTimeout: const Duration(seconds: 8),
-                sendTimeout: const Duration(seconds: 5),
-              ),
-            ) {
-    _registerDefaultSources();
+  NativeSourceRuntime({
+    Dio? dio,
+    LocalSourceEngine? localEngine,
+    AnimakuServerEngine? serverEngine,
+  }) : _localEngine = localEngine ?? LocalSourceEngine(dio: dio) {
+    _serverEngine = serverEngine ??
+        AnimakuServerEngine(
+          onSourcesChanged: () => SourceBundleManager.instance.notifySourceChanges(),
+          isLocalSourceChecker: _localEngine.isLocalSource,
+        );
     AppPreferences.serverModeNotifier.addListener(_onServerModeChanged);
-    AnimakuServerClient.instance.supportedSourcesNotifier.addListener(_syncRemoteSources);
-    _syncRemoteSources();
-    if (AppPreferences.isServerModeEnabled()) {
-      AnimakuServerClient.instance.fetchSupportedSources().ignore();
-    }
   }
+
+  final LocalSourceEngine _localEngine;
+  late final AnimakuServerEngine _serverEngine;
 
   void _onServerModeChanged() {
     clearMemoryCache();
-    _syncRemoteSources();
-    if (AppPreferences.isServerModeEnabled()) {
-      AnimakuServerClient.instance.fetchSupportedSources(forceRefresh: true).ignore();
-    }
-  }
-
-  final Dio _dio;
-  final Map<String, VideoSource> _localSources = {};
-  final Map<String, VideoSource> _remoteSources = {};
-
-  Map<String, VideoSource> get _sources {
-    if (!AppPreferences.isServerModeEnabled()) {
-      return _localSources;
-    }
-    return {..._localSources, ..._remoteSources};
+    _serverEngine.onServerModeChanged();
   }
 
   /// 检查特定源是否为本地内置的原生 Dart 源
-  bool isLocalSource(String sourceId) {
-    final norm = AnimakuServerClient.instance.normalizeSourceId(sourceId);
-    return _localSources.containsKey(norm) || (norm == 'xifan-next' && _localSources.containsKey('xifan'));
+  bool isLocalSource(String sourceId) => _localEngine.isLocalSource(sourceId);
+
+  /// 注册本地源（用于测试或动态追加）
+  void registerSource(VideoSource source) => _localEngine.registerSource(source);
+
+  /// 获取指定视频源（优先查找本地源，未命中则查找服务端动态扩展源）
+  VideoSource? getSource(String sourceId) =>
+      _localEngine.getSource(sourceId) ?? _serverEngine.getRemoteSource(sourceId);
+
+  bool get isInitialized => true;
+
+  /// 全局视频源包元数据
+  SourceBundleMeta get bundleMeta => SourceBundleMeta(
+        version: '2.0.0-native',
+        buildTime: DateTime.now().toIso8601String(),
+        minApiLevel: 1,
+        adapters: {
+          ..._localEngine.adapters,
+          ..._serverEngine.adapters,
+        },
+      );
+
+  /// 当前所有可用的视频源元数据列表（本地源 + 服务端动态扩展源）
+  List<SourceMeta> get availableSources => [
+        ..._localEngine.availableSources,
+        ..._serverEngine.dynamicSources,
+      ];
+
+  Future<void> initialize({String? bundleCode}) async {
+    // 瞬时就绪
   }
 
-  /// 同步服务端动态扩展源：开则扩充挂载，关则纯净卸载
-  void _syncRemoteSources() {
-    if (!AppPreferences.isServerModeEnabled()) {
-      if (_remoteSources.isNotEmpty) {
-        _remoteSources.clear();
-        SourceBundleManager.instance.notifySourceChanges();
-      }
-      return;
-    }
-
-    final supportedSet = AnimakuServerClient.instance.supportedSourcesNotifier.value;
-    final serverNames = AnimakuServerClient.instance.serverSourceNames;
-    bool changed = false;
-
-    // 清理已不再支持的动态源
-    _remoteSources.removeWhere((id, _) {
-      final keep = supportedSet.contains(id);
-      if (!keep) changed = true;
-      return !keep;
-    });
-
-    // 为本地尚未收录的服务端专属源，动态挂载 RemoteServerSource
-    for (final id in supportedSet) {
-      if (!_localSources.containsKey(id) && !_remoteSources.containsKey(id)) {
-        final name = serverNames[id] ?? id;
-        _remoteSources[id] = RemoteServerSource(id: id, name: name);
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      SourceBundleManager.instance.notifySourceChanges();
-    }
-  }
+  // ================= 缓存基础设施与单飞锁 =================
 
   // L1 内存缓存池 (O(1) 毫秒级秒开)
   // 1. 搜索结果: 2 小时
@@ -127,53 +94,7 @@ class NativeSourceRuntime {
   final Map<String, Future<List<SourceChapterRoad>>> _inflightChapters = {};
   final Map<String, Future<SourceResolveResult>> _inflightResolve = {};
 
-  void _registerDefaultSources() {
-    // 特殊处理说明：
-    // 视频源默认注册位序直接决定了 UI 排序与自动选源的优先级：
-    // 1. xifan-next（综合主线首选）
-    // 2. cycani（次元城，多线路原画）
-    // 3. mifun / sorani（青空次元与 mifun 同级优质主线）
-    // 4. girigiri（Cloudflare CDN 原画直连）
-    // 5. moonci（月之祠，降权至 girigiri 之后作为备选多线路源）
-    // 6. lzizy / animoe / gugu（全品类与备用多线路源）
-    registerSource(XifanNextSource(dio: _dio));
-    registerSource(CycaniSource(dio: _dio));
-    registerSource(MifunSource(dio: _dio));
-    registerSource(SoraniSource(dio: _dio));
-    registerSource(GirigiriSource(dio: _dio));
-    registerSource(MoonciSource(dio: _dio));
-    registerSource(LzizySource(dio: _dio));
-    registerSource(AnimoeSource(dio: _dio));
-    registerSource(GuguSource(dio: _dio));
-    registerSource(MxdmSource(dio: _dio));
-    registerSource(NeosekSource(dio: _dio));
-    registerSource(TvTFunSource(dio: _dio));
-    registerSource(Anime1Source(dio: _dio));
-    registerSource(OmofunSource(dio: _dio));
-    registerSource(LibvioSource(dio: _dio));
-  }
-
-  void registerSource(VideoSource source) {
-    _localSources[source.id] = source;
-  }
-
-  bool get isInitialized => true;
-
-  SourceBundleMeta get bundleMeta => SourceBundleMeta(
-        version: '2.0.0-native',
-        buildTime: DateTime.now().toIso8601String(),
-        minApiLevel: 1,
-        adapters: {for (final s in _sources.values) s.id: s.version},
-      );
-
-  List<SourceMeta> get availableSources =>
-      _sources.values.map((s) => s.toMeta()).toList();
-
-  VideoSource? getSource(String sourceId) => _sources[sourceId];
-
-  Future<void> initialize({String? bundleCode}) async {
-    // 原生运行时瞬时就绪
-  }
+  // ================= 核心双模路由调度方法 =================
 
   /// 搜索番剧 (带 L1 内存 + L2 硬盘双层缓存与请求去重，支持服务端代理双模路由)
   Future<List<SourceSearchResult>> search(
@@ -181,17 +102,10 @@ class NativeSourceRuntime {
     String keyword, {
     bool bypassCache = false,
   }) async {
-    final s = _sources[sourceId];
-    if (s == null) {
-      throw Exception('未找到视频源: $sourceId');
-    }
-
     final kw = keyword.trim();
     if (kw.isEmpty) return const [];
 
-    final isServerMode = AppPreferences.isServerModeEnabled();
-    final serverClient = AnimakuServerClient.instance;
-    final useServer = isServerMode && serverClient.isSourceSupported(sourceId);
+    final useServer = _serverEngine.isSourceSupported(sourceId);
 
     // 服务端模式专属前缀隔离，避免与本地模式历史结果脏互串
     final cachePrefix = useServer ? 'srv_' : '';
@@ -233,15 +147,10 @@ class NativeSourceRuntime {
         List<SourceSearchResult> results;
         if (useServer) {
           developer.log('[SourceRouting] 🚀 [服务端代理] 源: $sourceId | 动作: search | 关键词: $kw');
-          try {
-            results = await serverClient.search(sourceId, kw);
-          } catch (serverErr) {
-            developer.log('[SourceRouting] ⚠️ [服务端异常] 源: $sourceId 代理失败 ($serverErr)，自动降级尝试本地直连...');
-            results = await s.search(kw);
-          }
+          results = await _serverEngine.search(sourceId, kw);
         } else {
           developer.log('[SourceRouting] 🏠 [本地直连] 源: $sourceId | 动作: search | 关键词: $kw');
-          results = await s.search(kw);
+          results = await _localEngine.search(sourceId, kw);
         }
 
         // 回填 L1 内存缓存 (2 小时)
@@ -279,14 +188,7 @@ class NativeSourceRuntime {
     String animeUrl, {
     bool bypassCache = false,
   }) async {
-    final s = _sources[sourceId];
-    if (s == null) {
-      throw Exception('未找到视频源: $sourceId');
-    }
-
-    final isServerMode = AppPreferences.isServerModeEnabled();
-    final serverClient = AnimakuServerClient.instance;
-    final useServer = isServerMode && serverClient.isSourceSupported(sourceId);
+    final useServer = _serverEngine.isSourceSupported(sourceId);
 
     // 服务端模式专属前缀隔离
     final cachePrefix = useServer ? 'srv_' : '';
@@ -328,19 +230,10 @@ class NativeSourceRuntime {
         List<SourceChapterRoad> roads;
         if (useServer) {
           developer.log('[SourceRouting] 🚀 [服务端代理] 源: $sourceId | 动作: chapters | url: $animeUrl');
-          try {
-            roads = await serverClient.chapters(sourceId, animeUrl);
-            if (roads.isEmpty || roads.every((r) => r.episodes.isEmpty)) {
-              developer.log('[SourceRouting] ⚠️ [服务端无有效分集] 源: $sourceId，自动降级尝试本地直连...');
-              roads = await s.chapters(animeUrl);
-            }
-          } catch (serverErr) {
-            developer.log('[SourceRouting] ⚠️ [服务端异常] 源: $sourceId 分集失败 ($serverErr)，自动降级尝试本地直连...');
-            roads = await s.chapters(animeUrl);
-          }
+          roads = await _serverEngine.chapters(sourceId, animeUrl);
         } else {
           developer.log('[SourceRouting] 🏠 [本地直连] 源: $sourceId | 动作: chapters | url: $animeUrl');
-          roads = await s.chapters(animeUrl);
+          roads = await _localEngine.chapters(sourceId, animeUrl);
         }
 
         if (roads.isNotEmpty && roads.any((r) => r.episodes.isNotEmpty)) {
@@ -372,23 +265,12 @@ class NativeSourceRuntime {
   }
 
   /// 解析播放直链 (带 L1 内存 1 分钟短时防抖缓存与 Single-Flight 请求去重，支持服务端代理双模路由)
-  ///
-  /// 特殊处理说明：视频直链通常包含临时鉴权令牌、短期 CDN 签名或会话 Cookie，
-  /// 跨进程持久化到磁盘或较长缓存极易导致读取过期废链引发 403 播放失败。
-  /// 因此直链仅保留 1 分钟短时 L1 内存缓存（防止用户频繁刷新/快速连点重复请求）与单飞去重，不进行 L2 磁盘持久化。
   Future<SourceResolveResult> resolve(
     String sourceId,
     String episodeUrl, {
     bool bypassCache = false,
   }) async {
-    final s = _sources[sourceId];
-    if (s == null) {
-      throw Exception('未找到视频源: $sourceId');
-    }
-
-    final isServerMode = AppPreferences.isServerModeEnabled();
-    final serverClient = AnimakuServerClient.instance;
-    final useServer = isServerMode && serverClient.isSourceSupported(sourceId);
+    final useServer = _serverEngine.isSourceSupported(sourceId);
 
     final cachePrefix = useServer ? 'srv_' : '';
     final cacheKey = '$cachePrefix$sourceId:$episodeUrl';
@@ -409,28 +291,11 @@ class NativeSourceRuntime {
         SourceResolveResult result;
         if (useServer) {
           developer.log('[SourceRouting] 🚀 [服务端代理] 源: $sourceId | 动作: resolve | ep: $episodeUrl');
-          try {
-            result = await serverClient.resolve(sourceId, episodeUrl);
-            developer.log('[SourceRouting] 🎬 [服务端直链] -> ${result.url}');
-          } catch (serverErr) {
-            developer.log('[SourceRouting] ⚠️ [服务端异常] 源: $sourceId 直链解析失败 ($serverErr)，自动降级尝试本地直连...');
-            result = await s.resolve(episodeUrl);
-          }
+          result = await _serverEngine.resolve(sourceId, episodeUrl);
+          developer.log('[SourceRouting] 🎬 [服务端直链] -> ${result.url}');
         } else {
           developer.log('[SourceRouting] 🏠 [本地直连] 源: $sourceId | 动作: resolve | ep: $episodeUrl');
-          final preferWebview = AppPreferences.isPreferWebviewSniffEnabled() || s.preferWebviewSniff;
-          if (preferWebview && WebviewVideoSniffer.isPlatformSupported) {
-            developer.log('[SourceRouting] 🌐 [系统 WebView 优先嗅探] 源: $sourceId');
-            final sniffed = await WebviewVideoSniffer.instance.sniff(episodeUrl);
-            if (sniffed != null && sniffed.url.isNotEmpty) {
-              result = sniffed;
-            } else {
-              developer.log('[SourceRouting] ❌ [WebView 嗅探未命中] 嗅探未获取到视频地址');
-              throw Exception('WebView 嗅探未命中有效播放地址');
-            }
-          } else {
-            result = await s.resolve(episodeUrl);
-          }
+          result = await _localEngine.resolve(sourceId, episodeUrl);
         }
 
         if (result.url.isNotEmpty) {
@@ -463,15 +328,13 @@ class NativeSourceRuntime {
     _searchMemoryCache.clear();
     _chaptersMemoryCache.clear();
     _resolveMemoryCache.clear();
-    AnimakuServerClient.instance.clearCache();
-    for (final s in _sources.values) {
-      s.clearCache();
-    }
+    _serverEngine.clearCache();
+    _localEngine.clearCache();
   }
 
   void dispose() {
     AppPreferences.serverModeNotifier.removeListener(_onServerModeChanged);
-    AnimakuServerClient.instance.supportedSourcesNotifier.removeListener(_syncRemoteSources);
+    _serverEngine.dispose();
     clearMemoryCache();
   }
 }

@@ -1,8 +1,14 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zakoway/core/services/app_preferences.dart';
+import 'package:zakoway/features/player/source/engines/animaku_server_engine.dart';
+import 'package:zakoway/features/player/source/engines/local_source_engine.dart';
+import 'package:zakoway/features/player/source/models/source_models.dart';
 import 'package:zakoway/features/player/source/native_source_runtime.dart';
+import 'package:zakoway/features/player/source/server/adapters/animaku_source_adapter.dart';
+import 'package:zakoway/features/player/source/server/adapters/xifan_next_animaku_adapter.dart';
 import 'package:zakoway/features/player/source/server/animaku_server_client.dart';
 import 'package:zakoway/features/player/widgets/episode_picker_section.dart';
 import 'package:zakoway/features/player/widgets/video_source_view.dart';
@@ -210,5 +216,306 @@ void main() {
 
       runtime.dispose();
     });
+
+    test('AnimakuAdapterRegistry 默认回退与专属注册机制', () async {
+      AnimakuAdapterRegistry.resetForTesting();
+
+      // 1. 未注册的源默认返回 DefaultAnimakuSourceAdapter，具备原始透传能力
+      final defaultAdapter = AnimakuAdapterRegistry.get('any_random_source');
+      expect(defaultAdapter, isA<DefaultAnimakuSourceAdapter>());
+      expect(AnimakuAdapterRegistry.hasCustomAdapter('any_random_source'), isFalse);
+
+      final dummySearchResult = [const SourceSearchResult(name: '测试番剧', url: '/play/1')];
+      expect(defaultAdapter.transformSearch(dummySearchResult, keyword: '测试'), equals(dummySearchResult));
+
+      final dummyRoads = [
+        const SourceChapterRoad(
+          name: '主线',
+          episodes: [SourceEpisode(name: '第1集', url: '/ep/1')],
+        ),
+      ];
+      expect(defaultAdapter.transformChapters(dummyRoads, animeUrl: '/play/1'), equals(dummyRoads));
+
+      final dummyResolve = const SourceResolveResult(url: 'https://cdn.com/1.m3u8', format: 'hls');
+      expect(await defaultAdapter.transformResolve(dummyResolve, episodeUrl: '/ep/1'), equals(dummyResolve));
+
+      // 2. 注册自定义专属适配器
+      final customAdapter = _TestCustomSourceAdapter();
+      AnimakuAdapterRegistry.register(customAdapter);
+
+      expect(AnimakuAdapterRegistry.hasCustomAdapter('test_source'), isTrue);
+      final retrieved = AnimakuAdapterRegistry.get('test_source');
+      expect(retrieved, equals(customAdapter));
+
+      // 3. 测试专属适配器的 transform 与 fallback
+      final transformedSearch = retrieved.transformSearch(dummySearchResult, keyword: '测试');
+      expect(transformedSearch.first.name, equals('[专属清洗] 测试番剧'));
+
+      final transformedResolve = await retrieved.transformResolve(dummyResolve, episodeUrl: '/ep/1');
+      expect(transformedResolve.headers['Referer'], equals('https://custom-referer.com'));
+      expect(transformedResolve.format, equals('mp4'));
+
+      AnimakuAdapterRegistry.resetForTesting();
+    });
+
+    test('AnimakuServerClient 适配器 Fallback 拦截与源级兜底测试', () async {
+      AnimakuAdapterRegistry.resetForTesting();
+
+      // 创建一个模拟失败返回 500 的 Dio
+      final errorDio = Dio();
+      errorDio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                error: '服务端 500 内部故障',
+                type: DioExceptionType.badResponse,
+              ),
+            );
+          },
+        ),
+      );
+
+      final client = AnimakuServerClient(dio: errorDio);
+
+      // 1. 默认源（DefaultAnimakuSourceAdapter）：无 fallback，应直接 rethrow 抛出异常
+      expect(
+        () => client.search('default_source', '测试'),
+        throwsA(isA<DioException>()),
+      );
+      expect(
+        () => client.chapters('default_source', '/play/1'),
+        throwsA(isA<DioException>()),
+      );
+      expect(
+        () => client.resolve('default_source', '/ep/1'),
+        throwsA(isA<DioException>()),
+      );
+
+      // 2. 注册带有源专属 Fallback 的适配器
+      final fallbackAdapter = _TestFallbackSourceAdapter();
+      AnimakuAdapterRegistry.register(fallbackAdapter);
+
+      // 3. 验证当服务端报错时，成功由源专属适配器拦截并返回兜底数据
+      final fallbackSearch = await client.search('fallback_source', '测试');
+      expect(fallbackSearch.length, equals(1));
+      expect(fallbackSearch.first.name, equals('兜底搜索结果'));
+
+      final fallbackChapters = await client.chapters('fallback_source', '/play/1');
+      expect(fallbackChapters.length, equals(1));
+      expect(fallbackChapters.first.name, equals('兜底备选线路'));
+
+      final fallbackResolve = await client.resolve('fallback_source', '/ep/1');
+      expect(fallbackResolve.url, equals('https://fallback-cdn.com/fallback.mp4'));
+
+      AnimakuAdapterRegistry.resetForTesting();
+    });
+
+    test('去除自动降级测试：服务端异常且无 fallback 时抛出异常，不再自动回退本地直连', () async {
+      AnimakuAdapterRegistry.resetForTesting();
+
+      final errorDio = Dio();
+      errorDio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                error: '服务端模拟超时',
+                type: DioExceptionType.connectionTimeout,
+              ),
+            );
+          },
+        ),
+      );
+
+      // 注入带有错误模拟的 Dio 到服务端 Client
+      final client = AnimakuServerClient(dio: errorDio);
+      await AppPreferences.setServerModeEnabled(true);
+      await AppPreferences.setServerModeCachedSources(['xifan-next']);
+      client.clearCache();
+
+      // 创建 NativeSourceRuntime
+      final runtime = NativeSourceRuntime();
+
+      // 开启服务端模式下，xifan-next 走服务端代理，但由于服务端超时且无专属 fallback，
+      // 必须直接抛出异常，绝不静默降级到本地 Dart 爬虫
+      expect(
+        () => runtime.search('xifan-next', '葬送的芙莉莲', bypassCache: true),
+        throwsA(isA<DioException>()),
+      );
+
+      expect(
+        () => runtime.chapters('xifan-next', 'https://next.xifanacg.com/play/1', bypassCache: true),
+        throwsA(isA<DioException>()),
+      );
+
+      expect(
+        () => runtime.resolve('xifan-next', 'https://next.xifanacg.com/watch/1', bypassCache: true),
+        throwsA(isA<DioException>()),
+      );
+
+      runtime.dispose();
+      await AppPreferences.setServerModeEnabled(false);
+      AnimakuAdapterRegistry.resetForTesting();
+    });
+
+    test('XifanNextAnimakuAdapter 照搬本地原版对沃派网盘与普通直链的优化处理', () async {
+      final mockDio = Dio();
+      mockDio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            // 模拟沃派直链 302 重定向
+            if (options.uri.toString().contains('apn.moedot.net')) {
+              return handler.resolve(
+                Response(
+                  requestOptions: options,
+                  statusCode: 302,
+                  headers: Headers.fromMap({
+                    'location': ['https://bjdownload.pan.wo.cn:30443/openapi/download?fid=test_file_123'],
+                  }),
+                ),
+              );
+            }
+            return handler.next(options);
+          },
+        ),
+      );
+
+      final adapter = XifanNextAnimakuAdapter(dio: mockDio);
+
+      // 1. 普通非沃派直链：注入 https://next.xifanacg.com/ Referer，校验 format
+      const normalResult = SourceResolveResult(
+        url: 'https://play.xfvod.pro:8088/Z/01.mp4',
+        format: 'hls', // 服务端给出的错误格式
+      );
+      final normalOptimized = await adapter.transformResolve(normalResult, episodeUrl: '/play/1');
+      expect(normalOptimized.url, equals('https://play.xfvod.pro:8088/Z/01.mp4'));
+      expect(normalOptimized.format, equals('mp4')); // 纠偏为 mp4
+      expect(normalOptimized.headers['Referer'], equals('https://next.xifanacg.com/'));
+      expect(normalOptimized.headers['User-Agent'], isNotEmpty);
+
+      // 2. 沃派网盘直链：注入 https://pan.wo.cn/ Referer，且通过 HEAD 预检展开 302 重定向直链
+      const woResult = SourceResolveResult(
+        url: 'https://apn.moedot.net/d/wo/01.mp4',
+        format: 'hls',
+      );
+      final woOptimized = await adapter.transformResolve(woResult, episodeUrl: '/play/2');
+      expect(woOptimized.format, equals('mp4'));
+      expect(woOptimized.headers['Referer'], equals('https://pan.wo.cn/'));
+      // 成功解析出 302 展开后的最终下载地址 (可能由于本地 DNS 解析包含 IPv4 替换或保持域名)
+      expect(
+        woOptimized.url.contains('pan.wo.cn') ||
+            woOptimized.url.contains('openapi/download'),
+        isTrue,
+      );
+      expect(woOptimized.headers['User-Agent'], isNotEmpty);
+
+      // 3. m3u8 流媒体链接：保持 hls 格式
+      const m3u8Result = SourceResolveResult(
+        url: 'https://dl.playxf.top/新番/01.m3u8',
+        format: 'mp4', // 错误标为 mp4
+      );
+      final m3u8Optimized = await adapter.transformResolve(m3u8Result, episodeUrl: '/play/3');
+      expect(m3u8Optimized.format, equals('hls'));
+      expect(m3u8Optimized.headers['Referer'], equals('https://next.xifanacg.com/'));
+    });
+
+    test('AnimakuAdapterRegistry 默认内置稀饭适配器', () {
+      AnimakuAdapterRegistry.resetForTesting(reinitializeDefaults: true);
+      final adapter = AnimakuAdapterRegistry.get('xifan-next');
+      expect(adapter, isA<XifanNextAnimakuAdapter>());
+      expect(AnimakuAdapterRegistry.hasCustomAdapter('xifan-next'), isTrue);
+      // 兼容别名
+      expect(AnimakuAdapterRegistry.get('xifan'), isA<XifanNextAnimakuAdapter>());
+    });
+
+    test('LocalSourceEngine 与 AnimakuServerEngine 双引擎完全解耦与独立运作', () async {
+      // 1. 测试 LocalSourceEngine: 自包含管理 15 个本地源，完全不依赖服务端状态
+      final localEngine = LocalSourceEngine();
+      expect(localEngine.availableSources.length, equals(15));
+      expect(localEngine.isLocalSource('xifan-next'), isTrue);
+      expect(localEngine.isLocalSource('cycani'), isTrue);
+      expect(localEngine.isLocalSource('non_existent_source'), isFalse);
+      expect(localEngine.getSource('cycani'), isNotNull);
+
+      // 2. 测试 AnimakuServerEngine: 独立管理服务端状态与动态源，不耦合本地爬虫实现
+      await AppPreferences.setServerModeEnabled(false);
+      var sourcesChangedCalled = false;
+      final serverEngine = AnimakuServerEngine(
+        onSourcesChanged: () => sourcesChangedCalled = true,
+        isLocalSourceChecker: localEngine.isLocalSource,
+      );
+
+      // 服务端模式关闭时，动态源列表为空且不支持任何源
+      expect(serverEngine.isSourceSupported('xifan-next'), isFalse);
+      expect(serverEngine.dynamicSources, isEmpty);
+
+      // 模拟服务端开启与发现新扩展源
+      await AppPreferences.setServerModeEnabled(true);
+      await AppPreferences.setServerModeCachedSources(['xifan-next', 'agedm']);
+      AnimakuServerClient.instance.clearCache();
+      AnimakuServerClient.instance.supportedSourcesNotifier.value = {'xifan-next', 'agedm'};
+      serverEngine.onServerModeChanged();
+
+      expect(serverEngine.isSourceSupported('xifan-next'), isTrue);
+      expect(serverEngine.dynamicSources.any((s) => s.id == 'agedm'), isTrue);
+      // xifan-next 为本地已知源，不会重复生成动态扩展源
+      expect(serverEngine.dynamicSources.any((s) => s.id == 'xifan-next'), isFalse);
+      expect(sourcesChangedCalled, isTrue);
+
+      serverEngine.dispose();
+      await AppPreferences.setServerModeEnabled(false);
+    });
   });
+}
+
+/// 测试用自定义清洗适配器
+class _TestCustomSourceAdapter extends AnimakuSourceAdapter {
+  @override
+  String get sourceId => 'test_source';
+
+  @override
+  List<SourceSearchResult> transformSearch(List<SourceSearchResult> results, {required String keyword}) {
+    return results.map((r) => SourceSearchResult(name: '[专属清洗] ${r.name}', url: r.url)).toList();
+  }
+
+  @override
+  Future<SourceResolveResult> transformResolve(SourceResolveResult result, {required String episodeUrl}) async {
+    return SourceResolveResult(
+      url: result.url,
+      format: 'mp4',
+      headers: {'Referer': 'https://custom-referer.com'},
+    );
+  }
+}
+
+/// 测试用带源专属 Fallback 的适配器
+class _TestFallbackSourceAdapter extends AnimakuSourceAdapter {
+  @override
+  String get sourceId => 'fallback_source';
+
+  @override
+  Future<List<SourceSearchResult>?> onSearchFallback(Object error, {required String keyword}) async {
+    return const [SourceSearchResult(name: '兜底搜索结果', url: '/fallback/search')];
+  }
+
+  @override
+  Future<List<SourceChapterRoad>?> onChaptersFallback(Object error, {required String animeUrl}) async {
+    return const [
+      SourceChapterRoad(
+        name: '兜底备选线路',
+        episodes: [SourceEpisode(name: '兜底第1集', url: '/fallback/ep/1')],
+      ),
+    ];
+  }
+
+  @override
+  Future<SourceResolveResult?> onResolveFallback(Object error, {required String episodeUrl}) async {
+    return const SourceResolveResult(
+      url: 'https://fallback-cdn.com/fallback.mp4',
+      format: 'mp4',
+    );
+  }
 }
