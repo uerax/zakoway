@@ -378,20 +378,8 @@ class _VideoPlayPageState extends State<VideoPlayPage>
           widget.videoUrl!.isNotEmpty) {
         _hasStartedPlayback = true;
         _initPlayback();
-      } else if (_currentPlayingPageUrl != null &&
-          _currentPlayingPageUrl!.isNotEmpty &&
-          _activeEpisode != null) {
-        // 特殊处理说明：
-        // 播放与章节双轨解耦（Dual-Track Pipeline）：
-        // 若已知目标集的分集页面 URL (如首页“继续追番”、历史记录传入的 initialPageUrl)，
-        // 绝不等待全季 12~24 集所有线路的完整 Chapters 抓取并校验完成！
-        // 立即高优先级启动目标集的直链解析并直通底层起播；
-        // 与此同时，分集抓取（Chapters）在后台静默发起，抓取完毕后异步刷新选集面板 UI。
-        _hasStartedPlayback = true;
-        _startFastTrackPlayback(_currentPlayingPageUrl!, _activeEpisode!);
-        _startDefaultSourceSearch(autoPlayFirst: false);
       } else {
-        // 启动主流程：先查绑定，再查指定/默认源，未命中则后台探测保底源
+        // 启动主流程：先查番剧级绑定，再查指定偏好/默认源，未命中则后台探测保底源
         _startDefaultSourceSearch(autoPlayFirst: _activeEpisode != null);
       }
     });
@@ -541,8 +529,8 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       title: effectiveTitle,
       cover: _resolvedCoverUrl,
       episode: ep,
-      road: _selectedRoadIndex,
-      pluginName: _selectedSourceId,
+      road: _playingRoadIndex ?? _selectedRoadIndex,
+      pluginName: _playingSourceId ?? _selectedSourceId,
       pageUrl: _currentPlayingPageUrl ?? '',
       position: position,
       duration: duration > 0 ? duration : 1440.0,
@@ -1140,27 +1128,6 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         _playbackError = cleanErrorMessage(e, prefix: '播放解析失败');
       });
     }
-  }
-
-  /// 双轨解耦优化：直接使用已知目标集 URL 启动快轨播放，不阻塞等待 Chapters
-  Future<void> _startFastTrackPlayback(String pageUrl, int ep) async {
-    final sessionToken = ++_episodeResolveToken;
-
-    setState(() {
-      _activeEpisode = ep;
-      _currentPlayingPageUrl = pageUrl;
-      _hasStartedPlayback = true;
-      _playingRoadIndex = _selectedRoadIndex;
-      _playingSourceId = _selectedSourceId;
-      _playbackError = null;
-      _chaptersError = null;
-    });
-
-    await _resolveAndStartPlayback(
-      pageUrl: pageUrl,
-      canonicalEp: ep,
-      sessionToken: sessionToken,
-    );
   }
 
   /// 用户从槽位列表中点击选集

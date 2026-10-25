@@ -14,8 +14,9 @@ void main() {
     expect(runtime.bundleMeta.version, contains('native'));
 
     final sources = runtime.availableSources;
-    expect(sources.length, 14);
+    expect(sources.length, 15);
     expect(sources.first.id, 'xifan-next');
+    expect(sources.any((s) => s.id == 'neosekai'), isTrue);
     expect(sources.any((s) => s.id == 'gugu'), isTrue);
     expect(sources.any((s) => s.id == 'sorani'), isTrue);
     expect(sources.any((s) => s.id == 'xifan-next'), isTrue);
