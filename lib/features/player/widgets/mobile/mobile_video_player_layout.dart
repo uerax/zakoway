@@ -21,11 +21,13 @@ class MobileVideoPlayerLayout extends StatelessWidget {
           AspectRatio(
             aspectRatio: 16 / 9,
             // 特殊处理说明：
-            // 手机竖屏下 16:9 播放器位于屏幕上半部，不接触屏幕底部物理边缘。
-            // 必须使用 removeBottom: true 剥离手机底部常驻手势横条或虚拟键的 safeArea，
-            // 避免内部控制栏 (MobilePlayerBottomBar) 被误垫高产生下部大段空隙。
+            // 手机竖屏下 16:9 播放器位于屏幕上半部，外层 SafeArea(top: true) 已避让顶部状态栏，
+            // 播放器本身既不接触物理顶边也不接触物理底边。
+            // 必须使用 removeTop: true 与 removeBottom: true 彻底剥离系统 safeArea，
+            // 避免内部顶部返回/标题栏与底部控制栏产生错位或异常悬空。
             child: MediaQuery.removePadding(
               context: context,
+              removeTop: true,
               removeBottom: true,
               child: playerWidget,
             ),
