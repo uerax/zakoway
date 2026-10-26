@@ -20,6 +20,7 @@ import '../controls/player_screenshot_feedback.dart';
 import '../controls/popups/player_speed_popup.dart';
 import '../controls/popups/player_vertical_volume_popup.dart';
 import '../player_progress_bar.dart';
+import '../player_scrim.dart';
 import '../player_side_panel.dart';
 import '../player_skip_toast.dart';
 import 'desktop_player_gesture_layer.dart';
@@ -980,50 +981,10 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                     children: [
                       // 顶部渐变暗角（仅在全屏展示，桌面窗口模式保持画面通透）
                       if (widget.isFullscreen)
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          height: 72,
-                          child: IgnorePointer(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.black.withValues(alpha: 0.65),
-                                    Colors.black.withValues(alpha: 0.35),
-                                    Colors.transparent,
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                        PlayerScrim.top(isFullscreen: widget.isFullscreen),
 
-                      // 底部渐变暗角
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: 84,
-                        child: IgnorePointer(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: [
-                                  Colors.black.withValues(alpha: 0.70),
-                                  Colors.black.withValues(alpha: 0.40),
-                                  Colors.transparent,
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      // 底部渐变暗角（非线性缓动衰减）
+                      PlayerScrim.bottom(isFullscreen: widget.isFullscreen),
 
                       // 顶部悬浮导航条（桌面非全屏下去除返回按钮与标题，全屏时完整保留）
                       Positioned(

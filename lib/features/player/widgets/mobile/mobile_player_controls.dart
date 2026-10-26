@@ -19,6 +19,7 @@ import '../controls/player_screenshot_feedback.dart';
 import '../controls/popups/player_speed_popup.dart';
 import '../controls/popups/player_vertical_volume_popup.dart';
 import '../player_indicators.dart';
+import '../player_scrim.dart';
 import '../player_side_panel.dart';
 import '../player_skip_toast.dart';
 import 'mobile_player_gesture_layer.dart';
@@ -719,6 +720,10 @@ class _MobilePlayerControlsState extends State<MobilePlayerControls> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
+                    // 顶部与底部非线性自然渐变暗角（避免白字/白图标/进度条与高光视频背景融为一体）
+                    PlayerScrim.top(isFullscreen: widget.isFullscreen),
+                    PlayerScrim.bottom(isFullscreen: widget.isFullscreen),
+
                     Positioned(
                       top: 0,
                       left: 0,
