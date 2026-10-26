@@ -41,6 +41,8 @@ class AppPreferences {
   static const _kPreferWebviewSniff = 'pref_prefer_webview_sniff';
   static const _kDisplayMode = 'pref_display_mode';
   static const _kGuguSessionCookie = 'pref_gugu_session_cookie';
+  static const _kCycaniToken = 'pref_cycani_token';
+  static const _kCycaniTokenExpiresAt = 'pref_cycani_token_expires_at';
 
   /// 默认公开免费 Animaku 服务端地址
   static const String defaultServerModeApiUrl = 'https://bakasine.eu.org';
@@ -427,6 +429,26 @@ class AppPreferences {
       await _prefs?.remove(_kGuguSessionCookie);
     } else {
       await _prefs?.setString(_kGuguSessionCookie, cookie);
+    }
+  }
+
+  // --- 次元城用户鉴权 Token 持久化 ---
+
+  static String? getCycaniToken() {
+    return _prefs?.getString(_kCycaniToken);
+  }
+
+  static int getCycaniTokenExpiresAt() {
+    return _prefs?.getInt(_kCycaniTokenExpiresAt) ?? 0;
+  }
+
+  static Future<void> setCycaniToken(String? token, int expiresAt) async {
+    if (token == null || token.isEmpty) {
+      await _prefs?.remove(_kCycaniToken);
+      await _prefs?.remove(_kCycaniTokenExpiresAt);
+    } else {
+      await _prefs?.setString(_kCycaniToken, token);
+      await _prefs?.setInt(_kCycaniTokenExpiresAt, expiresAt);
     }
   }
 }

@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:zakoway/core/services/app_preferences.dart';
 import '../models/source_models.dart';
 import 'video_source.dart';
 
@@ -47,10 +48,22 @@ class CycaniSource extends VideoSource {
     };
   }
 
+  /// 维护次元城用户鉴权 Token。
+  /// 优先使用内存与磁盘持久化 Token（有效期 7 天），彻底消除每次冷启动起播 600~800ms 的登录延迟；
+  /// 会话失效时清理本地持久化并强制重新登录刷新。
   Future<String> _ensureValidToken({bool forceRefresh = false}) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    if (!forceRefresh && _cachedToken.isNotEmpty && _tokenExpiresAt > now + 30 * 60 * 1000) {
-      return _cachedToken;
+    if (!forceRefresh) {
+      if (_cachedToken.isNotEmpty && _tokenExpiresAt > now + 30 * 60 * 1000) {
+        return _cachedToken;
+      }
+      final diskToken = AppPreferences.getCycaniToken();
+      final diskExpiresAt = AppPreferences.getCycaniTokenExpiresAt();
+      if (diskToken != null && diskToken.isNotEmpty && diskExpiresAt > now + 30 * 60 * 1000) {
+        _cachedToken = diskToken;
+        _tokenExpiresAt = diskExpiresAt;
+        return _cachedToken;
+      }
     }
 
     try {
@@ -73,12 +86,20 @@ class CycaniSource extends VideoSource {
         _tokenExpiresAt = expiresAtStr != null
             ? DateTime.tryParse(expiresAtStr)?.millisecondsSinceEpoch ?? (now + 6 * 24 * 3600 * 1000)
             : (now + 6 * 24 * 3600 * 1000);
+        await AppPreferences.setCycaniToken(_cachedToken, _tokenExpiresAt);
         return _cachedToken;
       }
       throw Exception('次元城登录未返回有效 Token: ${resData?['msg']}');
     } catch (e) {
       throw Exception('次元城登录鉴权失败: $e');
     }
+  }
+
+  /// 清理失效的 Token（内存与本地持久化双清）
+  Future<void> _clearToken() async {
+    _cachedToken = '';
+    _tokenExpiresAt = 0;
+    await AppPreferences.setCycaniToken(null, 0);
   }
 
   @override
@@ -199,8 +220,20 @@ class CycaniSource extends VideoSource {
 
     var resData = parseJsonMap(res.data);
 
-    // 401 自动续期自愈重试 (对齐 animaku)
-    if (res.statusCode == 401 || resData?['code'] == 401) {
+    bool isTokenExpired(int? statusCode, Map<String, dynamic>? data) {
+      if (statusCode == 401 || statusCode == 403) return true;
+      final code = data?['code'];
+      if (code == 401 || code == 403) return true;
+      final msg = data?['msg']?.toString().toLowerCase() ?? '';
+      if (msg.contains('unauthorized') || msg.contains('登录') || msg.contains('token')) {
+        return true;
+      }
+      return false;
+    }
+
+    // 多维度鉴权失效自愈重试：状态码 401/403 或消息提示失效时，立即双清本地持久化与内存，重新登录并安全重试一次
+    if (isTokenExpired(res.statusCode, resData)) {
+      await _clearToken();
       token = await _ensureValidToken(forceRefresh: true);
       res = await _dio.get<dynamic>(
         '$_baseUrl/api/v2/sections/$sectionId/play-url',

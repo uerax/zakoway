@@ -318,6 +318,18 @@ class GuguSource extends VideoSource {
       );
 
       var data = parseJsonMap(apiRes.data);
+      final initialErr = data?['error']?.toString();
+      if (initialErr != null && (initialErr.contains('登录') || initialErr.contains('会话'))) {
+        throw DioException(
+          requestOptions: RequestOptions(path: '$_baseUrl/api/playback'),
+          response: Response(
+            requestOptions: RequestOptions(path: '$_baseUrl/api/playback'),
+            statusCode: 401,
+            data: data,
+          ),
+        );
+      }
+
       final currentSourceId = data?['sourceId'];
       final rawSources = (data?['sources'] as List?) ?? [];
       final sources = rawSources.whereType<Map<String, dynamic>>().toList();
@@ -396,15 +408,19 @@ class GuguSource extends VideoSource {
       );
     }
 
-    bool isSessionExpired(DioException dioErr) {
-      final code = dioErr.response?.statusCode;
-      if (code == 401 || code == 403) return true;
+    bool isSessionExpired(Object err) {
+      if (err is DioException) {
+        final code = err.response?.statusCode;
+        if (code == 401 || code == 403) return true;
 
-      final resData = dioErr.response?.data;
-      final errMsg = resData is Map
-          ? (resData['error']?.toString() ?? '')
-          : (resData?.toString() ?? '');
-      if (errMsg.contains('登录') || errMsg.contains('会话')) return true;
+        final resData = err.response?.data;
+        final errMsg = resData is Map
+            ? (resData['error']?.toString() ?? '')
+            : (resData?.toString() ?? '');
+        if (errMsg.contains('登录') || errMsg.contains('会话')) return true;
+      }
+      final msg = err.toString();
+      if (msg.contains('登录') || msg.contains('会话')) return true;
 
       return false;
     }
@@ -412,7 +428,7 @@ class GuguSource extends VideoSource {
     var cookie = await _ensureSession();
     try {
       return await requestPlayback(cookie);
-    } on DioException catch (e) {
+    } catch (e) {
       // 多维度判断会话是否失效 (实测源站涵盖 401/403 状态码以及包含“登录”或“会话”文案的报错)
       // 一旦判定失效，立即双清本地持久化与内存 Cookie，强制重新登录刷新会话并安全重试一次
       if (isSessionExpired(e)) {
