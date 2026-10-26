@@ -77,7 +77,6 @@ void main() {
       final proxyUrl = LocalMediaProxyServer.instance.buildProxyUrl(
         'https://example.com/video.mp4',
         headers: {'Referer': 'https://example.com/'},
-        start: const Duration(seconds: 15),
       );
 
       final uri = Uri.parse(proxyUrl);
@@ -85,7 +84,6 @@ void main() {
       expect(uri.port, equals(LocalMediaProxyServer.instance.port));
       expect(uri.path, equals('/stream'));
       expect(uri.queryParameters['url'], equals('https://example.com/video.mp4'));
-      expect(uri.queryParameters['start'], equals('15.000'));
       expect(uri.queryParameters['headers'], contains('Referer'));
     });
 

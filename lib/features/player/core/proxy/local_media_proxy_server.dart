@@ -121,10 +121,6 @@ class LocalMediaProxyServer {
       queryParams['headers'] = jsonEncode(headers);
     }
 
-    if (start != null && start > Duration.zero) {
-      queryParams['start'] = (start.inMilliseconds / 1000.0).toStringAsFixed(3);
-    }
-
     return Uri(
       scheme: 'http',
       host: '127.0.0.1',
@@ -182,13 +178,6 @@ class LocalMediaProxyServer {
           extraHeaders = decoded.map((k, v) => MapEntry(k.toString(), v.toString()));
         }
       } catch (_) {}
-    }
-
-    // 解析起始时间戳偏移（用于 M3U8 断点续播虚拟剪裁）
-    double? startOffsetSec;
-    final rawStart = clientReq.uri.queryParameters['start'];
-    if (rawStart != null) {
-      startOffsetSec = double.tryParse(rawStart);
     }
 
     // =========================================================================
@@ -257,7 +246,6 @@ class LocalMediaProxyServer {
           clientResp,
           baseUri: targetUri,
           headers: extraHeaders,
-          startOffsetSec: startOffsetSec,
         );
       } else {
         // 普通媒体流 / MP4 Range / TS 分片直接管道透传
@@ -335,51 +323,33 @@ class LocalMediaProxyServer {
     }
   }
 
-  /// M3U8 文本逐行解析、切片 URL 重写与断点起播虚拟剪裁引擎
+  /// M3U8 文本逐行解析与切片 URL 回环重写引擎
+  ///
+  /// 特殊处理说明：
+  /// 此处严禁对 M3U8 做任何丢弃切片的“虚拟剪裁”！
+  /// 点播流 (VOD HLS) 的总时长由全部分片累加而成。若人为剔除历史断点前的切片，
+  /// 会导致播放器 Duration 永久缩水、时间轴归零错乱、弹幕无法对齐并引发滚雪球式截短。
+  /// 断点起播已由底层 media_kit 原生 `Media(start: start)` 通过 mpv `--start` 一体化直达，
+  /// 无需且绝不可侵入 M3U8 的切片列表。
   Future<void> _handleM3u8Rewrite(
     HttpClientResponse remoteResp,
     HttpResponse clientResp, {
     required Uri baseUri,
     required Map<String, String> headers,
-    double? startOffsetSec,
   }) async {
     final rawBody = await remoteResp.transform(utf8.decoder).join();
     final lines = const LineSplitter().convert(rawBody);
 
     final rewrittenLines = <String>[];
     final orderedSegments = <String>[];
-    final hasStartOffset = startOffsetSec != null && startOffsetSec > 1.0;
-
-    double accumulatedDuration = 0.0;
-    double currentExtinfSec = 0.0;
-    bool hasReachedStart = !hasStartOffset;
 
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i].trim();
       if (line.isEmpty) continue;
 
-      if (line.startsWith('#EXTINF:')) {
-        final match = RegExp(r'#EXTINF:([\d.]+)').firstMatch(line);
-        if (match != null) {
-          currentExtinfSec = double.tryParse(match.group(1)!) ?? 0.0;
-        }
-        if (!hasReachedStart) {
-          if (accumulatedDuration + currentExtinfSec >= startOffsetSec!) {
-            hasReachedStart = true;
-          } else {
-            accumulatedDuration += currentExtinfSec;
-            continue; // 剪裁丢弃历史点之前的切片标签
-          }
-        }
-        rewrittenLines.add(line);
-      } else if (line.startsWith('#')) {
+      if (line.startsWith('#')) {
         rewrittenLines.add(line);
       } else {
-        if (!hasReachedStart) {
-          accumulatedDuration += currentExtinfSec;
-          continue; // 剪裁丢弃历史点之前的切片 URL
-        }
-
         final absoluteTsUrl = baseUri.resolve(line).toString();
         orderedSegments.add(absoluteTsUrl);
 

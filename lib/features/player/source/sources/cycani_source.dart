@@ -12,8 +12,8 @@ class CycaniSource extends VideoSource {
 
   final Dio _dio;
   static const String _baseUrl = 'https://www.cycani.org';
-  static const String _username = 'animaku';
-  static const String _password = 'sxii8BX2VgfRIL';
+  static const String _username = 'zakoway';
+  static const String _password = 'fJgv9d1FPaKkOk';
 
   String _cachedToken = '';
   int _tokenExpiresAt = 0;
