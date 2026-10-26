@@ -328,7 +328,7 @@ void main() {
       expect(decision.candidate?.meta.id, 'xifan-next');
     });
 
-    test('自适应宽限决议：当低优先级源先就绪而高优先级源在探测时，进入 waitGrace', () {
+    test('方案 A 极速起播决议：当低优先级源先就绪时，直接 immediate 采纳起播', () {
       final sources = {
         'xifan-next': const AggregatedSourceState(
           meta: SourceMeta(id: 'xifan-next', name: '稀饭Next', version: '1.0'),
@@ -345,6 +345,30 @@ void main() {
         sources: sources,
         inFlightSources: ['xifan-next'], // 高优源在 flight
         sourceOrder: ['xifan-next', 'cycani'],
+      );
+
+      expect(decision.action, AutoPickAction.immediate);
+      expect(decision.candidate?.meta.id, 'cycani');
+    });
+
+    test('自适应宽限决议：当开启 waitHigherPriority 时，低优先级源先就绪进入 waitGrace', () {
+      final sources = {
+        'xifan-next': const AggregatedSourceState(
+          meta: SourceMeta(id: 'xifan-next', name: '稀饭Next', version: '1.0'),
+          status: SourceProbeStatus.probing,
+        ),
+        'cycani': AggregatedSourceState(
+          meta: const SourceMeta(id: 'cycani', name: '次元城', version: '1.0'),
+          status: SourceProbeStatus.ready,
+          matchedHit: const SourceSearchResult(name: '电锯人', url: 'url2'),
+        ),
+      };
+
+      final decision = AutoSourcePickCoordinator.resolveDecision(
+        sources: sources,
+        inFlightSources: ['xifan-next'], // 高优源在 flight
+        sourceOrder: ['xifan-next', 'cycani'],
+        waitHigherPriority: true,
       );
 
       expect(decision.action, AutoPickAction.waitGrace);

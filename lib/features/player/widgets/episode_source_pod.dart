@@ -131,7 +131,6 @@ class EpisodeSourcePod extends StatelessWidget {
   /// 呼出全功能选集与视频源抽屉 (BottomSheet)
   void _openFullSheet(BuildContext context, {int initialTab = 0}) {
     onUserAction?.call();
-    aggregator?.setOpen(true);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet<void>(
@@ -285,9 +284,7 @@ class EpisodeSourcePod extends StatelessWidget {
           ),
         );
       },
-    ).whenComplete(() {
-      aggregator?.setOpen(false);
-    });
+    );
   }
 
   @override

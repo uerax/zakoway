@@ -130,7 +130,6 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   String? get _chaptersError => _session.chaptersError;
   String? get _playbackError => _session.playbackError;
   String? get _sourceNotice => _session.sourceNotice;
-  bool get _defaultSearchEmpty => _session.defaultSearchEmpty;
   int get _selectedRoadIndex => _session.selectedRoadIndex;
   String? get _currentPlayingPageUrl => _session.currentPlayingPageUrl;
   int? get _activeEpisode => _session.activeEpisode;
@@ -279,34 +278,6 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       vsync: this,
       initialIndex: 0,
     );
-    _tabController.addListener(() {
-      if (_tabController.index == 0) {
-        // 用户切换回「简介」Tab，自动同步嗅探状态
-        _session.aggregator.syncAndProbe(
-          bangumiId: _effectiveBangumiId,
-          defaultTitle: widget.title,
-          item: _effectiveBangumiItem,
-          activeSourceId: _selectedSourceId,
-          isOpen: true,
-          autoProbeOnFallback: _defaultSearchEmpty,
-          sourceOrder: _sources.map((s) => s.id).toList(),
-        );
-      }
-    });
-    _desktopRightTabController.addListener(() {
-      if (_desktopRightTabController.index == 1) {
-        // 用户切换至「视频源」Tab，激活后台嗅探探测器
-        _session.aggregator.syncAndProbe(
-          bangumiId: _effectiveBangumiId,
-          defaultTitle: widget.title,
-          item: _effectiveBangumiItem,
-          activeSourceId: _selectedSourceId,
-          isOpen: true,
-          autoProbeOnFallback: _defaultSearchEmpty,
-          sourceOrder: _sources.map((s) => s.id).toList(),
-        );
-      }
-    });
 
     if (widget.danmakuItems != null && widget.danmakuItems!.isNotEmpty) {
       _danmakuController.loadItems(widget.danmakuItems!);

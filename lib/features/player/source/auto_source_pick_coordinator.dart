@@ -35,11 +35,13 @@ class AutoSourcePickCoordinator {
     required this.onSwitchSource,
     this.onAllFallbacksFailed,
     this.gracePeriodMs = 1200,
+    this.waitHigherPriority = false,
   });
 
   final void Function(SourceMeta meta, SourceSearchResult hit) onSwitchSource;
   final VoidCallback? onAllFallbacksFailed;
   final int gracePeriodMs;
+  final bool waitHigherPriority;
 
   int _currentBangumiId = 0;
   bool _userLocked = false;
@@ -57,11 +59,12 @@ class AutoSourcePickCoordinator {
     return idx >= 0 ? idx : sourceOrder.length + 999;
   }
 
-  /// 纯函数裁决逻辑 (对齐 animaku resolveAutoSourceDecision)
+  /// 纯函数裁决逻辑 (支持方案 A 极速起播与可选自适应宽限)
   static AutoSourcePickDecision resolveDecision({
     required Map<String, AggregatedSourceState> sources,
     required List<String> inFlightSources,
     required List<String> sourceOrder,
+    bool waitHigherPriority = false,
   }) {
     final readyCandidates = sources.values
         .where((s) => s.status == SourceProbeStatus.ready && s.matchedHit != null)
@@ -80,9 +83,17 @@ class AutoSourcePickCoordinator {
     });
 
     final bestCandidate = readyCandidates.first;
-    final bestRank = getPluginRank(bestCandidate.meta.id, sourceOrder);
 
-    // 检查在正在探测/排队的源中是否有优先级高于 bestCandidate 的源
+    // 方案 A: 极速起播策略（默认），一旦有任何候选源就绪立即采纳，不等待更高顺位慢源
+    if (!waitHigherPriority) {
+      return AutoSourcePickDecision(
+        action: AutoPickAction.immediate,
+        candidate: bestCandidate,
+      );
+    }
+
+    // 宽限模式：检查在正在探测/排队的源中是否有优先级高于 bestCandidate 的源
+    final bestRank = getPluginRank(bestCandidate.meta.id, sourceOrder);
     final higherPriorityInFlight = inFlightSources.where((name) {
       if (name.toLowerCase() == bestCandidate.meta.id.toLowerCase()) return false;
       return getPluginRank(name, sourceOrder) < bestRank;
@@ -143,6 +154,7 @@ class AutoSourcePickCoordinator {
       sources: sources,
       inFlightSources: inFlightSources,
       sourceOrder: sourceOrder,
+      waitHigherPriority: waitHigherPriority,
     );
 
     if (decision.action == AutoPickAction.none) {

@@ -86,9 +86,9 @@ class AggregatedSourceState {
 /// 5. 手动重测换词: 抽屉内支持快捷候选词胶囊和自定义关键词，强制 bypass 缓存插队重测
 /// 6. 单飞熔断器联动: 软故障 2 次超时/硬故障网络中断自动冷却 90 秒
 class SourceAggregator extends ChangeNotifier {
-  static const int concurrencyLimit = 3;
+  static const int concurrencyLimit = 5;
   static const int probeTimeoutMs = 5000;
-  static const int autoProbeLimit = 6;
+  static const int autoProbeLimit = 5;
   static const double autoPickMinSimilarity = 0.55;
 
   final Map<String, AggregatedSourceState> _states = {};
@@ -117,10 +117,15 @@ class SourceAggregator extends ChangeNotifier {
   List<AggregatedSourceState> get items => _states.values.toList();
   int get activeJobsCount => _activeJobs;
 
-  @visibleForTesting
-  void setSourceStateForTest(String sourceId, AggregatedSourceState state) {
+  /// 更新指定源的探测状态并通知外部视图更新
+  void updateSourceState(String sourceId, AggregatedSourceState state) {
     _states[sourceId] = state;
     notifyListeners();
+  }
+
+  @visibleForTesting
+  void setSourceStateForTest(String sourceId, AggregatedSourceState state) {
+    updateSourceState(sourceId, state);
   }
 
   /// 获取当前所有正在探测中或排队中的源列表
@@ -295,6 +300,78 @@ class SourceAggregator extends ChangeNotifier {
     }
   }
 
+  /// 批量启动指定前 N 个目标源并发探测
+  void probeTargetSources({
+    required int bangumiId,
+    required String defaultTitle,
+    BangumiItem? item,
+    required List<String> targetSourceIds,
+    String? activeSourceId,
+  }) {
+    if (bangumiId <= 0 || targetSourceIds.isEmpty) return;
+    if (_currentBangumiId != bangumiId) {
+      resetSubject(bangumiId);
+    }
+
+    _defaultTitle = defaultTitle;
+    _bangumiItem = item;
+    _activeSourceId = activeSourceId;
+    _autoProbeOnFallback = true;
+
+    _titleRefs = [
+      if (item?.nameCn.isNotEmpty ?? false) item!.nameCn,
+      if (item?.name.isNotEmpty ?? false) item!.name,
+      defaultTitle,
+      ...(item?.alias ?? const <String>[]),
+    ].map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+
+    // 检查持久化绑定
+    final bindingService = SourceBindingService.instance;
+    final allSources = SourceBundleManager.instance.sources;
+
+    for (final s in allSources) {
+      if (!_states.containsKey(s.id) || !_states[s.id]!.searched) {
+        final binding = bindingService.getBinding(bangumiId, s.id);
+        if (binding != null && binding.sourceUrl.isNotEmpty) {
+          _probeDone.add(s.id);
+          final boundHit = SourceSearchResult(name: binding.title, url: binding.sourceUrl);
+          _states[s.id] = AggregatedSourceState(
+            meta: s,
+            status: SourceProbeStatus.ready,
+            binding: binding,
+            items: [boundHit],
+            matchedHit: boundHit,
+            searched: true,
+            keyword: binding.title,
+          );
+        } else {
+          _states[s.id] ??= AggregatedSourceState(
+            meta: s,
+            status: SourceProbeStatus.idle,
+            searched: false,
+          );
+        }
+      }
+    }
+
+    final toProbe = <String>[];
+    for (final id in targetSourceIds) {
+      if (_probeDone.contains(id)) {
+        _autoProbedSources.add(id);
+        continue;
+      }
+      if (!_autoProbedSources.contains(id) && !_queue.contains(id)) {
+        toProbe.add(id);
+      }
+    }
+
+    if (toProbe.isNotEmpty) {
+      _autoProbedSources.addAll(toProbe);
+      _queue.addAll(toProbe);
+      _processQueue();
+    }
+  }
+
   /// 抢占式调度：用户手动点击某源卡片时，将该源插队至队首；
   /// 若 3 个并发已满，主动 cancel 掉 1 个后台自动探测任务为用户让位！
   void prioritizeSource(String sourceId, {bool isUserAction = true}) {
@@ -343,13 +420,10 @@ class SourceAggregator extends ChangeNotifier {
     _processQueue();
   }
 
-  /// 动态更新选源面板是否处于展开状态 (供移动端 BottomSheet 展开与收起时同步)
+  /// 动态更新选源面板是否处于展开状态 (供移动端 BottomSheet 展开与收起时同步，已解除自动并发绑定)
   void setOpen(bool isOpen) {
     if (_isOpen == isOpen) return;
     _isOpen = isOpen;
-    if (_isOpen) {
-      _processQueue();
-    }
   }
 
   /// 手动重新探测指定视频源 (支持传入自定义关键词或胶囊关键词，强制绕过缓存)
@@ -383,10 +457,9 @@ class SourceAggregator extends ChangeNotifier {
       final isUserAction = _userActionSources.contains(nextSourceId);
 
       // 特殊处理说明：
-      // 用户主动触发的探活或重搜操作 (isUserAction = true) 具有最高执行权威，
-      // 绝不应被面板未展开(_isOpen)或非保底模式(_autoProbeOnFallback)的静态门禁阻断；
-      // 仅纯后台自动静默探测才严格遵循面板展开与保底状态门禁。
-      final shouldProbe = isUserAction || _isOpen || _autoProbeOnFallback;
+      // 用户主动触发的探活或首屏保底探测任务具有最高执行权限，
+      // 解除与面板是否展开(_isOpen)的强绑定，杜绝展开面板时的并发风暴。
+      final shouldProbe = isUserAction || _autoProbeOnFallback;
       if (!shouldProbe) return;
 
       final sourceId = _queue.removeAt(0);

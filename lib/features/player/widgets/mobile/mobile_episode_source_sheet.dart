@@ -95,7 +95,6 @@ class MobileEpisodeSourceSheet extends StatelessWidget {
     required void Function(VideoSourceItem, SourceSearchResult, [List<SourceChapterRoad>?]) onSelectHit,
     int initialTabIndex = 1,
   }) {
-    aggregator.setOpen(true);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return showModalBottomSheet<void>(
@@ -131,9 +130,7 @@ class MobileEpisodeSourceSheet extends StatelessWidget {
           initialTabIndex: initialTabIndex,
         );
       },
-    ).whenComplete(() {
-      aggregator.setOpen(false);
-    });
+    );
   }
 
   @override

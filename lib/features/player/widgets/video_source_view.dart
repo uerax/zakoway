@@ -6,6 +6,7 @@ import 'package:zakoway/features/player/source/models/source_models.dart';
 import 'package:zakoway/features/player/source/server/animaku_server_client.dart';
 import 'package:zakoway/features/player/source/source_aggregator.dart';
 import 'package:zakoway/features/player/source/source_bundle_manager.dart';
+import '../source/services/source_order_service.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
 
 /// 视频源实体项
@@ -85,7 +86,8 @@ List<VideoSourceItem> getDefaultSourceItems() {
     'libvio': 'LIBVIO',
   };
 
-  final dynamicSources = SourceBundleManager.instance.sources;
+  final rawDynamicSources = SourceBundleManager.instance.sources;
+  final dynamicSources = SourceOrderService.instance.getOrderedSources(rawDynamicSources);
   if (dynamicSources.isEmpty) {
     return descriptions.entries.map((e) {
       return VideoSourceItem(
