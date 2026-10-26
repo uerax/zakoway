@@ -376,7 +376,6 @@ class ZakowayPlaybackController implements PlaybackController {
     final effectiveUri = LocalMediaProxyServer.instance.buildProxyUrl(
       uri,
       headers: httpHeaders,
-      start: start,
     );
 
     if (_fsm != null) {

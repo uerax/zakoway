@@ -96,7 +96,6 @@ class LocalMediaProxyServer {
   String buildProxyUrl(
     String remoteUrl, {
     Map<String, String>? headers,
-    Duration? start,
   }) {
     final trimmed = remoteUrl.trim();
     if (trimmed.isEmpty) return remoteUrl;

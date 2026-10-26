@@ -11,11 +11,9 @@ import 'package:zakoway/features/player/source/sources/video_source.dart';
 class AnimakuServerEngine {
   AnimakuServerEngine({
     AnimakuServerClient? serverClient,
-    VoidCallback? onSourcesChanged,
-    bool Function(String sourceId)? isLocalSourceChecker,
-  })  : _serverClient = serverClient ?? AnimakuServerClient.instance,
-        _onSourcesChanged = onSourcesChanged,
-        _isLocalSourceChecker = isLocalSourceChecker {
+    this.onSourcesChanged,
+    this.isLocalSourceChecker,
+  })  : _serverClient = serverClient ?? AnimakuServerClient.instance {
     _serverClient.supportedSourcesNotifier.addListener(_syncRemoteSources);
     _syncRemoteSources();
     if (AppPreferences.isServerModeEnabled()) {
@@ -24,8 +22,8 @@ class AnimakuServerEngine {
   }
 
   final AnimakuServerClient _serverClient;
-  final VoidCallback? _onSourcesChanged;
-  final bool Function(String sourceId)? _isLocalSourceChecker;
+  final VoidCallback? onSourcesChanged;
+  final bool Function(String sourceId)? isLocalSourceChecker;
   final Map<String, VideoSource> _remoteSources = {};
 
   AnimakuServerClient get client => _serverClient;
@@ -41,7 +39,7 @@ class AnimakuServerEngine {
     if (!AppPreferences.isServerModeEnabled()) {
       if (_remoteSources.isNotEmpty) {
         _remoteSources.clear();
-        _onSourcesChanged?.call();
+        onSourcesChanged?.call();
       }
       return;
     }
@@ -59,7 +57,7 @@ class AnimakuServerEngine {
 
     // 为本地尚未收录的服务端专属源，动态挂载 RemoteServerSource
     for (final id in supportedSet) {
-      final isLocal = _isLocalSourceChecker?.call(id) ?? false;
+      final isLocal = isLocalSourceChecker?.call(id) ?? false;
       if (!isLocal && !_remoteSources.containsKey(id)) {
         final name = serverNames[id] ?? id;
         _remoteSources[id] = RemoteServerSource(id: id, name: name);
@@ -68,7 +66,7 @@ class AnimakuServerEngine {
     }
 
     if (changed) {
-      _onSourcesChanged?.call();
+      onSourcesChanged?.call();
     }
   }
 

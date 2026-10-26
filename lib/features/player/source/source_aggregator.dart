@@ -257,8 +257,8 @@ class SourceAggregator extends ChangeNotifier {
     final binding = SourceBindingService.instance.getBinding(bangumiId, topPreferredId);
     if (binding != null && binding.sourceUrl.isNotEmpty) {
       try {
-        final boundRoads = await (runtime.chapters(topPreferredId, binding.sourceUrl)
-                as Future<List<SourceChapterRoad>>)
+        final boundRoads = await runtime
+            .chapters(topPreferredId, binding.sourceUrl)
             .timeout(const Duration(milliseconds: probeTimeoutMs));
         if (boundRoads.isNotEmpty && boundRoads.any((r) => r.episodes.isNotEmpty)) {
           if (_disposed || _sessionToken != currentSession) return;
@@ -578,8 +578,7 @@ class SourceAggregator extends ChangeNotifier {
             sourceId: sourceId,
           );
       if (kw.isNotEmpty) {
-        final hits = await (runtime.search(sourceId, kw, bypassCache: bypassCache)
-            as Future<List<SourceSearchResult>>);
+        final hits = await runtime.search(sourceId, kw, bypassCache: bypassCache);
         final ranked = SourceKeywordMatcher.rankSearchHits(hits, _titleRefs);
         if (ranked.isNotEmpty) {
           targetUrl = ranked.first.url;
@@ -592,8 +591,7 @@ class SourceAggregator extends ChangeNotifier {
       throw Exception('在「${meta.name}」未检索到《$_defaultTitle》，请在面板中换词');
     }
 
-    final roads = await (runtime.chapters(sourceId, targetUrl, bypassCache: bypassCache)
-        as Future<List<SourceChapterRoad>>);
+    final roads = await runtime.chapters(sourceId, targetUrl, bypassCache: bypassCache);
     if (roads.isEmpty || roads.every((r) => r.episodes.isEmpty)) {
       throw Exception('未能从「${meta.name}」解析到有效分集');
     }

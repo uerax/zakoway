@@ -9,10 +9,8 @@ import '../core/utils/playback_tracer.dart';
 import '../danmaku/danmaku.dart';
 import '../source/models/source_models.dart';
 import '../source/services/source_binding_service.dart';
-import '../source/services/source_order_service.dart';
 import '../source/source_aggregator.dart';
 import '../source/source_bundle_manager.dart';
-import '../source/source_keyword_matcher.dart';
 import '../source/utils/playable_slot_engine.dart';
 import '../widgets/video_source_view.dart';
 import 'playback_controller.dart';
@@ -76,9 +74,7 @@ class VideoPlaySessionCoordinator extends ChangeNotifier {
     _aggregator.addListener(_onAggregatorUpdated);
   }
 
-  int _probedTargetCount = 5;
   bool _autoPlayFirstOnReady = false;
-  int _activeProbeSessionToken = 0;
 
   final String title;
   final int episodeCount;
