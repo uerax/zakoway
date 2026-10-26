@@ -435,10 +435,9 @@ void main() {
     test('模拟底层网络卡死挂起时，5秒准时触发熔断，状态置为 error 并释放并发槽位', () async {
       SourceBundleManager.instance.runtime.registerSource(_HangingMockSource());
       final aggregator = SourceAggregator();
-      aggregator.syncAndProbe(
+      aggregator.initContext(
         bangumiId: 1001,
         defaultTitle: '测试番剧',
-        isOpen: true,
       );
 
       aggregator.prioritizeSource('hanging-mock');
@@ -454,6 +453,151 @@ void main() {
       aggregator.dispose();
     }, timeout: const Timeout(Duration(seconds: 12)));
   });
+
+  group('9. 重构后 SourceAggregator 闭环并发探活与胜出起播测试', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    test('startSession 5源并发探活与首发胜出 (Fastest-Ready-Wins)', () async {
+      final runtime = SourceBundleManager.instance.runtime;
+      runtime.registerSource(_FastMockSource());
+      runtime.registerSource(_SlowMockSource());
+
+      final aggregator = SourceAggregator();
+      SourceMeta? winnerMeta;
+      List<SourceChapterRoad>? winnerRoads;
+      int notifyCount = 0;
+
+      aggregator.addListener(() {
+        notifyCount++;
+      });
+
+      await aggregator.startSession(
+        bangumiId: 2001,
+        defaultTitle: '葬送的芙莉莲',
+        preferredSourceId: 'fast-mock',
+        maxProbeCount: 5,
+        onWinnerReady: (meta, roads, hit) {
+          winnerMeta = meta;
+          winnerRoads = roads;
+        },
+      );
+
+      // 验证在探活期间有状态流式通知
+      expect(notifyCount, greaterThan(0));
+
+      // 等待快源探测完成 (快源 50ms)
+      await Future.delayed(const Duration(milliseconds: 150));
+
+      expect(winnerMeta, isNotNull);
+      expect(winnerMeta!.id, equals('fast-mock'));
+      expect(winnerRoads, isNotEmpty);
+      expect(winnerRoads!.first.episodes.length, 2);
+      expect(aggregator.states['fast-mock']?.status, equals(SourceProbeStatus.ready));
+
+      aggregator.dispose();
+    });
+
+    test('用户操作锁定 (lockByUserAction) 绝不自动覆盖胜出', () async {
+      final runtime = SourceBundleManager.instance.runtime;
+      runtime.registerSource(_SlowMockSource());
+
+      final aggregator = SourceAggregator();
+      SourceMeta? winnerMeta;
+
+      // 启动探活
+      aggregator.startSession(
+        bangumiId: 2002,
+        defaultTitle: '葬送的芙莉莲',
+        preferredSourceId: 'slow-mock',
+        onWinnerReady: (meta, roads, hit) {
+          winnerMeta = meta;
+        },
+      );
+
+      // 用户在探活进行中手动点击了其他源或进行了操作，触发锁定
+      aggregator.lockByUserAction();
+      expect(aggregator.isUserLocked, isTrue);
+
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // 用户锁定时，后台源即使探测成功也不触发 onWinnerReady 自动切换起播
+      expect(winnerMeta, isNull);
+      expect(aggregator.states['slow-mock']?.status, equals(SourceProbeStatus.ready));
+
+      aggregator.dispose();
+    });
+  });
+}
+
+class _FastMockSource extends VideoSource {
+  @override
+  String get id => 'fast-mock';
+  @override
+  String get name => '极速测试源';
+  @override
+  String get version => '1.0';
+  @override
+  String get description => '极速测试源';
+
+  @override
+  Future<List<SourceSearchResult>> search(String keyword) async {
+    await Future.delayed(const Duration(milliseconds: 50));
+    return [const SourceSearchResult(name: '葬送的芙莉莲', url: 'https://fast/1')];
+  }
+
+  @override
+  Future<List<SourceChapterRoad>> chapters(String animeUrl) async {
+    await Future.delayed(const Duration(milliseconds: 20));
+    return [
+      const SourceChapterRoad(
+        name: '默认线路',
+        episodes: [
+          SourceEpisode(name: '第 1 话', url: 'https://fast/ep1'),
+          SourceEpisode(name: '第 2 话', url: 'https://fast/ep2'),
+        ],
+      )
+    ];
+  }
+
+  @override
+  Future<SourceResolveResult> resolve(String episodeUrl) async =>
+      const SourceResolveResult(url: 'https://fast/video.mp4');
+}
+
+class _SlowMockSource extends VideoSource {
+  @override
+  String get id => 'slow-mock';
+  @override
+  String get name => '慢速测试源';
+  @override
+  String get version => '1.0';
+  @override
+  String get description => '慢速测试源';
+
+  @override
+  Future<List<SourceSearchResult>> search(String keyword) async {
+    await Future.delayed(const Duration(milliseconds: 180));
+    return [const SourceSearchResult(name: '葬送的芙莉莲', url: 'https://slow/1')];
+  }
+
+  @override
+  Future<List<SourceChapterRoad>> chapters(String animeUrl) async {
+    await Future.delayed(const Duration(milliseconds: 40));
+    return [
+      const SourceChapterRoad(
+        name: '慢速主线',
+        episodes: [
+          SourceEpisode(name: '第 1 话', url: 'https://slow/ep1'),
+        ],
+      )
+    ];
+  }
+
+  @override
+  Future<SourceResolveResult> resolve(String episodeUrl) async =>
+      const SourceResolveResult(url: 'https://slow/video.mp4');
 }
 
 class _HangingMockSource extends VideoSource {

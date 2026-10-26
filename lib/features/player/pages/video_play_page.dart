@@ -19,7 +19,6 @@ import '../controller/watch_progress_tracker.dart';
 import '../core/models/resolved_media.dart';
 import '../danmaku/danmaku.dart';
 import '../services/player_preferences_service.dart';
-import '../source/auto_source_pick_coordinator.dart';
 import '../source/models/source_models.dart';
 import '../source/services/source_binding_service.dart';
 import '../source/source_aggregator.dart';
@@ -137,7 +136,6 @@ class _VideoPlayPageState extends State<VideoPlayPage>
   int? get _playingRoadIndex => _session.playingRoadIndex;
   String? get _playingSourceId => _session.playingSourceId;
   SourceAggregator get _aggregator => _session.aggregator;
-  AutoSourcePickCoordinator get _autoPicker => _session.autoPicker;
   List<SourceEpisode> get _currentEpisodes => _session.currentEpisodes;
   List<PlayableSlot> get _currentSlots => _session.currentSlots;
   List<String> get _mappedEpisodeTitles => _session.mappedEpisodeTitles;
@@ -982,15 +980,19 @@ class _VideoPlayPageState extends State<VideoPlayPage>
         }
       },
       onSwitchSource: () {
-        _autoPicker.onUserAction();
+        _onUserAction();
         _showFullSourceSheet();
       },
     );
   }
 
+  void _onUserAction() {
+    _aggregator.lockByUserAction();
+  }
+
   /// 呼出全功能选集与多视频源看板抽屉
   void _showFullSourceSheet() {
-    _autoPicker.onUserAction();
+    _onUserAction();
     MobileEpisodeSourceSheet.show(
       context,
       bangumiId: _effectiveBangumiId,
@@ -1040,7 +1042,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       aggregator: _aggregator,
       sourceNotice: _sourceNotice,
       keywordOptions: _keywordOptions,
-      onUserAction: _autoPicker.onUserAction,
+      onUserAction: _onUserAction,
       activeEpisode: _activeEpisode,
       playingRoadIndex: _hasStartedPlayback && _selectedSourceId == _playingSourceId
           ? _playingRoadIndex
@@ -1143,7 +1145,7 @@ class _VideoPlayPageState extends State<VideoPlayPage>
       aggregator: _aggregator,
       sourceNotice: _sourceNotice,
       keywordOptions: _keywordOptions,
-      onUserAction: _autoPicker.onUserAction,
+      onUserAction: _onUserAction,
       onTapRecommendItem: _navigateToRecommendedAnime,
     );
   }

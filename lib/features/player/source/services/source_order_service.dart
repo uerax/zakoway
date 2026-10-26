@@ -5,11 +5,15 @@ import '../models/source_models.dart';
 
 /// 视频源排序与偏好中枢调度服务 (Source Order & Preference Service)
 ///
-/// 架构设计与职责分离：
-/// 1. 解耦底层视频源的物理实现与界面展示/自动选源优先级；
-/// 2. 管理出厂默认位序、用户持久化自定义位序及单源禁用黑名单；
-/// 3. 提供越界安全防护：获取前 N 个源时严格保证不会发生 RangeError；
-/// 4. 预留标准 API，供后续设置页拖拽排序、启用/禁用、一键重置无缝对接。
+/// 架构设计与排序规范：
+/// 1. 默认基于权重体系排序：
+///    - 权重 60: xifan-next (稀饭Next), neosekai (neosek)
+///    - 权重 59: cycani (次元城), girigiri (girigiri), sorani (青空次元), gugu (咕咕番)
+///    - 权重 58: mifun (MiFun), tvtfun (TvTFun)
+///    - 权重 50: 其他所有源 (默认基础权重)
+/// 2. 同权仲裁：权重相同时直接按照源名称 (name) 字母序升序排序，杜绝过度设计；
+/// 3. 用户自定义覆盖：预留自定义位序与禁用黑名单接口，用户自定义时绝对优先；
+/// 4. 越界安全防护：获取前 N 个源时严格保证不会发生 RangeError。
 class SourceOrderService extends ChangeNotifier {
   SourceOrderService._();
 
@@ -18,24 +22,21 @@ class SourceOrderService extends ChangeNotifier {
   static const String _kCustomSourceOrderKey = 'pref_custom_source_order';
   static const String _kDisabledSourcesKey = 'pref_disabled_sources';
 
-  /// 出厂推荐默认位序底表
-  static const List<String> defaultPresetOrder = [
-    'xifan-next',
-    'cycani',
-    'mifun',
-    'sorani',
-    'girigiri',
-    'moonci',
-    'lzizy',
-    'animoe',
-    'gugu',
-    'mxdm',
-    'neosekai',
-    'tvtfun',
-    'anime1',
-    'omofun',
-    'libvio',
-  ];
+  /// 出厂默认预设权重底表
+  static const Map<String, int> defaultPresetWeights = {
+    'xifan-next': 60,
+    'xifan': 60,
+    'neosekai': 60,
+    'neosek': 60,
+    'cycani': 59,
+    'girigiri': 59,
+    'sorani': 59,
+    'gugu': 59,
+    'mifun': 58,
+    'tvtfun': 58,
+  };
+
+  static const int defaultBaseWeight = 50;
 
   List<String> _customOrder = [];
   Set<String> _disabledSourceIds = {};
@@ -44,6 +45,14 @@ class SourceOrderService extends ChangeNotifier {
   bool get isInitialized => _initialized;
   List<String> get customOrder => List.unmodifiable(_customOrder);
   Set<String> get disabledSourceIds => Set.unmodifiable(_disabledSourceIds);
+
+  /// 解析获取指定视频源的计算权重
+  int getSourceWeight(SourceMeta s) {
+    if (s.weight != defaultBaseWeight) {
+      return s.weight;
+    }
+    return defaultPresetWeights[s.id.toLowerCase()] ?? defaultBaseWeight;
+  }
 
   /// 异步初始化本地偏好配置
   Future<void> initialize() async {
@@ -63,9 +72,10 @@ class SourceOrderService extends ChangeNotifier {
   ///
   /// 排序规则：
   /// 1. 过滤掉被禁用的源；
-  /// 2. 优先匹配用户自定义排序顺序；
-  /// 3. 若无自定义配置，采用出厂默认位序；
-  /// 4. 未在配置列表中的新源/动态服务端源，自动平滑追加至队尾，绝不丢弃。
+  /// 2. 若用户自定义了排序顺序：优先匹配自定义顺序，未在自定义中的源按权重降序+字母序追加在队尾；
+  /// 3. 若用户未自定义（默认模式）：
+  ///    - 优先按权重从大到小（降序）；
+  ///    - 同权重直接按照字母升序（A-Z）排序，无额外冗余判断。
   List<SourceMeta> getOrderedSources(List<SourceMeta> rawSources) {
     if (rawSources.isEmpty) return const [];
 
@@ -73,26 +83,45 @@ class SourceOrderService extends ChangeNotifier {
     final available = rawSources.where((s) => !_disabledSourceIds.contains(s.id)).toList();
     if (available.isEmpty) return const [];
 
-    // 2. 决定参考基准位序
-    final referenceOrder = _customOrder.isNotEmpty ? _customOrder : defaultPresetOrder;
+    final sorted = List<SourceMeta>.from(available);
 
-    // 3. 构建权重索引字典
-    final rankMap = <String, int>{};
-    for (int i = 0; i < referenceOrder.length; i++) {
-      rankMap[referenceOrder[i].toLowerCase()] = i;
+    // 2. 用户自定义了排序位序
+    if (_customOrder.isNotEmpty) {
+      final rankMap = <String, int>{};
+      for (int i = 0; i < _customOrder.length; i++) {
+        rankMap[_customOrder[i].toLowerCase()] = i;
+      }
+
+      sorted.sort((a, b) {
+        final rankA = rankMap[a.id.toLowerCase()];
+        final rankB = rankMap[b.id.toLowerCase()];
+
+        if (rankA != null && rankB != null) {
+          return rankA.compareTo(rankB);
+        }
+        if (rankA != null) return -1;
+        if (rankB != null) return 1;
+
+        // 未在自定义列表中的源，按权重降序，同权按字母升序
+        final weightA = getSourceWeight(a);
+        final weightB = getSourceWeight(b);
+        if (weightA != weightB) {
+          return weightB.compareTo(weightA);
+        }
+        return a.name.compareTo(b.name);
+      });
+
+      return sorted;
     }
 
-    // 4. 排序：已知顺序按权重升序；未知新增源按名称字母序追加于队尾
-    final sorted = List<SourceMeta>.from(available);
+    // 3. 默认模式：按权重降序，同权重按字母升序
     sorted.sort((a, b) {
-      final rankA = rankMap[a.id.toLowerCase()];
-      final rankB = rankMap[b.id.toLowerCase()];
+      final weightA = getSourceWeight(a);
+      final weightB = getSourceWeight(b);
 
-      if (rankA != null && rankB != null) {
-        return rankA.compareTo(rankB);
+      if (weightA != weightB) {
+        return weightB.compareTo(weightA);
       }
-      if (rankA != null) return -1;
-      if (rankB != null) return 1;
       return a.name.compareTo(b.name);
     });
 
@@ -133,7 +162,6 @@ class SourceOrderService extends ChangeNotifier {
       }
     }
 
-    // 严密二次防线：确保返回数量在 [0, math.min(maxCount, ordered.length)] 之间
     final safeLimit = math.min(maxCount, result.length);
     return result.take(safeLimit).toList();
   }

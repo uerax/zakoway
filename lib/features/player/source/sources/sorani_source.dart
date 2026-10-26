@@ -18,6 +18,9 @@ class SoraniSource extends VideoSource {
   String get id => 'sorani';
 
   @override
+  int get weight => 59;
+
+  @override
   String get name => '青空次元';
 
   @override

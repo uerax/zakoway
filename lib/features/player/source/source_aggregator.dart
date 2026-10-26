@@ -3,7 +3,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:zakoway/core/models/bangumi/bangumi_item.dart';
 import 'models/source_models.dart';
+import 'services/plugin_circuit_breaker.dart';
 import 'services/source_binding_service.dart';
+import 'services/source_order_service.dart';
 import 'source_bundle_manager.dart';
 import 'source_keyword_matcher.dart';
 
@@ -15,13 +17,13 @@ enum SourceProbeStatus {
   /// 探活中 (蓝色旋转)
   probing,
 
-  /// 已就绪 (绿色，相似度 >= 0.55，存在高置信度命中项)
+  /// 已就绪 (绿色，相似度 >= 0.55，存在高置信度命中项且分集验证有效)
   ready,
 
   /// 需点选 (黄色，搜到多条候选但最高相似度 < 0.55，避免错选)
   needsPick,
 
-  /// 未收录 (灰色，搜索结果为空)
+  /// 未收录 (灰色，搜索结果为空或无可用分集)
   empty,
 
   /// 异常/超时 (红色，源站响应异常或 5s 超时)
@@ -76,19 +78,18 @@ class AggregatedSourceState {
   }
 }
 
-/// 高性能视频源并发探测器与调度中心 (1:1 严格对齐 animaku useSourceAggregator 核心机理)
+/// 高性能视频源并发探测中枢与调度引擎
 ///
 /// 核心规范与调度策略：
-/// 1. 并发上限控制: CONCURRENCY_LIMIT = 3 (杜绝瞬间网络风暴)
-/// 2. 单源探活超时: PROBE_TIMEOUT_MS = 5000 (CancelToken 毫秒级熔断)
-/// 3. 自动探测限额: AUTO_PROBE_LIMIT = 6 (面板展开时仅探测优先级前 6 个源，超额保持 idle)
-/// 4. 抢占式调度: 用户手动点击任意源时插队至队首；若并发已满直接 abort 掉一个后台自动任务为用户让位
-/// 5. 手动重测换词: 抽屉内支持快捷候选词胶囊和自定义关键词，强制 bypass 缓存插队重测
-/// 6. 单飞熔断器联动: 软故障 2 次超时/硬故障网络中断自动冷却 90 秒
+/// 1. 并发上限控制: concurrencyLimit = 5 (严格限制后台与并发探测槽位)
+/// 2. 单源探活超时: probeTimeoutMs = 5000 (CancelToken + Future.timeout 双重熔断)
+/// 3. 极速响应流: 任何一个源探活状态变更立即触发 notifyListeners，按钮秒级响应变色
+/// 4. 竞速胜出首播: 首个进入 ready 态且含有效分集的源自动作为胜出源回调通知起播
+/// 5. 抢占式调度与用户互斥: 用户手动点选或换词时锁定为用户意图，废弃自动胜出
+/// 6. 单飞熔断联动: 异常/超时接入 PluginCircuitBreaker，防止坏源反复卡死界面
 class SourceAggregator extends ChangeNotifier {
   static const int concurrencyLimit = 5;
   static const int probeTimeoutMs = 5000;
-  static const int autoProbeLimit = 5;
   static const double autoPickMinSimilarity = 0.55;
 
   final Map<String, AggregatedSourceState> _states = {};
@@ -98,16 +99,15 @@ class SourceAggregator extends ChangeNotifier {
   final Map<String, int> _probeActionIds = {};
   final Set<String> _probeDone = {};
   final Set<String> _activeAutoJobs = {};
-  final Set<String> _autoProbedSources = {};
   final Set<String> _userActionSources = {};
   final Map<String, String> _customKeywords = {};
   int _activeJobs = 0;
   bool _disposed = false;
 
   int _currentBangumiId = 0;
-  String? _activeSourceId;
-  bool _isOpen = false;
-  bool _autoProbeOnFallback = false;
+  int _sessionToken = 0;
+  bool _userLocked = false;
+  String? _winnerSourceId;
 
   String _defaultTitle = '';
   BangumiItem? _bangumiItem;
@@ -116,6 +116,8 @@ class SourceAggregator extends ChangeNotifier {
   Map<String, AggregatedSourceState> get states => Map.unmodifiable(_states);
   List<AggregatedSourceState> get items => _states.values.toList();
   int get activeJobsCount => _activeJobs;
+  bool get isUserLocked => _userLocked;
+  String? get winnerSourceId => _winnerSourceId;
 
   /// 更新指定源的探测状态并通知外部视图更新
   void updateSourceState(String sourceId, AggregatedSourceState state) {
@@ -140,17 +142,33 @@ class SourceAggregator extends ChangeNotifier {
     return set.toList();
   }
 
-  /// 是否存在后台自动探测任务正在执行
+  /// 是否存在探测任务正在执行 (供选源面板顶部转圈与状态指示)
   bool get isAutoProbing =>
-      _autoProbeOnFallback &&
-      (inFlightSources.isNotEmpty || _autoProbedSources.isEmpty);
+      _activeJobs > 0 ||
+      _queue.isNotEmpty ||
+      _states.values.any((s) => s.status == SourceProbeStatus.probing);
 
-  /// 保底探测的源是否已全灭 (全部探测完毕且无一 ready)
-  bool get allFallbacksExhausted =>
-      _autoProbeOnFallback &&
-      inFlightSources.isEmpty &&
-      _autoProbedSources.isNotEmpty &&
-      !_states.values.any((s) => s.status == SourceProbeStatus.ready);
+  /// 初始化/同步当前播放番剧上下文信息 (供用户探活与换词使用)
+  void initContext({
+    required int bangumiId,
+    required String defaultTitle,
+    BangumiItem? item,
+    List<String> titleRefs = const [],
+  }) {
+    if (_currentBangumiId != bangumiId) {
+      resetSubject(bangumiId);
+    }
+    _defaultTitle = defaultTitle;
+    _bangumiItem = item;
+    _titleRefs = titleRefs.isNotEmpty
+        ? titleRefs
+        : [
+            if (item?.nameCn.isNotEmpty ?? false) item!.nameCn,
+            if (item?.name.isNotEmpty ?? false) item!.name,
+            defaultTitle,
+            ...(item?.alias ?? const <String>[]),
+          ].map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+  }
 
   /// 当番剧 ID 变更时彻底重置所有状态与进行中任务
   void resetSubject(int bangumiId) {
@@ -163,9 +181,10 @@ class SourceAggregator extends ChangeNotifier {
     _probeActionIds.clear();
     _probeDone.clear();
     _activeAutoJobs.clear();
-    _autoProbedSources.clear();
     _customKeywords.clear();
     _states.clear();
+    _userLocked = false;
+    _winnerSourceId = null;
 
     // 初始化所有可用源为待探活状态
     final allSources = SourceBundleManager.instance.sources;
@@ -179,204 +198,439 @@ class SourceAggregator extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 同步上下文并启动自动探测 (面板展开或默认源失败时触发)
-  void syncAndProbe({
+  /// 用户操作互斥锁：用户手动点击任意源卡片、分集或换词时调用，
+  /// 锁定当前意图，杜绝后续后台完成的源自动覆盖用户正在查看或播放的内容
+  void lockByUserAction() {
+    _userLocked = true;
+  }
+
+  /// 统一核心入口：启动 Top-N 并发探活流水线 (高内聚闭环)
+  ///
+  /// 核心机制：
+  /// 1. 初始化并对齐番剧上下文，重置上一个会话的状态与定时器；
+  /// 2. 优先检查首选源 (preferredSourceId) 是否有真实有效的历史持久化绑定，若有 0ms 秒开胜出；
+  /// 3. 并发派发前 5 个优选源的探活请求 (严格 5s 超时熔断与单飞保护)；
+  /// 4. 任意单源完成探活立即更新状态并派发 notifyListeners，UI 按钮秒级响应变色；
+  /// 5. 首个 Ready 的源若未被用户锁定，立即通过 onWinnerReady 回调起播；
+  /// 6. 前 5 个源全部探测完毕若无一可用，通过 onAllFailed 统一通知。
+  Future<void> startSession({
     required int bangumiId,
     required String defaultTitle,
     BangumiItem? item,
-    String? activeSourceId,
-    bool isOpen = false,
-    bool autoProbeOnFallback = false,
-    List<String> sourceOrder = const [],
-    SourceSearchResult? currentActiveHit,
-  }) {
-    if (bangumiId <= 0) return;
-    if (_currentBangumiId != bangumiId) {
-      resetSubject(bangumiId);
+    List<String> titleRefs = const [],
+    String? preferredSourceId,
+    int maxProbeCount = 5,
+    void Function(SourceMeta winnerSource, List<SourceChapterRoad> winnerRoads, SourceSearchResult winnerHit)? onWinnerReady,
+    VoidCallback? onAllFailed,
+  }) async {
+    final currentSession = ++_sessionToken;
+    _userLocked = false;
+    _winnerSourceId = null;
+
+    initContext(
+      bangumiId: bangumiId,
+      defaultTitle: defaultTitle,
+      item: item,
+      titleRefs: titleRefs,
+    );
+
+    await SourceBundleManager.instance.initialize();
+    await SourceOrderService.instance.initialize();
+    if (_disposed || _sessionToken != currentSession) return;
+
+    final allRawSources = SourceBundleManager.instance.sources;
+    final targetSources = SourceOrderService.instance.getTopSources(
+      allRawSources,
+      maxCount: maxProbeCount,
+      preferredSourceId: preferredSourceId,
+    );
+
+    if (targetSources.isEmpty) {
+      onAllFailed?.call();
+      return;
     }
 
-    _defaultTitle = defaultTitle;
-    _bangumiItem = item;
-    _activeSourceId = activeSourceId;
-    _isOpen = isOpen;
-    _autoProbeOnFallback = autoProbeOnFallback;
+    final runtime = SourceBundleManager.instance.runtime;
 
-    _titleRefs = [
-      if (item?.nameCn.isNotEmpty ?? false) item!.nameCn,
-      if (item?.name.isNotEmpty ?? false) item!.name,
-      defaultTitle,
-      ...(item?.alias ?? const <String>[]),
-    ].map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    // 1. 优先检查首选源历史持久化绑定 (0ms 秒开)
+    final topPreferredId = preferredSourceId ?? targetSources.first.id;
+    final binding = SourceBindingService.instance.getBinding(bangumiId, topPreferredId);
+    if (binding != null && binding.sourceUrl.isNotEmpty) {
+      try {
+        final boundRoads = await (runtime.chapters(topPreferredId, binding.sourceUrl)
+                as Future<List<SourceChapterRoad>>)
+            .timeout(const Duration(milliseconds: probeTimeoutMs));
+        if (boundRoads.isNotEmpty && boundRoads.any((r) => r.episodes.isNotEmpty)) {
+          if (_disposed || _sessionToken != currentSession) return;
 
-    // 1. 同步当前生效源与持久化绑定
-    final bindingService = SourceBindingService.instance;
-    final allSources = SourceBundleManager.instance.sources;
+          final hit = SourceSearchResult(name: binding.title, url: binding.sourceUrl);
+          final meta = targetSources.where((s) => s.id == topPreferredId).firstOrNull ??
+              runtime.getSource(topPreferredId)?.toMeta() ??
+              SourceMeta(id: topPreferredId, name: topPreferredId, version: '1.0');
 
-    for (final s in allSources) {
-      final isCurrentActive = _activeSourceId != null &&
-          s.id.toLowerCase() == _activeSourceId!.toLowerCase();
-
-      if (isCurrentActive && currentActiveHit != null) {
-        _probeDone.add(s.id);
-        _states[s.id] = AggregatedSourceState(
-          meta: s,
-          status: SourceProbeStatus.ready,
-          items: [currentActiveHit],
-          matchedHit: currentActiveHit,
-          searched: true,
-          keyword: _defaultTitle,
-        );
-      } else if (!_states.containsKey(s.id) || !_states[s.id]!.searched) {
-        final binding = bindingService.getBinding(bangumiId, s.id);
-        if (binding != null && binding.sourceUrl.isNotEmpty) {
-          _probeDone.add(s.id);
-          final boundHit = SourceSearchResult(name: binding.title, url: binding.sourceUrl);
-          _states[s.id] = AggregatedSourceState(
-            meta: s,
+          _states[topPreferredId] = AggregatedSourceState(
+            meta: meta,
             status: SourceProbeStatus.ready,
             binding: binding,
-            items: [boundHit],
-            matchedHit: boundHit,
+            items: [hit],
+            matchedHit: hit,
+            roads: boundRoads,
             searched: true,
             keyword: binding.title,
           );
-        } else {
-          _states[s.id] ??= AggregatedSourceState(
-            meta: s,
-            status: SourceProbeStatus.idle,
-            searched: false,
-          );
+          _winnerSourceId = topPreferredId;
+          notifyListeners();
+
+          onWinnerReady?.call(meta, boundRoads, hit);
+
+          // 首选源秒开后，后台继续平滑将剩余源探测完（填充看板按钮状态）
+          for (final target in targetSources) {
+            if (target.id != topPreferredId) {
+              _queue.add(target.id);
+            }
+          }
+          _processQueue();
+          return;
         }
+      } catch (_) {
+        await SourceBindingService.instance.removeBinding(bangumiId, topPreferredId);
       }
     }
 
-    // 2. 检查是否满足自动探测触发条件
-    final shouldProbe = _isOpen || _autoProbeOnFallback;
-    if (!shouldProbe) return;
+    if (_disposed || _sessionToken != currentSession) return;
 
-    // 自动探测配额已耗尽，绝不继续自动探测
-    if (_autoProbedSources.length >= autoProbeLimit) return;
-
-    // 3. 排序所有候选源：在播源优先 -> 用户自定义顺序 -> 内置权重
-    final ordered = List<SourceMeta>.from(allSources);
-    ordered.sort((a, b) {
-      if (_activeSourceId != null) {
-        if (a.id.toLowerCase() == _activeSourceId!.toLowerCase()) return -1;
-        if (b.id.toLowerCase() == _activeSourceId!.toLowerCase()) return 1;
-      }
-      final ia = sourceOrder.indexOf(a.id);
-      final ib = sourceOrder.indexOf(b.id);
-      if (ia != -1 && ib != -1) return ia.compareTo(ib);
-      if (ia != -1) return -1;
-      if (ib != -1) return 1;
-      return a.name.compareTo(b.name);
-    });
-
-    // 4. 严格限制仅取前 6 个源进入自动探测队列
-    final topCandidates = ordered.take(autoProbeLimit).toList();
-    final toProbe = <String>[];
-
-    for (final s in topCandidates) {
-      if (_probeDone.contains(s.id)) {
-        _autoProbedSources.add(s.id);
-        continue;
-      }
-      if (_autoProbedSources.contains(s.id) || _queue.contains(s.id)) {
-        continue;
-      }
-      if (_autoProbedSources.length + toProbe.length < autoProbeLimit) {
-        toProbe.add(s.id);
-      }
+    // 2. 5 源并发竞速探测
+    // 立即将目标源置为 probing，让 UI 按钮第一时间显示“探活中”旋转动效
+    for (final target in targetSources) {
+      _states[target.id] = AggregatedSourceState(
+        meta: target,
+        status: SourceProbeStatus.probing,
+        searched: true,
+        keyword: SourceKeywordMatcher.resolveDefaultKeyword(
+          defaultTitle: defaultTitle,
+          item: item,
+          sourceId: target.id,
+        ),
+      );
     }
+    notifyListeners();
 
-    if (toProbe.isNotEmpty) {
-      _autoProbedSources.addAll(toProbe);
-      for (final id in toProbe) {
-        if (!_queue.contains(id)) {
-          _queue.add(id);
-        }
-      }
-      _processQueue();
+    int completedCount = 0;
+    final totalTargets = targetSources.length;
+
+    // 真正并发向 5 个源同时发起探测
+    for (final target in targetSources) {
+      _executeSingleProbeWithCallback(
+        target: target,
+        sessionToken: currentSession,
+        bangumiId: bangumiId,
+        onProbeFinished: (sourceState) {
+          if (_disposed || _sessionToken != currentSession) return;
+
+          // 核心实时通知：只要某个源完成，立刻通知 UI 变色！
+          notifyListeners();
+
+          // 胜出判定：若当前还没有胜出者、用户未手动接管，且该源已就绪，立即采纳起播！
+          if (!_userLocked &&
+              _winnerSourceId == null &&
+              sourceState.status == SourceProbeStatus.ready &&
+              sourceState.matchedHit != null &&
+              sourceState.roads.isNotEmpty) {
+            _winnerSourceId = target.id;
+            onWinnerReady?.call(target, sourceState.roads, sourceState.matchedHit!);
+          }
+
+          completedCount++;
+          // 若全部 5 个源均探测完毕且仍无任何胜出源
+          if (completedCount >= totalTargets && !_userLocked && _winnerSourceId == null) {
+            onAllFailed?.call();
+          }
+        },
+      );
     }
   }
 
-  /// 批量启动指定前 N 个目标源并发探测
-  void probeTargetSources({
+  Future<void> _executeSingleProbeWithCallback({
+    required SourceMeta target,
+    required int sessionToken,
     required int bangumiId,
-    required String defaultTitle,
-    BangumiItem? item,
-    required List<String> targetSourceIds,
-    String? activeSourceId,
-  }) {
-    if (bangumiId <= 0 || targetSourceIds.isEmpty) return;
-    if (_currentBangumiId != bangumiId) {
-      resetSubject(bangumiId);
+    required void Function(AggregatedSourceState state) onProbeFinished,
+  }) async {
+    final sourceId = target.id;
+    final actionId = (_probeActionIds[sourceId] ?? 0) + 1;
+    _probeActionIds[sourceId] = actionId;
+
+    final cancelToken = CancelToken();
+    _cancelTokens[sourceId] = cancelToken;
+
+    final timeoutTimer = Timer(const Duration(milliseconds: probeTimeoutMs), () {
+      if (!cancelToken.isCancelled) {
+        cancelToken.cancel('probe_timeout_5s');
+      }
+    });
+    _timeoutTimers[sourceId] = timeoutTimer;
+
+    try {
+      // 熔断器单飞检查
+      final breakerCheck = PluginCircuitBreaker.instance.checkBeforeRequest(sourceId);
+      if (!breakerCheck.allowed) {
+        final errState = AggregatedSourceState(
+          meta: target,
+          status: SourceProbeStatus.error,
+          errorMsg: breakerCheck.reason ?? '源站熔断冷却中',
+          searched: true,
+        );
+        _states[sourceId] = errState;
+        onProbeFinished(errState);
+        return;
+      }
+
+      final kw = _customKeywords[sourceId] ??
+          SourceKeywordMatcher.resolveDefaultKeyword(
+            defaultTitle: _defaultTitle,
+            item: _bangumiItem,
+            sourceId: sourceId,
+          );
+
+      if (kw.isEmpty || RegExp(r'^番剧\s*\d+$').hasMatch(kw)) {
+        final emptyState = AggregatedSourceState(
+          meta: target,
+          status: SourceProbeStatus.empty,
+          searched: true,
+          keyword: kw,
+        );
+        _states[sourceId] = emptyState;
+        onProbeFinished(emptyState);
+        return;
+      }
+
+      final isCustomKw = _customKeywords.containsKey(sourceId);
+      final runtime = SourceBundleManager.instance.runtime;
+
+      // 5s 严格 Future 超时包裹（包含搜索 + 深度 chapters 验活）
+      final state = await _runProbePipeline(
+        sourceId: sourceId,
+        meta: target,
+        kw: kw,
+        isCustomKw: isCustomKw,
+        runtime: runtime,
+        bangumiId: bangumiId,
+        actionId: actionId,
+      ).timeout(const Duration(milliseconds: probeTimeoutMs));
+
+      if (_disposed || _probeActionIds[sourceId] != actionId || _sessionToken != sessionToken) {
+        return;
+      }
+
+      PluginCircuitBreaker.instance.recordSuccess(sourceId);
+      _states[sourceId] = state;
+      onProbeFinished(state);
+    } catch (e) {
+      if (_disposed || _probeActionIds[sourceId] != actionId || _sessionToken != sessionToken) {
+        return;
+      }
+
+      PluginCircuitBreaker.instance.recordFailure(sourceId, e.toString());
+
+      final isTimeout = e is TimeoutException ||
+          cancelToken.isCancelled ||
+          e.toString().contains('probe_timeout_5s') ||
+          e.toString().toLowerCase().contains('timeout');
+
+      final errState = AggregatedSourceState(
+        meta: target,
+        status: SourceProbeStatus.error,
+        errorMsg: isTimeout ? '源站响应超时' : '源站响应异常',
+        searched: true,
+      );
+      _states[sourceId] = errState;
+      onProbeFinished(errState);
+    } finally {
+      _timeoutTimers.remove(sourceId)?.cancel();
+      _cancelTokens.remove(sourceId);
+    }
+  }
+
+  Future<AggregatedSourceState> _runProbePipeline({
+    required String sourceId,
+    required SourceMeta meta,
+    required String kw,
+    required bool isCustomKw,
+    required dynamic runtime,
+    required int bangumiId,
+    required int actionId,
+  }) async {
+    final rawHits = await (runtime.search(sourceId, kw, bypassCache: isCustomKw)
+        as Future<List<SourceSearchResult>>);
+    if (_disposed || _probeActionIds[sourceId] != actionId) {
+      throw Exception('Task invalidated');
     }
 
-    _defaultTitle = defaultTitle;
-    _bangumiItem = item;
-    _activeSourceId = activeSourceId;
-    _autoProbeOnFallback = true;
+    final ranked = SourceKeywordMatcher.rankSearchHits(rawHits, [
+      ..._titleRefs,
+      kw,
+    ]);
 
-    _titleRefs = [
-      if (item?.nameCn.isNotEmpty ?? false) item!.nameCn,
-      if (item?.name.isNotEmpty ?? false) item!.name,
-      defaultTitle,
-      ...(item?.alias ?? const <String>[]),
-    ].map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (ranked.isEmpty) {
+      return AggregatedSourceState(
+        meta: meta,
+        status: SourceProbeStatus.empty,
+        searched: true,
+        keyword: kw,
+      );
+    }
 
-    // 检查持久化绑定
-    final bindingService = SourceBindingService.instance;
-    final allSources = SourceBundleManager.instance.sources;
+    final top = ranked.first;
+    final score = SourceKeywordMatcher.bestSimilarity(top.name, [
+      ..._titleRefs,
+      kw,
+    ]);
 
-    for (final s in allSources) {
-      if (!_states.containsKey(s.id) || !_states[s.id]!.searched) {
-        final binding = bindingService.getBinding(bangumiId, s.id);
-        if (binding != null && binding.sourceUrl.isNotEmpty) {
-          _probeDone.add(s.id);
-          final boundHit = SourceSearchResult(name: binding.title, url: binding.sourceUrl);
-          _states[s.id] = AggregatedSourceState(
-            meta: s,
-            status: SourceProbeStatus.ready,
-            binding: binding,
-            items: [boundHit],
-            matchedHit: boundHit,
-            searched: true,
-            keyword: binding.title,
+    if (score < autoPickMinSimilarity) {
+      return AggregatedSourceState(
+        meta: meta,
+        status: SourceProbeStatus.needsPick,
+        items: ranked,
+        searched: true,
+        keyword: kw,
+      );
+    }
+
+    // 深度验活 chapters，杜绝假绿灯
+    List<SourceChapterRoad> validatedRoads = const [];
+    try {
+      validatedRoads = await (runtime.chapters(sourceId, top.url, bypassCache: isCustomKw)
+          as Future<List<SourceChapterRoad>>);
+    } catch (_) {}
+
+    if (_disposed || _probeActionIds[sourceId] != actionId) {
+      throw Exception('Task invalidated');
+    }
+
+    if (validatedRoads.isNotEmpty && validatedRoads.any((r) => r.episodes.isNotEmpty)) {
+      // 成功命中并包含分集，异步写入绑定服务
+      SourceBindingService.instance.setBinding(
+        bangumiId: bangumiId,
+        sourceId: sourceId,
+        sourceUrl: top.url,
+        title: top.name,
+        referenceTitles: _titleRefs,
+      ).ignore();
+
+      return AggregatedSourceState(
+        meta: meta,
+        status: SourceProbeStatus.ready,
+        items: ranked,
+        matchedHit: top,
+        roads: validatedRoads,
+        searched: true,
+        keyword: kw,
+      );
+    } else {
+      return AggregatedSourceState(
+        meta: meta,
+        status: SourceProbeStatus.empty,
+        items: ranked,
+        errorMsg: '未收录有效播放分集',
+        searched: true,
+        keyword: kw,
+      );
+    }
+  }
+
+  /// 为指定源提取分集（若已缓存则 0ms 秒返，否则执行精准提取）
+  Future<List<SourceChapterRoad>> loadChaptersForSource(
+    String sourceId, {
+    SourceSearchResult? hit,
+    bool bypassCache = false,
+  }) async {
+    final curState = _states[sourceId];
+    if (!bypassCache &&
+        curState?.roads != null &&
+        curState!.roads.isNotEmpty &&
+        curState.roads.any((r) => r.episodes.isNotEmpty)) {
+      return curState.roads;
+    }
+
+    final runtime = SourceBundleManager.instance.runtime;
+    final meta = runtime.getSource(sourceId)?.toMeta() ??
+        curState?.meta ??
+        SourceMeta(id: sourceId, name: sourceId, version: '1.0');
+
+    String? targetUrl = hit?.url ?? curState?.matchedHit?.url;
+    String? targetTitle = hit?.name ?? curState?.matchedHit?.name;
+
+    // 查绑定
+    if (targetUrl == null && _currentBangumiId > 0) {
+      final binding = SourceBindingService.instance.getBinding(_currentBangumiId, sourceId);
+      if (binding != null && binding.sourceUrl.isNotEmpty) {
+        targetUrl = binding.sourceUrl;
+        targetTitle = binding.title;
+      }
+    }
+
+    // 搜词
+    if (targetUrl == null) {
+      final kw = _customKeywords[sourceId] ??
+          SourceKeywordMatcher.resolveDefaultKeyword(
+            defaultTitle: _defaultTitle,
+            item: _bangumiItem,
+            sourceId: sourceId,
           );
-        } else {
-          _states[s.id] ??= AggregatedSourceState(
-            meta: s,
-            status: SourceProbeStatus.idle,
-            searched: false,
-          );
+      if (kw.isNotEmpty) {
+        final hits = await (runtime.search(sourceId, kw, bypassCache: bypassCache)
+            as Future<List<SourceSearchResult>>);
+        final ranked = SourceKeywordMatcher.rankSearchHits(hits, _titleRefs);
+        if (ranked.isNotEmpty) {
+          targetUrl = ranked.first.url;
+          targetTitle = ranked.first.name;
         }
       }
     }
 
-    final toProbe = <String>[];
-    for (final id in targetSourceIds) {
-      if (_probeDone.contains(id)) {
-        _autoProbedSources.add(id);
-        continue;
-      }
-      if (!_autoProbedSources.contains(id) && !_queue.contains(id)) {
-        toProbe.add(id);
-      }
+    if (targetUrl == null || targetUrl.isEmpty) {
+      throw Exception('在「${meta.name}」未检索到《$_defaultTitle》，请在面板中换词');
     }
 
-    if (toProbe.isNotEmpty) {
-      _autoProbedSources.addAll(toProbe);
-      _queue.addAll(toProbe);
-      _processQueue();
+    final roads = await (runtime.chapters(sourceId, targetUrl, bypassCache: bypassCache)
+        as Future<List<SourceChapterRoad>>);
+    if (roads.isEmpty || roads.every((r) => r.episodes.isEmpty)) {
+      throw Exception('未能从「${meta.name}」解析到有效分集');
     }
+
+    final effectiveHit = hit ?? SourceSearchResult(name: targetTitle ?? _defaultTitle, url: targetUrl);
+    _states[sourceId] = AggregatedSourceState(
+      meta: meta,
+      status: SourceProbeStatus.ready,
+      matchedHit: effectiveHit,
+      roads: roads,
+      searched: true,
+      keyword: targetTitle,
+    );
+    notifyListeners();
+
+    if (_currentBangumiId > 0 && targetTitle != null) {
+      SourceBindingService.instance.setBinding(
+        bangumiId: _currentBangumiId,
+        sourceId: sourceId,
+        sourceUrl: targetUrl,
+        title: targetTitle,
+        referenceTitles: _titleRefs,
+      ).ignore();
+    }
+
+    return roads;
   }
 
   /// 抢占式调度：用户手动点击某源卡片时，将该源插队至队首；
-  /// 若 3 个并发已满，主动 cancel 掉 1 个后台自动探测任务为用户让位！
+  /// 若并发已满，主动 cancel 掉 1 个后台探测任务为用户让位
   void prioritizeSource(String sourceId, {bool isUserAction = true}) {
     final sId = sourceId.trim();
     if (sId.isEmpty) return;
+
+    if (isUserAction) {
+      lockByUserAction();
+    }
 
     // 取消当前该源自身的旧请求 (若有)，必须先清除定时器并递增 actionId 使旧任务失效
     _probeActionIds[sId] = (_probeActionIds[sId] ?? 0) + 1;
@@ -387,7 +641,7 @@ class SourceAggregator extends ChangeNotifier {
     }
     _probeDone.remove(sId);
 
-    // 核心抢占逻辑：若并发已满且用户发起了手动操作，抢占并废弃一个后台自动任务
+    // 核心抢占逻辑：若并发已满且用户发起了手动操作，抢占并废弃一个后台任务
     if (isUserAction && _activeJobs >= concurrencyLimit) {
       for (final autoJobId in _activeAutoJobs.toList()) {
         if (autoJobId != sId && _cancelTokens.containsKey(autoJobId)) {
@@ -400,9 +654,8 @@ class SourceAggregator extends ChangeNotifier {
           }
           _activeAutoJobs.remove(autoJobId);
           _probeDone.remove(autoJobId);
-          // 关键：立即扣减 activeJobs 释放并发槽位，让队首的用户任务能够立即启动消费
+          // 立即扣减 activeJobs 释放并发槽位，让队首的用户任务能够立即启动消费
           _activeJobs--;
-          // 将被挤掉的后台任务推回队尾，后续空闲时恢复
           if (!_queue.contains(autoJobId)) {
             _queue.add(autoJobId);
           }
@@ -420,14 +673,9 @@ class SourceAggregator extends ChangeNotifier {
     _processQueue();
   }
 
-  /// 动态更新选源面板是否处于展开状态 (供移动端 BottomSheet 展开与收起时同步，已解除自动并发绑定)
-  void setOpen(bool isOpen) {
-    if (_isOpen == isOpen) return;
-    _isOpen = isOpen;
-  }
-
   /// 手动重新探测指定视频源 (支持传入自定义关键词或胶囊关键词，强制绕过缓存)
   void reProbeSource(String sourceId, [String? customKeyword]) {
+    lockByUserAction();
     final kw = customKeyword?.trim();
     if (kw != null && kw.isNotEmpty) {
       _customKeywords[sourceId] = kw;
@@ -450,18 +698,9 @@ class SourceAggregator extends ChangeNotifier {
     prioritizeSource(sourceId, isUserAction: true);
   }
 
-  /// 内部队列消费者 (维持最大 3 并发)
+  /// 内部队列消费者 (维持最大并发限制)
   Future<void> _processQueue() async {
     while (_activeJobs < concurrencyLimit && _queue.isNotEmpty) {
-      final nextSourceId = _queue.first;
-      final isUserAction = _userActionSources.contains(nextSourceId);
-
-      // 特殊处理说明：
-      // 用户主动触发的探活或首屏保底探测任务具有最高执行权限，
-      // 解除与面板是否展开(_isOpen)的强绑定，杜绝展开面板时的并发风暴。
-      final shouldProbe = isUserAction || _autoProbeOnFallback;
-      if (!shouldProbe) return;
-
       final sourceId = _queue.removeAt(0);
       _userActionSources.remove(sourceId);
       if (_probeDone.contains(sourceId)) continue;
@@ -497,7 +736,6 @@ class SourceAggregator extends ChangeNotifier {
       );
       notifyListeners();
 
-      // 启动单源探测微任务 (带 5s 超时与 CancelToken)
       _probeSingleSource(source, kw, isCustomKw);
     }
   }
@@ -510,15 +748,12 @@ class SourceAggregator extends ChangeNotifier {
     final sourceId = source.id as String;
     final meta = source.toMeta() as SourceMeta;
 
-    // 每次单源探测启动均生成唯一 actionId；若超时或被抢占，后续底层异步返回将因 actionId 失效而被安全丢弃
     final actionId = (_probeActionIds[sourceId] ?? 0) + 1;
     _probeActionIds[sourceId] = actionId;
 
     final cancelToken = CancelToken();
     _cancelTokens[sourceId] = cancelToken;
 
-    // 集中管理超时定时器：由 _timeoutTimers 统一持有，页面退出或任务抢占时可立即取消，
-    // 同时通过 !cancelToken.isCancelled 避免被 reset/抢占后重复取消触发 Dio 警告。
     final timeoutTimer = Timer(const Duration(milliseconds: probeTimeoutMs), () {
       if (!cancelToken.isCancelled) {
         cancelToken.cancel('probe_timeout_5s');
@@ -527,6 +762,17 @@ class SourceAggregator extends ChangeNotifier {
     _timeoutTimers[sourceId] = timeoutTimer;
 
     try {
+      final breakerCheck = PluginCircuitBreaker.instance.checkBeforeRequest(sourceId);
+      if (!breakerCheck.allowed) {
+        _states[sourceId] = AggregatedSourceState(
+          meta: meta,
+          status: SourceProbeStatus.error,
+          errorMsg: breakerCheck.reason ?? '源站熔断冷却中',
+          searched: true,
+        );
+        return;
+      }
+
       if (kw.isEmpty || RegExp(r'^番剧\s*\d+$').hasMatch(kw)) {
         _timeoutTimers.remove(sourceId)?.cancel();
         _states[sourceId] = AggregatedSourceState(
@@ -538,20 +784,25 @@ class SourceAggregator extends ChangeNotifier {
         return;
       }
 
-      // 核心熔断设计：将搜索 + 相似度排序 + 分集深度验活 (chapters) 整体包裹于 5s 严格 Future 超时中，
-      // 彻底解决 Dio CancelToken 难以深层传递导致的底层网络挂死，以及 chapters 阶段脱离超时保护的问题。
-      await _executeProbeFlow(
+      final res = await _runProbePipeline(
         sourceId: sourceId,
         meta: meta,
         kw: kw,
         isCustomKw: isCustomKw,
+        runtime: SourceBundleManager.instance.runtime,
+        bangumiId: _currentBangumiId,
         actionId: actionId,
       ).timeout(const Duration(milliseconds: probeTimeoutMs));
-    } catch (e) {
-      // 若该任务已被抢占或页面已销毁，直接返回，不写状态也不重复上报
+
       if (_disposed || _probeActionIds[sourceId] != actionId) return;
 
-      _timeoutTimers.remove(sourceId)?.cancel();
+      PluginCircuitBreaker.instance.recordSuccess(sourceId);
+      _states[sourceId] = res;
+    } catch (e) {
+      if (_disposed || _probeActionIds[sourceId] != actionId) return;
+
+      PluginCircuitBreaker.instance.recordFailure(sourceId, e.toString());
+
       final isTimeout = e is TimeoutException ||
           cancelToken.isCancelled ||
           e.toString().contains('probe_timeout_5s') ||
@@ -566,90 +817,9 @@ class SourceAggregator extends ChangeNotifier {
       );
     } finally {
       _timeoutTimers.remove(sourceId)?.cancel();
-      // 仅当当前 actionId 依然生效时才由本次流程负责释放并发槽位 (被抢占的任务在抢占时刻已立即扣减)
       if (!_disposed && _probeActionIds[sourceId] == actionId) {
         _finishJob(sourceId);
       }
-    }
-  }
-
-  /// 封装单源完整探测与深度验活链路
-  Future<void> _executeProbeFlow({
-    required String sourceId,
-    required SourceMeta meta,
-    required String kw,
-    required bool isCustomKw,
-    required int actionId,
-  }) async {
-    final runtime = SourceBundleManager.instance.runtime;
-    final rawHits = await runtime.search(sourceId, kw, bypassCache: isCustomKw);
-
-    if (_disposed || _probeActionIds[sourceId] != actionId) return;
-
-    // 请求成功，记录熔断器成功状态
-    // 对搜索结果按标题相似度打分排序
-    final ranked = SourceKeywordMatcher.rankSearchHits(rawHits, [
-      ..._titleRefs,
-      kw,
-    ]);
-
-    if (ranked.isEmpty) {
-      _states[sourceId] = AggregatedSourceState(
-        meta: meta,
-        status: SourceProbeStatus.empty,
-        searched: true,
-        keyword: kw,
-      );
-      return;
-    }
-
-    final top = ranked.first;
-    final score = SourceKeywordMatcher.bestSimilarity(top.name, [
-      ..._titleRefs,
-      kw,
-    ]);
-
-    if (score >= autoPickMinSimilarity) {
-      // 深度验活：调用 chapters 验证分集是否真实可用，杜绝“假绿灯”
-      List<SourceChapterRoad> validatedRoads = const [];
-      try {
-        validatedRoads = await runtime.chapters(sourceId, top.url, bypassCache: isCustomKw);
-      } catch (_) {}
-
-      if (_disposed || _probeActionIds[sourceId] != actionId) return;
-
-      if (validatedRoads.isNotEmpty &&
-          validatedRoads.any((r) => r.episodes.isNotEmpty)) {
-        // 真实有效分集 -> 进入就绪态 (真正绿灯)，并直接缓存分集线路
-        _states[sourceId] = AggregatedSourceState(
-          meta: meta,
-          status: SourceProbeStatus.ready,
-          items: ranked,
-          matchedHit: top,
-          roads: validatedRoads,
-          searched: true,
-          keyword: kw,
-        );
-      } else {
-        // 搜到了名称但分集为空或解析失败 -> 绝不标绿，标为未收录有效分集
-        _states[sourceId] = AggregatedSourceState(
-          meta: meta,
-          status: SourceProbeStatus.empty,
-          items: ranked,
-          errorMsg: '未收录有效播放分集',
-          searched: true,
-          keyword: kw,
-        );
-      }
-    } else {
-      // 相似度低于 0.55，进入需人工点选态 (黄灯)，绝不盲目误起播
-      _states[sourceId] = AggregatedSourceState(
-        meta: meta,
-        status: SourceProbeStatus.needsPick,
-        items: ranked,
-        searched: true,
-        keyword: kw,
-      );
     }
   }
 

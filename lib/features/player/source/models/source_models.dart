@@ -117,12 +117,14 @@ class SourceMeta {
   final String name;
   final String version;
   final bool isDirect;
+  final int weight;
 
   const SourceMeta({
     required this.id,
     required this.name,
     required this.version,
     this.isDirect = true,
+    this.weight = 50,
   });
 
   factory SourceMeta.fromJson(Map<String, dynamic> json) {
@@ -131,6 +133,7 @@ class SourceMeta {
       name: json['name']?.toString() ?? '',
       version: json['version']?.toString() ?? '1.0.0',
       isDirect: json['isDirect'] as bool? ?? true,
+      weight: (json['weight'] as num?)?.toInt() ?? 50,
     );
   }
 
@@ -139,6 +142,7 @@ class SourceMeta {
         'name': name,
         'version': version,
         'isDirect': isDirect,
+        'weight': weight,
       };
 }
 

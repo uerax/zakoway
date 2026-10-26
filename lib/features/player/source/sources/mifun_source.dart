@@ -19,6 +19,9 @@ class MifunSource extends VideoSource {
   String get id => 'mifun';
 
   @override
+  int get weight => 58;
+
+  @override
   String get name => 'MiFun';
 
   @override

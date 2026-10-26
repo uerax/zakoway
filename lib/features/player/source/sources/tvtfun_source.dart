@@ -17,6 +17,9 @@ class TvTFunSource extends VideoSource {
   String get id => 'tvtfun';
 
   @override
+  int get weight => 58;
+
+  @override
   String get name => 'TvTFun';
 
   @override

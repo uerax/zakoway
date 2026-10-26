@@ -27,6 +27,9 @@ class XifanNextSource extends VideoSource {
   String get id => 'xifan-next';
 
   @override
+  int get weight => 60;
+
+  @override
   String get name => '稀饭Next';
 
   @override

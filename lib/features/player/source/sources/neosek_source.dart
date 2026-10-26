@@ -21,6 +21,9 @@ class NeosekSource extends VideoSource {
   String get id => 'neosekai';
 
   @override
+  int get weight => 60;
+
+  @override
   String get name => 'neosek';
 
   @override
@@ -30,7 +33,7 @@ class NeosekSource extends VideoSource {
   String get description => '1080P · 香港 CDN fMP4 HLS 直连 (权重 60)';
 
   @override
-  bool get isDirect => true;
+  bool get isDirect => false;
 
   /// 搜索番剧
   ///

@@ -22,6 +22,9 @@ class CycaniSource extends VideoSource {
   String get id => 'cycani';
 
   @override
+  int get weight => 59;
+
+  @override
   String get name => '次元城';
 
   @override

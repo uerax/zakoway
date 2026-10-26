@@ -20,6 +20,9 @@ class GirigiriSource extends VideoSource {
   String get id => 'girigiri';
 
   @override
+  int get weight => 59;
+
+  @override
   String get name => 'girigiri';
 
   @override

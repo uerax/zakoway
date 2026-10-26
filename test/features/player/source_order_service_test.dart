@@ -99,5 +99,37 @@ void main() {
       expect(top.first.id, 'girigiri');
       expect(top.length, 3);
     });
+
+    test('7. 权重降序 (60 > 59 > 58 > 50) 且同权按名称字母升序排序', () {
+      final raw = [
+        const SourceMeta(id: 'mifun', name: 'MiFun', version: '1.0'), // 58
+        const SourceMeta(id: 'gugu', name: 'gugu', version: '1.0'), // 59
+        const SourceMeta(id: 'cycani', name: 'cycani', version: '1.0'), // 59
+        const SourceMeta(id: 'neosekai', name: 'neosek', version: '1.0'), // 60
+        const SourceMeta(id: 'xifan-next', name: 'xifan', version: '1.0'), // 60
+        const SourceMeta(id: 'tvtfun', name: 'TvTFun', version: '1.0'), // 58
+        const SourceMeta(id: 'libvio', name: 'libvio', version: '1.0'), // 50
+        const SourceMeta(id: 'anime1', name: 'anime1', version: '1.0'), // 50
+      ];
+
+      final ordered = SourceOrderService.instance.getOrderedSources(raw);
+      final ids = ordered.map((s) => s.id).toList();
+
+      // 60 梯队: neosek, xifan -> 按字母: neosekai, xifan-next
+      expect(ids[0], 'neosekai');
+      expect(ids[1], 'xifan-next');
+
+      // 59 梯队: cycani, gugu -> 按字母: cycani, gugu
+      expect(ids[2], 'cycani');
+      expect(ids[3], 'gugu');
+
+      // 58 梯队: MiFun, TvTFun -> 按字母: MiFun, TvTFun
+      expect(ids[4], 'mifun');
+      expect(ids[5], 'tvtfun');
+
+      // 50 梯队: anime1, libvio -> 按字母: anime1, libvio
+      expect(ids[6], 'anime1');
+      expect(ids[7], 'libvio');
+    });
   });
 }

@@ -18,6 +18,9 @@ class GuguSource extends VideoSource {
   String get id => 'gugu';
 
   @override
+  int get weight => 59;
+
+  @override
   String get name => '咕咕番';
 
   @override

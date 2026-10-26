@@ -45,6 +45,9 @@ abstract class VideoSource {
   String get version;
   String get description;
 
+  /// 视频源基础排序权重 (默认 50，高权重优先探活与前置展示)
+  int get weight => 50;
+
   /// 是否支持国内网络直连（true: 国内可直连；false: 需代理/海外节点）
   bool get isDirect => true;
 
@@ -63,5 +66,6 @@ abstract class VideoSource {
         name: name,
         version: version,
         isDirect: isDirect,
+        weight: weight,
       );
 }
