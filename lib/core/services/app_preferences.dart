@@ -40,6 +40,7 @@ class AppPreferences {
   static const _kServerModeCachedSources = 'pref_server_mode_cached_sources';
   static const _kPreferWebviewSniff = 'pref_prefer_webview_sniff';
   static const _kDisplayMode = 'pref_display_mode';
+  static const _kGuguSessionCookie = 'pref_gugu_session_cookie';
 
   /// 默认公开免费 Animaku 服务端地址
   static const String defaultServerModeApiUrl = 'https://bakasine.eu.org';
@@ -413,5 +414,19 @@ class AppPreferences {
 
   static Future<void> saveDisplayMode(String modeStr) async {
     await _prefs?.setString(_kDisplayMode, modeStr);
+  }
+
+  // --- 咕咕番用户会话持久化 ---
+
+  static String? getGuguSessionCookie() {
+    return _prefs?.getString(_kGuguSessionCookie);
+  }
+
+  static Future<void> setGuguSessionCookie(String? cookie) async {
+    if (cookie == null || cookie.isEmpty) {
+      await _prefs?.remove(_kGuguSessionCookie);
+    } else {
+      await _prefs?.setString(_kGuguSessionCookie, cookie);
+    }
   }
 }

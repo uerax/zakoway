@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:zakoway/core/services/app_preferences.dart';
 import '../models/source_models.dart';
 import 'video_source.dart';
 
@@ -45,10 +46,19 @@ class GuguSource extends VideoSource {
     return h;
   }
 
-  /// 维护咕咕番用户会话。由于 Next.js 开启了 CSRF 校验，必须携带严格匹配的 Origin
+  /// 维护咕咕番用户会话。
+  /// 优先使用内存与磁盘持久化 Cookie（有效期 30 天），彻底消灭每次起播 900ms 的登录延迟；
+  /// 会话失效时清理本地持久化并强制重新登录刷新。
   Future<String> _ensureSession({bool forceRefresh = false}) async {
-    if (!forceRefresh && _sessionCookie != null && _sessionCookie!.isNotEmpty) {
-      return _sessionCookie!;
+    if (!forceRefresh) {
+      if (_sessionCookie != null && _sessionCookie!.isNotEmpty) {
+        return _sessionCookie!;
+      }
+      final diskCookie = AppPreferences.getGuguSessionCookie();
+      if (diskCookie != null && diskCookie.isNotEmpty) {
+        _sessionCookie = diskCookie;
+        return _sessionCookie!;
+      }
     }
 
     final res = await _dio.post<dynamic>(
@@ -84,7 +94,14 @@ class GuguSource extends VideoSource {
     }
 
     _sessionCookie = cookies.join('; ');
+    await AppPreferences.setGuguSessionCookie(_sessionCookie);
     return _sessionCookie!;
+  }
+
+  /// 清理失效的 Cookie（内存与本地持久化双清）
+  Future<void> _clearSession() async {
+    _sessionCookie = null;
+    await AppPreferences.setGuguSessionCookie(null);
   }
 
   @override
@@ -238,13 +255,13 @@ class GuguSource extends VideoSource {
     }
 
     // 特殊处理说明：
-    // 咕咕番源站的各集可用线路并不统一（例如第1集有国内1/海外1，第2集有国内2/海外1，第4集仅海外1）。
-    // 若查遍所有集数会产生数十次网络请求导致页面极慢并触发源站封号；
-    // 因此在章节层直接交付标准双线路（国内1线 / 海外1线），0 额外网络开销，
-    // 并在 resolve 解析层针对每集实际拥有的源进行智能同类对齐与平滑兜底，确保全集 100% 顺畅播放且不断播。
+    // 咕咕番源站线路划分为【国内线路】与【海外线路】两大标准通道：
+    // 1. 国内线路：默认排在首位，内部按国内2线 (zy1080_01) > 国内1线 (vod_1080) > 海外1线 (zy1080_02) 顺位锁定；
+    // 2. 海外线路：内部按海外1线 (zy1080_02) > 国内2线 (zy1080_01) > 国内1线 (vod_1080) 顺位锁定。
+    // 目标源一旦按顺位锁定即刻直连，不做任何后台换源容灾，若源站挂了就如实报错。
     return [
       SourceChapterRoad(
-        name: '国内1线',
+        name: '国内线路',
         episodes: episodes.map((e) {
           final sep = e.url.contains('?') ? '&' : '?';
           return SourceEpisode(
@@ -254,7 +271,7 @@ class GuguSource extends VideoSource {
         }).toList(),
       ),
       SourceChapterRoad(
-        name: '海外1线',
+        name: '海外线路',
         episodes: episodes.map((e) {
           final sep = e.url.contains('?') ? '&' : '?';
           return SourceEpisode(
@@ -276,7 +293,9 @@ class GuguSource extends VideoSource {
       animeId = segments[watchIdx + 1];
     }
     final episodeId = uri.queryParameters['episode'] ?? '';
-    final preferredSource = uri.queryParameters['preferred_source'] ?? 'domestic';
+    final preferredSource = uri.queryParameters['preferred_source'] ??
+        uri.queryParameters['line'] ??
+        'domestic';
 
     if (animeId.isEmpty || episodeId.isEmpty) {
       throw Exception('未能从咕咕番播放链接中解析出 animeId 与 episodeId: $episodeUrl');
@@ -299,64 +318,71 @@ class GuguSource extends VideoSource {
       );
 
       var data = parseJsonMap(apiRes.data);
-      var currentSourceId = data?['sourceId'];
+      final currentSourceId = data?['sourceId'];
       final rawSources = (data?['sources'] as List?) ?? [];
       final sources = rawSources.whereType<Map<String, dynamic>>().toList();
 
-      // 2. 线路智能对齐与平滑兜底：
-      // 保证用户选国内线时只要有国内 CDN (vod_1080 / zy1080_01) 就坚决不走境外慢速源；
-      // 遇到该集无对应线路时（如第4集无国内线，或某集无海外线），自动使用当前集唯一可用源，杜绝断流或报错。
-      if (sources.length > 1) {
-        int? targetSourceId;
+      // 2. 线路顺位锁定（按用户规范：国内按 2线 -> 1线 -> 海外 顺位；海外按 海外 -> 2线 -> 1线 顺位）
+      // 匹配出第一个存在的源即刻锁定目标源，不做任何后台换源容灾，挂了就如实报错
+      final bool isOverseas = preferredSource == 'overseas' || preferredSource == 'overseas1';
+      final order = isOverseas
+          ? const ['zy1080_02', 'zy1080_01', 'vod_1080']
+          : const ['zy1080_01', 'vod_1080', 'zy1080_02'];
 
-        if (preferredSource == 'domestic') {
-          // 国内通道优先：先查 vod_1080 (国内1线)，无则查 zy1080_01 (国内2线)
-          final hit = sources.firstWhere(
-            (s) => s['name'] == 'vod_1080',
-            orElse: () => sources.firstWhere(
-              (s) => s['name'] == 'zy1080_01',
-              orElse: () => <String, dynamic>{},
-            ),
-          );
-          if (hit.isNotEmpty) {
-            targetSourceId = hit['id'] is int ? hit['id'] as int : int.tryParse(hit['id']?.toString() ?? '');
-          }
-        } else {
-          // 海外备用通道优先：优先查 zy1080_02 (海外1线)
-          final hit = sources.firstWhere(
-            (s) => s['name'] == 'zy1080_02',
-            orElse: () => <String, dynamic>{},
-          );
-          if (hit.isNotEmpty) {
-            targetSourceId = hit['id'] is int ? hit['id'] as int : int.tryParse(hit['id']?.toString() ?? '');
-          }
-        }
+      Map<String, dynamic> matchedSource = const {};
+      for (final name in order) {
+        matchedSource = sources.firstWhere(
+          (s) => s['name'] == name,
+          orElse: () => const <String, dynamic>{},
+        );
+        if (matchedSource.isNotEmpty) break;
+      }
 
-        // 若命中更符合偏好的源且不同于当前下发源，携带 &source 重新签发直链
-        if (targetSourceId != null && targetSourceId != currentSourceId) {
-          final targetRes = await _dio.get<dynamic>(
-            '$_baseUrl/api/playback?anime=$animeId&episode=$episodeId&source=$targetSourceId',
-            options: Options(
-              headers: {
-                'User-Agent': _kDefaultUserAgent,
-                'Origin': _baseUrl,
-                'Referer': episodeUrl,
-                'Cookie': cookie,
-              },
-              sendTimeout: const Duration(seconds: 8),
-              receiveTimeout: const Duration(seconds: 8),
-            ),
-          );
-          final targetData = parseJsonMap(targetRes.data);
-          if (targetData != null && targetData['url'] != null) {
-            data = targetData;
-          }
+      if (matchedSource.isEmpty) {
+        throw Exception('咕咕番该集源站未提供任何可用线路');
+      }
+
+      final targetSourceId = matchedSource['id'] is int
+          ? matchedSource['id'] as int
+          : int.tryParse(matchedSource['id']?.toString() ?? '');
+
+      // 若锁定的目标源不同于默认下发的源，携带 &source 重新签发直链；
+      // 若源站报错（如 503）如实抛出，不做任何后台换源容灾，挂了就明确显示挂了
+      if (targetSourceId != null && targetSourceId != currentSourceId) {
+        final targetRes = await _dio.get<dynamic>(
+          '$_baseUrl/api/playback?anime=$animeId&episode=$episodeId&source=$targetSourceId',
+          options: Options(
+            headers: {
+              'User-Agent': _kDefaultUserAgent,
+              'Origin': _baseUrl,
+              'Referer': episodeUrl,
+              'Cookie': cookie,
+            },
+            sendTimeout: const Duration(seconds: 8),
+            receiveTimeout: const Duration(seconds: 8),
+          ),
+        );
+        final targetData = parseJsonMap(targetRes.data);
+        if (targetData != null && targetData['url'] != null) {
+          data = targetData;
         }
       }
 
       final directUrl = (data?['url']?.toString() ?? '').trim();
+      final err = data?['error']?.toString();
+      if (err != null && (err.contains('登录') || err.contains('会话'))) {
+        throw DioException(
+          requestOptions: RequestOptions(path: '$_baseUrl/api/playback'),
+          response: Response(
+            requestOptions: RequestOptions(path: '$_baseUrl/api/playback'),
+            statusCode: 401,
+            data: data,
+          ),
+        );
+      }
+
       if (directUrl.isEmpty || !directUrl.startsWith('http')) {
-        throw Exception('咕咕番直链获取失败: ${data?['error'] ?? '未返回有效播放地址'}');
+        throw Exception('咕咕番直链获取失败: ${err ?? '未返回有效播放地址'}');
       }
 
       final format = data?['format']?.toString().toLowerCase() == 'mp4' ? 'mp4' : 'hls';
@@ -370,12 +396,27 @@ class GuguSource extends VideoSource {
       );
     }
 
+    bool isSessionExpired(DioException dioErr) {
+      final code = dioErr.response?.statusCode;
+      if (code == 401 || code == 403) return true;
+
+      final resData = dioErr.response?.data;
+      final errMsg = resData is Map
+          ? (resData['error']?.toString() ?? '')
+          : (resData?.toString() ?? '');
+      if (errMsg.contains('登录') || errMsg.contains('会话')) return true;
+
+      return false;
+    }
+
     var cookie = await _ensureSession();
     try {
       return await requestPlayback(cookie);
     } on DioException catch (e) {
-      // 若出现 401 Unauthorized 说明服务端会话已过期，强制重新登录刷新会话并重试一次
-      if (e.response?.statusCode == 401) {
+      // 多维度判断会话是否失效 (实测源站涵盖 401/403 状态码以及包含“登录”或“会话”文案的报错)
+      // 一旦判定失效，立即双清本地持久化与内存 Cookie，强制重新登录刷新会话并安全重试一次
+      if (isSessionExpired(e)) {
+        await _clearSession();
         cookie = await _ensureSession(forceRefresh: true);
         return await requestPlayback(cookie);
       }
