@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zakoway/core/services/app_preferences.dart';
 import 'package:zakoway/core/services/watch_history_service.dart';
+import 'package:zakoway/core/utils/responsive.dart';
 import 'package:zakoway/features/history/pages/history_page.dart';
 import 'package:zakoway/features/home/widgets/continue_watching_shelf.dart';
 
@@ -40,8 +41,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 顶部标题
-      expect(find.text('播放历史'), findsOneWidget);
+      // 顶部标题（移动端显示，桌面端隐藏）
+      expect(find.text('播放历史'), AppPlatform.isDesktop ? findsNothing : findsOneWidget);
 
       // 统计指标胶囊栏
       expect(find.text('在追番剧'), findsOneWidget);
@@ -147,7 +148,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(find.text('播放历史'), findsOneWidget);
+      expect(find.text('播放历史'), AppPlatform.isDesktop ? findsNothing : findsOneWidget);
       expect(find.text('葬送的芙莉莲'), findsOneWidget);
     });
   });

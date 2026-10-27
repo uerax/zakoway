@@ -7,6 +7,7 @@ import '../../../core/theme/m3_surface.dart';
 import '../../../core/utils/appearance_manager.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
+import '../../common/widgets/desktop_floating_back_button.dart';
 import '../models/anime_analytics_report.dart';
 import '../services/anime_analytics_service.dart';
 
@@ -43,6 +44,8 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final fontMgr = FontManager.instance;
+    final isDark = theme.brightness == Brightness.dark;
+    final isDesktop = AppPlatform.isDesktop;
 
     final titleStyle = TextStyle(
       fontSize: 18,
@@ -56,14 +59,30 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
     return ListenableBuilder(
       listenable: AppearanceManager.instance,
       builder: (context, _) {
+        final desktopTopGap = MediaQuery.paddingOf(context).top + 6;
         final content = Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: AppBreakpoints.maxSettingsWidth),
             child: _report.isEmpty
-                ? _buildEmptyState(context)
+                ? (isDesktop
+                    ? ListView(
+                        padding: EdgeInsets.fromLTRB(16, desktopTopGap, 16, 40),
+                        children: [
+                          _buildEmptyState(context),
+                        ],
+                      )
+                    : _buildEmptyState(context))
                 : ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      isDesktop ? desktopTopGap : 8,
+                      16,
+                      40,
+                    ),
                     children: [
+                      // 0. 桌面端对齐顶栏安全呼吸间距的操作栏
+                      if (isDesktop) _buildDesktopActions(context, theme, isDark),
+
                       // 1. 核心二次元人格与称号卡片
                       _buildPersonaHeroCard(context),
                       const SizedBox(height: 16),
@@ -94,40 +113,85 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
 
         // 特殊处理说明：
         // 1. 最外层包裹 100% 不透明的 ColoredBox(color: theme.scaffoldBackgroundColor)，
-        //    从物理层面杜绝移动端路由推入（0.5s 转场动画）期间或 AppBar 背后漏出底层页面内容与黑底；
-        // 2. 第二层铺满专属个人壁纸层，使壁纸从屏幕最顶端自然延伸至 AppBar 背后；
-        // 3. 内部 Scaffold 保持 transparent，AppBar 背景透明且 elevation: 0、scrolledUnderElevation: 0，
-        //    使标题栏与全屏壁纸柔和相融，同时 body 内容天然在 AppBar 下方正常流淌，零溢出与遮挡风险。
-        return ColoredBox(
-          color: theme.scaffoldBackgroundColor,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // 0. 个人专属背景壁纸层 (全景铺满，涵盖 AppBar 背后)
-              AppearanceManager.instance.buildWallpaperLayer(pageKey: 'profile'),
-              // 1. 数据分析主脚手架
-              Scaffold(
-                backgroundColor: Colors.transparent,
-                appBar: AppBar(
-                  title: Text('追番数据分析', style: titleStyle),
-                  centerTitle: true,
+        //    从物理层面杜绝移动端路由推入（0.5s 转场动画）期间或顶栏背后漏出底层页面内容与黑底；
+        // 2. 第二层铺满专属个人壁纸层，使壁纸从屏幕最顶端自然延伸；
+        // 3. 桌面端去除 AppBar，消除居中大标题与割裂顶栏，在左下角悬浮 DesktopFloatingBackButton 与 Esc 快捷键；
+        // 4. 移动端维持轻量透明 AppBar。
+        return DesktopBackShortcutScope(
+          onBack: () => Navigator.of(context).maybePop(),
+          enabled: isDesktop,
+          child: ColoredBox(
+            color: theme.scaffoldBackgroundColor,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // 0. 个人专属背景壁纸层 (全景铺满)
+                AppearanceManager.instance.buildWallpaperLayer(pageKey: 'profile'),
+                // 1. 数据分析主脚手架
+                Scaffold(
                   backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  actions: [
-                    IconButton(
-                      tooltip: '重新计算画像',
-                      icon: const Icon(Icons.refresh_rounded),
-                      onPressed: _computeReport,
-                    ),
-                  ],
+                  appBar: isDesktop
+                      ? null
+                      : AppBar(
+                          title: Text('追番数据分析', style: titleStyle),
+                          centerTitle: true,
+                          backgroundColor: Colors.transparent,
+                          elevation: 0,
+                          scrolledUnderElevation: 0,
+                          actions: [
+                            IconButton(
+                              tooltip: '重新计算画像',
+                              icon: const Icon(Icons.refresh_rounded),
+                              onPressed: _computeReport,
+                            ),
+                          ],
+                        ),
+                  body: content,
                 ),
-                body: content,
-              ),
-            ],
+                // 2. 桌面端左下角悬浮半透明微光返回圆圈按钮
+                if (isDesktop)
+                  Positioned(
+                    left: 24,
+                    bottom: 24,
+                    child: DesktopFloatingBackButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                    ),
+                  ),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+
+  /// 桌面端对齐顶栏安全呼吸间距的操作按钮
+  Widget _buildDesktopActions(BuildContext context, ThemeData theme, bool isDark) {
+    final fontMgr = FontManager.instance;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: TextButton.icon(
+          onPressed: _computeReport,
+          icon: Icon(Icons.refresh_rounded, size: 16, color: theme.colorScheme.primary),
+          label: Text(
+            '重新计算',
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              fontFamily: fontMgr.activeFontFamily,
+              fontFamilyFallback: FontManager.fallbackFontFamilies,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            backgroundColor: theme.colorScheme.primary.withValues(alpha: isDark ? 0.16 : 0.09),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        ),
+      ),
     );
   }
 

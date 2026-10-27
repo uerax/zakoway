@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/bangumi/bangumi_calendar.dart';
 import '../../../core/network/bangumi_client.dart';
+import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
 import '../../common/widgets/anime_card.dart';
+import '../../common/widgets/desktop_floating_back_button.dart';
 
 class TimelinePage extends StatefulWidget {
   final BangumiClient client;
@@ -123,13 +125,88 @@ class _TimelinePageState extends State<TimelinePage> with AutomaticKeepAliveClie
       );
     }
 
+    final isDesktop = AppPlatform.isDesktop;
+
+    if (isDesktop) {
+      return DesktopBackShortcutScope(
+        onBack: () => Navigator.of(context).maybePop(),
+        child: Scaffold(
+          body: Stack(
+            children: [
+              Column(
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      24,
+                      MediaQuery.paddingOf(context).top + 6,
+                      24,
+                      8,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_month_rounded,
+                          color: theme.colorScheme.primary,
+                          size: 22,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '连载周历',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
+                            fontFamily: FontManager.instance.activeFontFamily,
+                            fontFamilyFallback: FontManager.fallbackFontFamilies,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.refresh_rounded),
+                          tooltip: '刷新连载表',
+                          onPressed: () => _loadCalendar(forceRefresh: true),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    height: 46,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: _buildWeekdayChips(theme, isDark),
+                  ),
+                  Expanded(
+                    child: _buildCalendarBody(theme),
+                  ),
+                ],
+              ),
+              Positioned(
+                left: 24,
+                bottom: 24,
+                child: DesktopFloatingBackButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
           children: [
             Icon(Icons.calendar_month_rounded, color: theme.colorScheme.primary),
             const SizedBox(width: 8),
-            const Text('连载周历', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              '连载周历',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontFamily: FontManager.instance.activeFontFamily,
+                fontFamilyFallback: FontManager.fallbackFontFamilies,
+              ),
+            ),
           ],
         ),
         actions: [

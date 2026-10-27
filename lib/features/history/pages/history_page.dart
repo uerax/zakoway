@@ -6,9 +6,11 @@ import '../../../core/theme/m3_surface.dart';
 import '../../../core/utils/appearance_manager.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/font_manager.dart';
+import '../../../core/utils/responsive.dart';
 import '../../common/widgets/anime_card.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
 import '../../common/widgets/cached_anime_image.dart';
+import '../../common/widgets/desktop_floating_back_button.dart';
 
 /// 播放历史记录页面（参考 animaku HistoryPage.tsx 视觉与时间轴交互）：
 /// 1. 顶部统计指示栏：展示在追番剧部数、今日观看以及累计观看时长；
@@ -111,6 +113,8 @@ class _HistoryPageState extends State<HistoryPage> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    final isDesktop = AppPlatform.isDesktop;
+
     return ListenableBuilder(
       listenable: Listenable.merge([
         WatchHistoryService.instance,
@@ -121,122 +125,204 @@ class _HistoryPageState extends State<HistoryPage> {
         final groups = groupWatchHistory(items);
         final stats = computeHistoryStats(items);
 
-        final Widget content = _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : items.isEmpty
-                ? _buildEmptyState(context, theme)
-                : CustomScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    slivers: [
-                      // 1. 顶部数据指标胶囊统计栏
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                          child: _buildStatsBar(context, theme, isDark, stats),
-                        ),
-                      ),
-
-                      // 2. 四段式时间轴分组列表
-                      for (final group in groups) ...[
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 3.5,
-                                  height: 14,
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.primary,
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  group.label,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w800,
-                                    color: theme.textTheme.titleMedium?.color,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  '(${group.items.length})',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
+        final Widget bodyContent;
+        if (_isLoading) {
+          bodyContent = const Center(child: CircularProgressIndicator());
+        } else if (items.isEmpty) {
+          bodyContent = isDesktop
+              ? Column(
+                  children: [
+                    SizedBox(height: MediaQuery.paddingOf(context).top + 6),
+                    Expanded(child: _buildEmptyState(context, theme)),
+                  ],
+                )
+              : _buildEmptyState(context, theme);
+        } else {
+          bodyContent = CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              // 0. 桌面端对齐搜索页面顶部安全呼吸间距与操作按钮
+              if (isDesktop) ...[
+                SliverToBoxAdapter(
+                  child: SizedBox(height: MediaQuery.paddingOf(context).top + 6),
+                ),
+                if (items.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          onPressed: _confirmClearAll,
+                          icon: Icon(
+                            Icons.delete_sweep_rounded,
+                            size: 16,
+                            color: theme.colorScheme.error,
+                          ),
+                          label: Text(
+                            '清空历史',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: FontManager.instance.activeFontFamily,
+                              fontFamilyFallback: FontManager.fallbackFontFamilies,
+                              color: theme.colorScheme.error,
+                            ),
+                          ),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            backgroundColor:
+                                theme.colorScheme.error.withValues(alpha: isDark ? 0.14 : 0.08),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
                             ),
                           ),
                         ),
-                        SliverPadding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          sliver: SliverList(
-                            delegate: SliverChildBuilderDelegate(
-                              (context, index) {
-                                final item = group.items[index];
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: _buildHistoryCard(context, theme, isDark, item),
-                                );
-                              },
-                              childCount: group.items.length,
-                            ),
+                      ),
+                    ),
+                  ),
+              ],
+
+              // 1. 顶部数据指标胶囊统计栏
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  child: _buildStatsBar(context, theme, isDark, stats),
+                ),
+              ),
+
+              // 2. 四段式时间轴分组列表
+              for (final group in groups) ...[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 3.5,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          group.label,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: theme.textTheme.titleMedium?.color,
+                            fontFamily: FontManager.instance.activeFontFamily,
+                            fontFamilyFallback: FontManager.fallbackFontFamilies,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '(${group.items.length})',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontFamily: FontManager.instance.activeFontFamily,
+                            fontFamilyFallback: FontManager.fallbackFontFamilies,
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final item = group.items[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _buildHistoryCard(context, theme, isDark, item),
+                        );
+                      },
+                      childCount: group.items.length,
+                    ),
+                  ),
+                ),
+              ],
 
-                      const SliverToBoxAdapter(
-                        child: SizedBox(height: 32),
-                      ),
-                    ],
-                  );
+              const SliverToBoxAdapter(
+                child: SizedBox(height: 32),
+              ),
+            ],
+          );
+        }
+
+        final Widget responsiveContent = isDesktop
+            ? Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: AppBreakpoints.maxContentWidth,
+                  ),
+                  child: bodyContent,
+                ),
+              )
+            : bodyContent;
 
         // 特殊处理说明：
         // 1. 最外层包裹 100% 不透明的 ColoredBox(color: theme.scaffoldBackgroundColor)，
-        //    从物理层面杜绝任何路由推入期间或 AppBar 背后漏出底层页面内容；
-        // 2. 第二层铺满专属个人壁纸层，使壁纸从屏幕最顶端自然延伸至 AppBar 背后；
-        // 3. 内部 Scaffold 保持 transparent，AppBar 背景透明且 elevation: 0、scrolledUnderElevation: 0，
-        //    使标题栏与全屏壁纸柔和相融，同时 body 内容天然在 AppBar 下方正常流淌，零溢出与遮挡风险。
-        return ColoredBox(
-          color: theme.scaffoldBackgroundColor,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // 0. 个人专属背景壁纸层 (全景铺满，涵盖 AppBar 背后)
-              AppearanceManager.instance.buildWallpaperLayer(pageKey: 'profile'),
-              // 1. 历史页面主脚手架
-              Scaffold(
-                backgroundColor: Colors.transparent,
-                appBar: AppBar(
+        //    从物理层面杜绝任何路由推入期间或顶栏背后漏出底层页面内容；
+        // 2. 第二层铺满专属个人壁纸层，使壁纸从屏幕最顶端自然延伸；
+        // 3. 桌面端彻底剔除 Scaffold.appBar，避免双层顶栏与臃肿居中大标题，并在左下角常驻 DesktopFloatingBackButton 与 Esc 返回；
+        // 4. 移动端保持经典优雅 AppBar 与左上角返回手势习惯。
+        return DesktopBackShortcutScope(
+          onBack: () => Navigator.of(context).maybePop(),
+          enabled: isDesktop,
+          child: ColoredBox(
+            color: theme.scaffoldBackgroundColor,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // 0. 个人专属背景壁纸层 (全景铺满，涵盖顶栏背后)
+                AppearanceManager.instance.buildWallpaperLayer(pageKey: 'profile'),
+                // 1. 历史页面主脚手架
+                Scaffold(
                   backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  title: Text(
-                    '播放历史',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 18,
-                      fontFamily: FontManager.instance.activeFontFamily,
-                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                  appBar: isDesktop
+                      ? null
+                      : AppBar(
+                          backgroundColor: Colors.transparent,
+                          elevation: 0,
+                          scrolledUnderElevation: 0,
+                          title: Text(
+                            '播放历史',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 18,
+                              fontFamily: FontManager.instance.activeFontFamily,
+                              fontFamilyFallback: FontManager.fallbackFontFamilies,
+                            ),
+                          ),
+                          centerTitle: true,
+                          actions: [
+                            if (items.isNotEmpty)
+                              IconButton(
+                                icon: const Icon(Icons.delete_sweep_rounded),
+                                tooltip: '清空历史',
+                                onPressed: _confirmClearAll,
+                              ),
+                          ],
+                        ),
+                  body: responsiveContent,
+                ),
+                // 2. 桌面端左下角悬浮半透明微光返回圆圈按钮
+                if (isDesktop)
+                  Positioned(
+                    left: 24,
+                    bottom: 24,
+                    child: DesktopFloatingBackButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
                     ),
                   ),
-                  centerTitle: true,
-                  actions: [
-                    if (items.isNotEmpty)
-                      IconButton(
-                        icon: const Icon(Icons.delete_sweep_rounded),
-                        tooltip: '清空历史',
-                        onPressed: _confirmClearAll,
-                      ),
-                  ],
-                ),
-                body: content,
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },

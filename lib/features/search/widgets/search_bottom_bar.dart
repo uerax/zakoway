@@ -59,7 +59,10 @@ class SearchBottomBar extends StatelessWidget {
             top: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
-              child: Row(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 760),
+                  child: Row(
                 children: [
                   // 1. iOS Safari 式轻量单手返回按钮
                   IconButton(
@@ -201,6 +204,8 @@ class SearchBottomBar extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 }

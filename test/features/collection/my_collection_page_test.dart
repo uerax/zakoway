@@ -6,8 +6,10 @@ import 'package:zakoway/core/collection/models/anime_collection_item.dart';
 import 'package:zakoway/core/collection/services/anime_collection_service.dart';
 import 'package:zakoway/core/models/bangumi/bangumi_collection.dart';
 import 'package:zakoway/core/services/app_preferences.dart';
+import 'package:zakoway/core/utils/responsive.dart';
 import 'package:zakoway/features/collection/pages/my_collection_page.dart';
 import 'package:zakoway/features/common/widgets/anime_card.dart';
+import 'package:zakoway/features/common/widgets/app_refresh_indicator.dart';
 
 void main() {
   setUp(() async {
@@ -27,8 +29,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('我的追番'), findsOneWidget);
-    expect(find.text('同步数据'), findsOneWidget);
+    expect(find.text('我的追番'), AppPlatform.isDesktop ? findsNothing : findsOneWidget);
+    // 改为下拉刷新同步组件
+    expect(find.byType(AppRefreshIndicator), findsOneWidget);
 
     // 默认 5 个分类 Tab
     expect(find.text('在看'), findsOneWidget);

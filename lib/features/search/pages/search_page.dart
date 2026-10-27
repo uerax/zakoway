@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/appearance_manager.dart';
 import '../../common/widgets/app_refresh_indicator.dart';
+import '../../common/widgets/desktop_floating_back_button.dart';
 import '../controllers/search_controller.dart';
 import '../controllers/search_history_notifier.dart';
 import '../widgets/search_bottom_bar.dart';
@@ -83,7 +84,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     return ListenableBuilder(
       listenable: AppearanceManager.instance,
       builder: (context, _) {
-        return Scaffold(
+        return DesktopBackShortcutScope(
+          onBack: () => Navigator.of(context).maybePop(),
+          child: Scaffold(
           backgroundColor: Colors.transparent,
           body: Stack(
             fit: StackFit.expand,
@@ -205,13 +208,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                     focusNode: _focusNode,
                     onSearch: () => _handleSearch(_textController.text),
                     onClear: _handleClear,
-                    onBack: () => Navigator.of(context).pop(),
+                    onBack: () => Navigator.of(context).maybePop(),
                   ),
                 ],
               ),
             ],
           ),
-        );
+        ),
+      );
       },
     );
   }
