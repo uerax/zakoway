@@ -307,7 +307,10 @@ TransitionResult _onPreparing(
         disposition: TransitionDisposition.exec,
         nextContext: context.copyWith(
           generationId: generationId,
-          hasValidDimensions: false,
+          // 特殊处理说明：
+          // 继承当前媒体会话已捕获的有效尺寸，消除底层 open 异步期间尺寸抢先到达被抹杀的竞态风险；
+          // 新媒体会话初始状态已由 stop() 与 _handleLoadRequest 严格重置为 false，此处继承安全无污染。
+          hasValidDimensions: context.hasValidDimensions,
           hasPositionAdvanced: false,
         ),
       ),
@@ -660,7 +663,9 @@ TransitionResult _onRecovering(
         disposition: TransitionDisposition.exec,
         nextContext: context.copyWith(
           generationId: generationId,
-          hasValidDimensions: false,
+          // 特殊处理说明：
+          // 自愈重试 open 期间若已捕获有效尺寸则继承，防止抹杀引发首帧死锁
+          hasValidDimensions: context.hasValidDimensions,
           hasPositionAdvanced: false,
         ),
       ),

@@ -31,16 +31,7 @@ class VideoSurface extends StatelessWidget {
             valueListenable: controller.videoControllerNotifier,
             builder: (context, videoController, _) {
               if (videoController == null) {
-                return const Center(
-                  child: SizedBox(
-                    width: 32,
-                    height: 32,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: Colors.white70,
-                    ),
-                  ),
-                );
+                return const SizedBox.shrink();
               }
 
               return ValueListenableBuilder<PlaybackCoreState>(
@@ -71,9 +62,9 @@ class VideoSurface extends StatelessWidget {
 
           // 1.5 首帧感知防闪遮罩：在起播或切集新视频首帧未就绪前，以纯黑底色覆盖底层残留的旧视频帧
           // 特殊处理说明：
-          // 切集时底层 GPU Texture 仍保留前一集最后一帧，若无遮罩会在新视频加载中暴露旧画面；
-          // 当 firstFrameRendered 为 false 时瞬间以 0 延迟纯黑覆盖并在中央显示加载转圈；
-          // 首帧判据已严格对齐底层 video-params 真实出画事件，首帧就绪后遮罩以 0 延迟瞬间撤去，彻底消除黑屏拖泥带水。
+          // 1. 职责彻底解耦：作为纯粹的 GPU 渲染纹理屏障，专注于遮挡切集时残留的上一集最后一帧画面与未出画黑屏；
+          // 2. 剥离内部耦合的 CircularProgressIndicator，避免业务加载状态侵入物理防闪图层；
+          // 3. 保持 duration: Duration.zero 零延迟瞬间生效与撤除，首帧出画时瞬间撤去，彻底消除黑屏拖泥带水。
           ValueListenableBuilder<PlaybackCoreState>(
             valueListenable: controller.core,
             builder: (context, coreState, _) {
@@ -84,16 +75,6 @@ class VideoSurface extends StatelessWidget {
                   duration: Duration.zero,
                   child: const ColoredBox(
                     color: Colors.black,
-                    child: Center(
-                      child: SizedBox(
-                        width: 38,
-                        height: 38,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.8,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ),
                   ),
                 ),
               );
@@ -110,43 +91,62 @@ class VideoSurface extends StatelessWidget {
               ),
             ),
 
-          // 3. 播放中途常规卡顿缓冲指示器（仅在首帧已就绪、正常播放中途遭遇网络抖动时呈现）
-          ValueListenableBuilder<PlaybackCoreState>(
-            valueListenable: controller.core,
-            builder: (context, coreState, _) {
-              if (coreState.buffering && coreState.firstFrameRendered && !coreState.loading) {
-                return const Center(
-                  child: SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 3.0,
-                      color: Colors.white,
-                    ),
-                  ),
-                );
-              }
-              if (coreState.hasError) {
-                return Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.75),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      coreState.errorMessage!,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontFamily: 'MiSans',
-                        fontFamilyFallback: FontManager.fallbackFontFamilies,
+          // 3. 统一播放加载/缓冲指示器与错误展示层
+          // 特殊处理说明：
+          // 1. 统一收敛内核未就绪 (videoController == null)、首帧未渲染 (!firstFrameRendered)、播放中途卡顿 (buffering)、资源加载 (loading)；
+          // 2. 统一定位于弹幕层之上，确保转圈提示不会被底层遮罩剪裁或与弹幕错乱；
+          // 3. 采用 180ms 平滑渐变淡出，消除加载瞬间与极速出画时的生硬闪跳，且自带 IgnorePointer 防止阻断屏幕点击交互。
+          ValueListenableBuilder<VideoController?>(
+            valueListenable: controller.videoControllerNotifier,
+            builder: (context, videoController, _) {
+              return ValueListenableBuilder<PlaybackCoreState>(
+                valueListenable: controller.core,
+                builder: (context, coreState, _) {
+                  if (coreState.hasError) {
+                    return Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.75),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          coreState.errorMessage!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontFamily: 'MiSans',
+                            fontFamilyFallback: FontManager.fallbackFontFamilies,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  final isLoading = videoController == null ||
+                      !coreState.firstFrameRendered ||
+                      coreState.buffering ||
+                      coreState.loading;
+
+                  return IgnorePointer(
+                    child: AnimatedOpacity(
+                      opacity: isLoading ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeInOut,
+                      child: const Center(
+                        child: SizedBox(
+                          width: 38,
+                          height: 38,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.8,
+                            color: Colors.white70,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                );
-              }
-              return const SizedBox.shrink();
+                  );
+                },
+              );
             },
           ),
 
