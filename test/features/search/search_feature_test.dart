@@ -5,6 +5,7 @@ import 'package:zakoway/core/models/bangumi/bangumi_item.dart';
 import 'package:zakoway/core/models/bangumi/bangumi_search_result.dart';
 import 'package:zakoway/core/network/bangumi_search_query_builder.dart';
 import 'package:zakoway/core/services/app_preferences.dart';
+import 'package:zakoway/features/search/controllers/search_controller.dart';
 import 'package:zakoway/features/search/controllers/search_history_notifier.dart';
 import 'package:zakoway/features/search/controllers/search_state.dart';
 import 'package:zakoway/features/search/models/search_types.dart';
@@ -192,6 +193,22 @@ void main() {
       expect(restored.items[0].preferredName, equals('动漫一'));
       expect(restored.items[1].name, equals('Anime 2'));
       expect(restored.items[2].type, equals(6));
+    });
+
+    test('searchControllerProvider retains state without auto-disposing when listeners detach', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      // 订阅并触发一次状态变更
+      final sub = container.listen(searchControllerProvider, (_, next) {});
+      container.read(searchControllerProvider.notifier).setFilter(SearchFilterType.nonAnime);
+      expect(container.read(searchControllerProvider).filter, equals(SearchFilterType.nonAnime));
+
+      // 取消订阅（模拟 SearchPage 页面关闭/退出）
+      sub.close();
+
+      // 验证状态依然持久保留在内存中，未被 autoDispose 重置
+      expect(container.read(searchControllerProvider).filter, equals(SearchFilterType.nonAnime));
     });
   });
 }

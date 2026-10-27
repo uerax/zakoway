@@ -59,7 +59,14 @@ class _CategoryPageState extends ConsumerState<CategoryPage>
   @override
   void didUpdateWidget(CategoryPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isVisible && !oldWidget.isVisible) {
+    final argsChanged = oldWidget.initialCategory != widget.initialCategory ||
+        oldWidget.initialYear != widget.initialYear ||
+        oldWidget.initialMonth != widget.initialMonth;
+
+    if ((widget.isVisible && !oldWidget.isVisible) || argsChanged) {
+      if (argsChanged && _scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           ref.read(categoryControllerProvider(_initialArgs).notifier).ensureLoaded();

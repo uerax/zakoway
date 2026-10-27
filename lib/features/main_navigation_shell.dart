@@ -125,7 +125,7 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
                   TickerMode(
                     enabled: _currentIndex == 1,
                     child: CategoryPage(
-                      key: ValueKey('category_${_refreshKey}_${_targetCategory}_${_targetYear}_$_targetMonth'),
+                      key: ValueKey('category_$_refreshKey'),
                       client: _client,
                       initialCategory: _targetCategory,
                       initialYear: _targetYear,

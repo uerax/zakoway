@@ -139,5 +139,59 @@ void main() {
       // 成功切到 Tab 1
       expect(find.text('Tab 1 Content'), findsOneWidget);
     });
+
+    testWidgets('keepAlive 为 true 时，切换 Tab 后离屏子组件保持存活状态', (tester) async {
+      int disposeCount = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DefaultTabController(
+            length: 2,
+            child: Scaffold(
+              body: DirectionalTabBarView(
+                disableDesktopDrag: false,
+                keepAlive: true,
+                children: [
+                  _DisposableWidget(onDispose: () => disposeCount++),
+                  const Center(child: Text('Tab 1')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Disposable Tab 0'), findsOneWidget);
+      expect(disposeCount, equals(0));
+
+      // 切换到 Tab 1
+      await tester.fling(find.text('Disposable Tab 0'), const Offset(-400, 0), 1000);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Tab 1'), findsOneWidget);
+      // 验证 Tab 0 没有被 dispose，保持存活
+      expect(disposeCount, equals(0));
+    });
   });
+}
+
+class _DisposableWidget extends StatefulWidget {
+  final VoidCallback onDispose;
+  const _DisposableWidget({required this.onDispose});
+
+  @override
+  State<_DisposableWidget> createState() => _DisposableWidgetState();
+}
+
+class _DisposableWidgetState extends State<_DisposableWidget> {
+  @override
+  void dispose() {
+    widget.onDispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: Text('Disposable Tab 0'));
+  }
 }

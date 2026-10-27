@@ -6,8 +6,13 @@ import '../models/search_types.dart';
 import 'search_history_notifier.dart';
 import 'search_state.dart';
 
+/// 搜索控制器提供者：
+/// 特殊处理说明：不采用 autoDispose。
+/// 保持最近一次的搜索结果、筛选排序与搜索关键词在内存中常驻，
+/// 确保用户从番剧详情页返回、或短暂切换至其他标签页再重新进入搜索页时，0ms 瞬间恢复既有搜索成果，
+/// 杜绝反复销毁重建导致的重复打字与重复网络开销。
 final searchControllerProvider =
-    NotifierProvider.autoDispose<SearchController, SearchState>(
+    NotifierProvider<SearchController, SearchState>(
   SearchController.new,
 );
 

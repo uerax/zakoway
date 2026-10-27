@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../../../core/utils/responsive.dart';
+import 'keep_alive_wrapper.dart';
 
 /// 纵向手势优先的 TabBarView 包装组件：
 ///
@@ -32,6 +33,10 @@ class DirectionalTabBarView extends StatelessWidget {
   /// 是否在桌面端（Windows/macOS/Linux）禁用手势拖拽滑动（仅通过点击 Tab 切换）
   final bool disableDesktopDrag;
 
+  /// 是否对每个 Tab 子视图进行状态保活（默认 true）。
+  /// 开启后，左右切换 Tab 时子页面不会被销毁重建，保留滚动偏移行程、输入状态，杜绝重复网络请求。
+  final bool keepAlive;
+
   const DirectionalTabBarView({
     super.key,
     required this.children,
@@ -42,6 +47,7 @@ class DirectionalTabBarView extends StatelessWidget {
     this.clipBehavior = Clip.hardEdge,
     this.horizontalTouchSlop = 48.0,
     this.disableDesktopDrag = true,
+    this.keepAlive = true,
   });
 
   @override
@@ -54,14 +60,19 @@ class DirectionalTabBarView extends StatelessWidget {
         : physics;
 
     // 关键：在每个 child 外层将 touchSlop 恢复回系统默认 18.0px，
-    // 确保内部垂直滚动长列表在 18px 时先达标胜出并锁定垂直方向
+    // 确保内部垂直滚动长列表在 18px 时先达标胜出并锁定垂直方向。
+    // 同时接入 KeepAliveWrapper，保证子 Tab 切出视口时不被底层销毁。
     final guardedChildren = children.map((child) {
-      return MediaQuery(
+      Widget guarded = MediaQuery(
         data: mediaQuery.copyWith(
           gestureSettings: const DeviceGestureSettings(touchSlop: kTouchSlop),
         ),
         child: child,
       );
+      if (keepAlive) {
+        guarded = KeepAliveWrapper(child: guarded);
+      }
+      return guarded;
     }).toList();
 
     return MediaQuery(

@@ -30,7 +30,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   @override
   void initState() {
     super.initState();
-    _textController = TextEditingController(text: widget.initialQuery ?? '');
+    final existingKeyword = ref.read(searchControllerProvider).keyword;
+    final initialText = widget.initialQuery ?? (existingKeyword.isNotEmpty ? existingKeyword : '');
+    _textController = TextEditingController(text: initialText);
     _focusNode = FocusNode();
     _scrollController = ScrollController();
 
@@ -38,8 +40,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       if (!mounted) return;
       if (widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty) {
         ref.read(searchControllerProvider.notifier).executeSearch(widget.initialQuery!);
-      } else {
-        // 无初始搜索词时自动聚焦唤起键盘，提升操作效率
+      } else if (existingKeyword.isEmpty) {
+        // 无初始搜索词且无既有搜索词时自动聚焦唤起键盘，提升操作效率
         _focusNode.requestFocus();
       }
     });
