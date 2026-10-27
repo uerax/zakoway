@@ -1,4 +1,4 @@
-package com.zakoway.zakoway
+package com.zakoway.app
 
 import io.flutter.embedding.android.FlutterActivity
 
