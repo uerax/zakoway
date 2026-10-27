@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+
 import '../../../core/network/anime_image_cache_manager.dart';
 import '../../../core/network/bangumi_client.dart';
 import '../../../core/network/bangumi_data_disk_cache_manager.dart';
@@ -14,8 +15,13 @@ import 'tg_action_sheet.dart';
 
 class CacheSettingsCard extends StatefulWidget {
   final BangumiClient client;
+  final bool isVisible;
 
-  const CacheSettingsCard({super.key, required this.client});
+  const CacheSettingsCard({
+    super.key,
+    required this.client,
+    this.isVisible = false,
+  });
 
   @override
   State<CacheSettingsCard> createState() => _CacheSettingsCardState();
@@ -34,6 +40,17 @@ class _CacheSettingsCardState extends State<CacheSettingsCard> {
       _dataCacheSizeStr = cached.data;
     }
     _updateCacheSizes(forceRefresh: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant CacheSettingsCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 特殊处理说明：IndexedStack 下子页面常驻内存不销毁，
+    // 当用户从其他 Tab 切换至设置页时（isVisible 从 false 变为 true），
+    // 自动触发物理磁盘缓存重扫，确保用户浏览番剧后进入设置页能即时看到最新占用体积。
+    if (!oldWidget.isVisible && widget.isVisible) {
+      _updateCacheSizes(forceRefresh: true);
+    }
   }
 
   Future<void> _updateCacheSizes({bool forceRefresh = false}) async {
@@ -135,14 +152,18 @@ class _CacheSettingsCardState extends State<CacheSettingsCard> {
                     _imageCacheSizeStr,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontSize: 14,
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.75,
+                      ),
                       fontWeight: FontWeight.normal,
                     ),
                   ),
                   const SizedBox(width: 4),
                   Icon(
                     Icons.chevron_right_rounded,
-                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.5,
+                    ),
                     size: 18,
                   ),
                 ],
@@ -163,14 +184,18 @@ class _CacheSettingsCardState extends State<CacheSettingsCard> {
                     _dataCacheSizeStr,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontSize: 14,
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.75,
+                      ),
                       fontWeight: FontWeight.normal,
                     ),
                   ),
                   const SizedBox(width: 4),
                   Icon(
                     Icons.chevron_right_rounded,
-                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.5,
+                    ),
                     size: 18,
                   ),
                 ],

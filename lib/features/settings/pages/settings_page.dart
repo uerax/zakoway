@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/network/bangumi_client.dart';
 import '../../../core/utils/appearance_manager.dart';
 import '../../../core/utils/font_manager.dart';
@@ -34,7 +35,8 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> with AutomaticKeepAliveClientMixin {
+class _SettingsPageState extends State<SettingsPage>
+    with AutomaticKeepAliveClientMixin {
   late BangumiSourcePreset _currentPreset;
   final ScrollController _scrollController = ScrollController();
 
@@ -74,7 +76,9 @@ class _SettingsPageState extends State<SettingsPage> with AutomaticKeepAliveClie
           backgroundColor: Colors.transparent,
           body: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: AppBreakpoints.maxSettingsWidth),
+              constraints: const BoxConstraints(
+                maxWidth: AppBreakpoints.maxSettingsWidth,
+              ),
               child: ListView(
                 controller: _scrollController,
                 // 顶部自安全区下方自然下延，底部预留 96px 间距适配悬浮毛玻璃底栏
@@ -100,7 +104,10 @@ class _SettingsPageState extends State<SettingsPage> with AutomaticKeepAliveClie
                   const AnimakuServerSettingsCard(),
 
                   // 4. 缓存管理
-                  CacheSettingsCard(client: widget.client),
+                  CacheSettingsCard(
+                    client: widget.client,
+                    isVisible: widget.isVisible,
+                  ),
 
                   // 5. 弹幕服务
                   const DanmakuSettingsCard(),
