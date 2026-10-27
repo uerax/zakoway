@@ -176,13 +176,11 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
                 children: [
                   Text(
                     displayName,
-                    style: const TextStyle(
+                    style: appTextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.4,
                       height: 1.25,
-                      fontFamily: 'MiSans',
-                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -191,13 +189,11 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
                     const SizedBox(height: 3),
                     Text(
                       subName,
-                      style: TextStyle(
+                      style: appTextStyle(
                         fontSize: 12,
                         color: theme.textTheme.bodySmall?.color,
                         letterSpacing: -0.1,
                         height: 1.2,
-                        fontFamily: 'MiSans',
-                        fontFamilyFallback: FontManager.fallbackFontFamilies,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -231,12 +227,10 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
                                 const SizedBox(width: 3),
                                 Text(
                                   item.ratingScore.toStringAsFixed(1),
-                                  style: const TextStyle(
+                                  style: appTextStyle(
                                     color: Colors.amber,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
-                                    fontFamily: 'MiSans',
-                                    fontFamilyFallback: FontManager.fallbackFontFamilies,
                                   ),
                                 ),
                               ],
@@ -256,12 +250,10 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
                             ),
                             child: Text(
                               '#${item.rank}',
-                              style: TextStyle(
+                              style: appTextStyle(
                                 color: primaryColor,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
-                                fontFamily: 'MiSans',
-                                fontFamilyFallback: FontManager.fallbackFontFamilies,
                               ),
                             ),
                           ),
@@ -272,12 +264,10 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
                   // 话数与放送日期单独分行，充分利用纵向高度，避免拥挤与溢出
                   Text(
                     '话数: 全 ${item?.eps != null && item!.eps > 0 ? item.eps : widget.episodeCount} 话',
-                    style: TextStyle(
+                    style: appTextStyle(
                       fontSize: 12,
                       color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.85),
                       fontWeight: FontWeight.w500,
-                      fontFamily: 'MiSans',
-                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -286,12 +276,10 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
                     const SizedBox(height: 5),
                     Text(
                       '放送日期: ${item.airDate}',
-                      style: TextStyle(
+                      style: appTextStyle(
                         fontSize: 12,
                         color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.85),
                         fontWeight: FontWeight.w500,
-                        fontFamily: 'MiSans',
-                        fontFamilyFallback: FontManager.fallbackFontFamilies,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -422,9 +410,7 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
                 ),
                 child: Text(
                   t.name,
-                  style: TextStyle(
-                    fontFamily: 'MiSans',
-                    fontFamilyFallback: FontManager.fallbackFontFamilies,
+                  style: appTextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w500,
                     color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
@@ -487,14 +473,12 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     '剧情简介',
-                    style: TextStyle(
+                    style: appTextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.3,
-                      fontFamily: 'MiSans',
-                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                     ),
                   ),
                   InkWell(
@@ -568,22 +552,18 @@ class _WatchMetaViewState extends ConsumerState<WatchMetaView> {
                   summary,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: appTextStyle(
                     fontSize: 13,
                     height: 1.55,
                     color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.88),
-                    fontFamily: 'MiSans',
-                    fontFamilyFallback: FontManager.fallbackFontFamilies,
                   ),
                 ),
                 secondChild: Text(
                   summary,
-                  style: TextStyle(
+                  style: appTextStyle(
                     fontSize: 13,
                     height: 1.55,
                     color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.88),
-                    fontFamily: 'MiSans',
-                    fontFamilyFallback: FontManager.fallbackFontFamilies,
                   ),
                 ),
                 crossFadeState: _isSummaryExpanded

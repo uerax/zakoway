@@ -326,13 +326,11 @@ class MobilePlayerBottomBar extends StatelessWidget {
                                 children: [
                                   TextSpan(
                                     text: pos,
-                                    style: TextStyle(
+                                    style: appTextStyle(
                                       color: Colors.white,
                                       fontSize: metrics.timeFontSize,
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: -0.2,
-                                      fontFamily: 'MiSans',
-                                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                                       fontFeatures: const [FontFeature.tabularFigures()],
                                       shadows: const [
                                         Shadow(
@@ -345,13 +343,11 @@ class MobilePlayerBottomBar extends StatelessWidget {
                                   ),
                                   TextSpan(
                                     text: ' / $total',
-                                    style: TextStyle(
+                                    style: appTextStyle(
                                       color: Colors.white.withValues(alpha: 0.68),
                                       fontSize: metrics.timeFontSize,
                                       fontWeight: FontWeight.w400,
                                       letterSpacing: -0.2,
-                                      fontFamily: 'MiSans',
-                                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                                       fontFeatures: const [FontFeature.tabularFigures()],
                                       shadows: const [
                                         Shadow(
@@ -437,15 +433,13 @@ class MobilePlayerBottomBar extends StatelessWidget {
                                     coreState.playbackRate == 1.0
                                         ? '1x'
                                         : '${coreState.playbackRate}x',
-                                    style: TextStyle(
+                                    style: appTextStyle(
                                       color: Colors.white,
                                       fontSize: metrics.speedFontSize,
                                       fontWeight: isSpeedHighlighted
                                           ? FontWeight.w700
                                           : FontWeight.w600,
                                       letterSpacing: -0.2,
-                                      fontFamily: 'MiSans',
-                                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                                       fontFeatures: const [FontFeature.tabularFigures()],
                                     ),
                                   ),

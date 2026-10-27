@@ -86,7 +86,7 @@ class VideoSurface extends StatelessWidget {
             Positioned.fill(
               child: DanmakuView(
                 controller: danmakuController!,
-                fontFamily: FontManager.instance.activeFontFamily ?? 'MiSans',
+                fontFamily: 'MiSans',
                 anime4kStatusProvider: () => controller.core.value.superResolution.label,
               ),
             ),
@@ -112,11 +112,9 @@ class VideoSurface extends StatelessWidget {
                         ),
                         child: Text(
                           coreState.errorMessage!,
-                          style: const TextStyle(
+                          style: appTextStyle(
                             color: Colors.white,
                             fontSize: 13,
-                            fontFamily: 'MiSans',
-                            fontFamilyFallback: FontManager.fallbackFontFamilies,
                           ),
                         ),
                       ),

@@ -201,11 +201,9 @@ class MobileEpisodeSourceSheet extends StatelessWidget {
                                 ),
                                 labelColor: isDark ? Colors.white : Theme.of(context).colorScheme.primary,
                                 unselectedLabelColor: Theme.of(context).textTheme.bodySmall?.color,
-                                labelStyle: const TextStyle(
+                                labelStyle: appTextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  fontFamily: 'MiSans',
-                                  fontFamilyFallback: FontManager.fallbackFontFamilies,
                                 ),
                                 tabs: const [
                                   Tab(text: '选集列表'),

@@ -47,11 +47,9 @@ class _DesktopFloatingBackButtonState extends State<DesktopFloatingBackButton> {
         onFocusChange: (focused) => setState(() => _isFocused = focused),
         child: Tooltip(
           message: widget.tooltip,
-          textStyle: TextStyle(
+          textStyle: appTextStyle(
             fontSize: 12,
             color: Colors.white,
-            fontFamily: FontManager.instance.activeFontFamily ?? 'MiSans',
-            fontFamilyFallback: FontManager.fallbackFontFamilies,
           ),
           waitDuration: const Duration(milliseconds: 300),
           child: AnimatedScale(

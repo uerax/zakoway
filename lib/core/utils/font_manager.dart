@@ -1,7 +1,46 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
 import '../services/app_preferences.dart';
+
+/// 全局字体安全排版构建函数：
+/// 1. 自动注入当前活跃字体（自定义字体 / 系统默认 / MiSans）；
+/// 2. 自动注入全平台字体安全回退链（防止 Windows DirectWrite 跌入中易宋体）；
+/// 3. 收敛样板代码，杜绝手动拼接 fontFamily 与 fontFamilyFallback。
+TextStyle appTextStyle({
+  double? fontSize,
+  FontWeight? fontWeight,
+  Color? color,
+  double? height,
+  double? letterSpacing,
+  double? wordSpacing,
+  List<FontFeature>? fontFeatures,
+  List<Shadow>? shadows,
+  TextDecoration? decoration,
+  Color? decorationColor,
+  TextOverflow? overflow,
+  Paint? background,
+  Paint? foreground,
+}) {
+  return TextStyle(
+    fontFamily: FontManager.instance.activeFontFamily ?? 'MiSans',
+    fontFamilyFallback: FontManager.fallbackFontFamilies,
+    fontSize: fontSize,
+    fontWeight: fontWeight,
+    color: color,
+    height: height,
+    letterSpacing: letterSpacing,
+    wordSpacing: wordSpacing,
+    fontFeatures: fontFeatures,
+    shadows: shadows,
+    decoration: decoration,
+    decorationColor: decorationColor,
+    overflow: overflow,
+    background: background,
+    foreground: foreground,
+  );
+}
 
 enum AppFontType {
   misans('MiSans', 'MiSans'),

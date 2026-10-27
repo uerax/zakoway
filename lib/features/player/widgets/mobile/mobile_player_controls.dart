@@ -434,13 +434,10 @@ class _MobilePlayerControlsState extends State<MobilePlayerControls> {
                           const SizedBox(width: 8),
                           Text(
                             isSettings ? '播放设置' : '弹幕设置',
-                            style: const TextStyle(
+                            style: appTextStyle(
                               color: Colors.white,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              fontFamily: 'MiSans',
-                              fontFamilyFallback:
-                                  FontManager.fallbackFontFamilies,
                             ),
                           ),
                           const Spacer(),

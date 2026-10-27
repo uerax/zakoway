@@ -127,14 +127,12 @@ class VideoPlayerInitialPlaceholder extends StatelessWidget {
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: appTextStyle(
                         color: Colors.white,
                         fontSize: 14.5,
                         fontWeight: FontWeight.w600,
                         letterSpacing: -0.2,
-                        fontFamily: 'MiSans',
-                        fontFamilyFallback: FontManager.fallbackFontFamilies,
-                        shadows: [
+                        shadows: const [
                           Shadow(
                             color: Colors.black54,
                             blurRadius: 6,
@@ -207,13 +205,11 @@ class VideoPlayerInitialPlaceholder extends StatelessWidget {
                                     : '请在下方选择播放源或选集'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: appTextStyle(
                               color: Colors.white,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                               letterSpacing: -0.1,
-                              fontFamily: 'MiSans',
-                              fontFamilyFallback: FontManager.fallbackFontFamilies,
                             ),
                           ),
                         ),
@@ -343,14 +339,12 @@ class VideoPlayerResolveErrorCard extends StatelessWidget {
                         child: Text(
                           cleanErrorMessage(errorText),
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: appTextStyle(
                             color: Colors.white,
                             fontSize: isCompact ? 12.0 : 13.0,
                             fontWeight: FontWeight.w500,
                             letterSpacing: -0.2,
                             height: 1.35,
-                            fontFamily: 'MiSans',
-                            fontFamilyFallback: FontManager.fallbackFontFamilies,
                           ),
                         ),
                       ),
@@ -390,12 +384,10 @@ class VideoPlayerResolveErrorCard extends StatelessWidget {
                                 const SizedBox(width: 4),
                                 Text(
                                   '重试',
-                                  style: TextStyle(
+                                  style: appTextStyle(
                                     color: Colors.white,
                                     fontSize: isCompact ? 11.5 : 12.5,
                                     fontWeight: FontWeight.w600,
-                                    fontFamily: 'MiSans',
-                                    fontFamilyFallback: FontManager.fallbackFontFamilies,
                                   ),
                                 ),
                               ],
@@ -429,12 +421,10 @@ class VideoPlayerResolveErrorCard extends StatelessWidget {
                                 const SizedBox(width: 4),
                                 Text(
                                   '切换视频源',
-                                  style: TextStyle(
+                                  style: appTextStyle(
                                     color: Colors.white,
                                     fontSize: isCompact ? 11.5 : 12.5,
                                     fontWeight: FontWeight.w600,
-                                    fontFamily: 'MiSans',
-                                    fontFamilyFallback: FontManager.fallbackFontFamilies,
                                   ),
                                 ),
                               ],
@@ -491,12 +481,10 @@ class VideoPlayerHudToast extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     message,
-                    style: const TextStyle(
+                    style: appTextStyle(
                       color: Colors.white,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
-                      fontFamily: 'MiSans',
-                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                     ),
                   ),
                 ],

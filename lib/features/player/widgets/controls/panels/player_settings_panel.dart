@@ -419,15 +419,13 @@ class PlayerSettingsPanelBody extends StatelessWidget {
                 children: [
                   Icon(Icons.keyboard_outlined, size: 16, color: primaryColor),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       '快捷键指南',
-                      style: TextStyle(
+                      style: appTextStyle(
                         color: Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        fontFamily: 'MiSans',
-                        fontFamilyFallback: FontManager.fallbackFontFamilies,
                       ),
                     ),
                   ),

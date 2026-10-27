@@ -101,13 +101,11 @@ class WatchMetaHeader extends StatelessWidget {
           // 标题行（全宽展示）
           Text(
             displayName,
-            style: const TextStyle(
+            style: appTextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.4,
               height: 1.25,
-              fontFamily: 'MiSans',
-              fontFamilyFallback: FontManager.fallbackFontFamilies,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -129,23 +127,19 @@ class WatchMetaHeader extends StatelessWidget {
                       const SizedBox(width: 2.5),
                       Text(
                         score.toStringAsFixed(1),
-                        style: const TextStyle(
+                        style: appTextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFFFFB300),
-                          fontFamily: 'MiSans',
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
+                          color: const Color(0xFFFFB300),
                         ),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         '·',
-                        style: TextStyle(
+                        style: appTextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
                           color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.4),
-                          fontFamily: 'MiSans',
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -155,12 +149,10 @@ class WatchMetaHeader extends StatelessWidget {
                         item?.airDate != null && item!.airDate.isNotEmpty
                             ? '${item.airDate} 放送'
                             : '全 $episodeCount 话',
-                        style: TextStyle(
+                        style: appTextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.75),
-                          fontFamily: 'MiSans',
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -190,12 +182,10 @@ class WatchMetaHeader extends StatelessWidget {
                     children: [
                       Text(
                         '详情',
-                        style: TextStyle(
+                        style: appTextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.85),
-                          fontFamily: 'MiSans',
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
                         ),
                       ),
                       const SizedBox(width: 2),

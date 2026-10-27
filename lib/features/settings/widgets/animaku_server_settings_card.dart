@@ -151,9 +151,7 @@ class _AnimakuServerSettingsCardState extends State<AnimakuServerSettingsCard> {
                                 Flexible(
                                   child: Text(
                                     testResult!,
-                                    style: TextStyle(
-                                      fontFamily: 'MiSans',
-                                      fontFamilyFallback: FontManager.fallbackFontFamilies,
+                                    style: appTextStyle(
                                       fontSize: 12,
                                       color: testSuccess == true
                                           ? const Color(0xFF34C759)

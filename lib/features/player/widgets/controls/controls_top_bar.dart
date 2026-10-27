@@ -59,12 +59,10 @@ class PlayerPillButton extends StatelessWidget {
                     const SizedBox(width: 3.5),
                     Text(
                       label!,
-                      style: const TextStyle(
+                      style: appTextStyle(
                         color: Colors.white,
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
-                        fontFamily: 'MiSans',
-                        fontFamilyFallback: FontManager.fallbackFontFamilies,
                       ),
                     ),
                   ],
@@ -135,14 +133,12 @@ class PlayerControlsTopBar extends StatelessWidget {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: appTextStyle(
                       color: Colors.white,
                       fontSize: 14.0,
                       fontWeight: FontWeight.w600,
                       letterSpacing: -0.2,
-                      fontFamily: 'MiSans',
-                      fontFamilyFallback: FontManager.fallbackFontFamilies,
-                      shadows: [
+                      shadows: const [
                         Shadow(
                           color: Colors.black54,
                           blurRadius: 6,

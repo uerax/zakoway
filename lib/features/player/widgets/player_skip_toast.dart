@@ -21,8 +21,6 @@ class PlayerSkipToast extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
-    final effectiveFontFamily = FontManager.instance.activeFontFamily ?? 'MiSans';
-    const effectiveFallback = FontManager.fallbackFontFamilies;
 
     return AnimatedOpacity(
       opacity: visible ? 1.0 : 0.0,
@@ -66,9 +64,7 @@ class PlayerSkipToast extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       message,
-                      style: TextStyle(
-                        fontFamily: effectiveFontFamily,
-                        fontFamilyFallback: effectiveFallback,
+                      style: appTextStyle(
                         color: Colors.white,
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
@@ -89,9 +85,7 @@ class PlayerSkipToast extends StatelessWidget {
                         ),
                         child: Text(
                           '撤销',
-                          style: TextStyle(
-                            fontFamily: effectiveFontFamily,
-                            fontFamilyFallback: effectiveFallback,
+                          style: appTextStyle(
                             color: Colors.white,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,

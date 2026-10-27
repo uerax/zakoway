@@ -250,14 +250,12 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
                 ),
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 '番剧推荐',
-                style: TextStyle(
+                style: appTextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.3,
-                  fontFamily: 'MiSans',
-                  fontFamilyFallback: FontManager.fallbackFontFamilies,
                 ),
               ),
               const Spacer(),
@@ -317,11 +315,9 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
               const SizedBox(width: 8),
               Text(
                 '加载更多推荐中...',
-                style: TextStyle(
+                style: appTextStyle(
                   fontSize: 12,
                   color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
-                  fontFamily: 'MiSans',
-                  fontFamilyFallback: FontManager.fallbackFontFamilies,
                 ),
               ),
             ],
@@ -343,12 +339,10 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
                 children: [
                   Text(
                     '下滑或点击加载更多',
-                    style: TextStyle(
+                    style: appTextStyle(
                       fontSize: 12,
                       color: primaryColor.withValues(alpha: 0.8),
                       fontWeight: FontWeight.w500,
-                      fontFamily: 'MiSans',
-                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -441,11 +435,9 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
           children: [
             Text(
               '推荐条目拉取暂不可用',
-              style: TextStyle(
+              style: appTextStyle(
                 fontSize: 12,
                 color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.6),
-                fontFamily: 'MiSans',
-                fontFamilyFallback: FontManager.fallbackFontFamilies,
               ),
             ),
             const SizedBox(height: 8),
@@ -457,12 +449,10 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
               ),
               child: Text(
                 '点击重试',
-                style: TextStyle(
+                style: appTextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: primaryColor,
-                  fontFamily: 'MiSans',
-                  fontFamilyFallback: FontManager.fallbackFontFamilies,
                 ),
               ),
             ),
@@ -535,12 +525,10 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
                       // 第 1 行: 番剧主标题
                       Text(
                         item.displayName,
-                        style: const TextStyle(
+                        style: appTextStyle(
                           fontSize: 14.0,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.2,
-                          fontFamily: 'MiSans',
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -565,12 +553,10 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
                                 const SizedBox(width: 2),
                                 Text(
                                   item.score.toStringAsFixed(1),
-                                  style: const TextStyle(
+                                  style: appTextStyle(
                                     fontSize: 12.0,
                                     fontWeight: FontWeight.w700,
-                                    color: Color(0xFFFFB300),
-                                    fontFamily: 'MiSans',
-                                    fontFamilyFallback: FontManager.fallbackFontFamilies,
+                                    color: const Color(0xFFFFB300),
                                   ),
                                 ),
                               ],
@@ -584,12 +570,10 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
                               ),
                               child: Text(
                                 item.relationBadge!,
-                                style: TextStyle(
+                                style: appTextStyle(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w600,
                                   color: _resolveBadgeTextColor(item.relationBadge!, primaryColor),
-                                  fontFamily: 'MiSans',
-                                  fontFamilyFallback: FontManager.fallbackFontFamilies,
                                 ),
                               ),
                             ),
@@ -603,12 +587,10 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
                           item.year.isNotEmpty && item.epsLabel.isNotEmpty
                               ? '${item.year} · ${item.epsLabel}'
                               : (item.year.isNotEmpty ? item.year : item.epsLabel),
-                          style: TextStyle(
+                          style: appTextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w400,
                             color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.65),
-                            fontFamily: 'MiSans',
-                            fontFamilyFallback: FontManager.fallbackFontFamilies,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

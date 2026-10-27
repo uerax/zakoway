@@ -68,19 +68,15 @@ class VideoPlaySegmentedTabBar extends StatelessWidget {
               ),
               labelColor: isDark ? Colors.white : primaryColor,
               unselectedLabelColor: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.65),
-              labelStyle: const TextStyle(
+              labelStyle: appTextStyle(
                 fontSize: 13.0,
                 fontWeight: FontWeight.w600,
                 letterSpacing: -0.2,
-                fontFamily: 'MiSans',
-                fontFamilyFallback: FontManager.fallbackFontFamilies,
               ),
-              unselectedLabelStyle: const TextStyle(
+              unselectedLabelStyle: appTextStyle(
                 fontSize: 13.0,
                 fontWeight: FontWeight.w600,
                 letterSpacing: -0.2,
-                fontFamily: 'MiSans',
-                fontFamilyFallback: FontManager.fallbackFontFamilies,
               ),
               tabs: tabs.map((t) => Tab(height: 32, text: t)).toList(),
             ),

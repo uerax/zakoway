@@ -515,13 +515,10 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                             const SizedBox(width: 10),
                             Text(
                               isSettings ? '播放设置' : '弹幕设置',
-                              style: const TextStyle(
+                              style: appTextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
-                                fontFamily: 'MiSans',
-                                fontFamilyFallback:
-                                    FontManager.fallbackFontFamilies,
                               ),
                             ),
                             const Spacer(),
@@ -1153,13 +1150,12 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                           children: [
                                             TextSpan(
                                               text: pos,
-                                              style: TextStyle(
+                                              style: appTextStyle(
                                                 color: Colors.white,
                                                 fontSize: isUltraNarrow
                                                     ? 11.0
                                                     : 12.0,
                                                 fontWeight: FontWeight.w600,
-                                                fontFamily: 'MiSans',
                                                 fontFeatures: const [
                                                   FontFeature.tabularFigures()
                                                 ],
@@ -1168,12 +1164,11 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                             if (!isUltraNarrow)
                                               TextSpan(
                                                 text: ' / $total',
-                                                style: TextStyle(
+                                                style: appTextStyle(
                                                   color: Colors.white
                                                       .withValues(alpha: 0.65),
                                                   fontSize: 12.0,
                                                   fontWeight: FontWeight.w400,
-                                                  fontFamily: 'MiSans',
                                                   fontFeatures: const [
                                                     FontFeature.tabularFigures()
                                                   ],
@@ -1264,7 +1259,7 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                             ),
                                             child: Text(
                                               rateLabel,
-                                              style: TextStyle(
+                                              style: appTextStyle(
                                                 color: _showSpeedPopup
                                                     ? primaryColor
                                                     : Colors.white,
@@ -1272,9 +1267,6 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                                     ? 11.0
                                                     : 12.0,
                                                 fontWeight: FontWeight.w600,
-                                                fontFamily: 'MiSans',
-                                                fontFamilyFallback:
-                                                    FontManager.fallbackFontFamilies,
                                               ),
                                             ),
                                           ),
@@ -1506,14 +1498,11 @@ class _DesktopPlayerControlsState extends State<DesktopPlayerControls> {
                                   children: [
                                     Text(
                                       '$volPercent',
-                                      style: const TextStyle(
+                                      style: appTextStyle(
                                         color: Colors.white,
                                         fontSize: 10,
                                         fontWeight: FontWeight.w600,
-                                        fontFamily: 'MiSans',
-                                        fontFamilyFallback:
-                                            FontManager.fallbackFontFamilies,
-                                        fontFeatures: [
+                                        fontFeatures: const [
                                           FontFeature.tabularFigures()
                                         ],
                                       ),

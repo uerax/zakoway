@@ -76,12 +76,10 @@ class DesktopShortcutHelpDialog extends StatelessWidget {
                       const SizedBox(width: 10),
                       Text(
                         '键盘快捷键指南',
-                        style: TextStyle(
+                        style: appTextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: isDark ? Colors.white : Colors.black87,
-                          fontFamily: 'MiSans',
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
                         ),
                       ),
                       const Spacer(),
@@ -127,11 +125,9 @@ class DesktopShortcutHelpDialog extends StatelessWidget {
                                     ),
                                     child: Text(
                                       item.$1,
-                                      style: TextStyle(
+                                      style: appTextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
-                                        fontFamily: 'MiSans',
-                                        fontFamilyFallback: FontManager.fallbackFontFamilies,
                                         color: isDark ? Colors.white : Colors.black87,
                                       ),
                                     ),
@@ -141,11 +137,9 @@ class DesktopShortcutHelpDialog extends StatelessWidget {
                                   padding: const EdgeInsets.symmetric(vertical: 5.5, horizontal: 12),
                                   child: Text(
                                     item.$2,
-                                    style: TextStyle(
+                                    style: appTextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w400,
-                                      fontFamily: 'MiSans',
-                                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                                       color: isDark ? Colors.white70 : Colors.black54,
                                     ),
                                   ),

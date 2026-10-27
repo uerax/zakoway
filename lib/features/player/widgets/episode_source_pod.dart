@@ -204,17 +204,13 @@ class EpisodeSourcePod extends StatelessWidget {
                                     ),
                                     labelColor: isDark ? Colors.white : Theme.of(context).colorScheme.primary,
                                     unselectedLabelColor: Theme.of(context).textTheme.bodySmall?.color,
-                                    labelStyle: const TextStyle(
+                                    labelStyle: appTextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
-                                      fontFamily: 'MiSans',
-                                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                                     ),
-                                    unselectedLabelStyle: const TextStyle(
+                                    unselectedLabelStyle: appTextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
-                                      fontFamily: 'MiSans',
-                                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                                     ),
                                     tabs: const [
                                       Tab(text: '选集网格'),
@@ -333,12 +329,10 @@ class EpisodeSourcePod extends StatelessWidget {
               Expanded(
                 child: Text(
                   epLabel,
-                  style: const TextStyle(
+                  style: appTextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.2,
-                    fontFamily: 'MiSans',
-                    fontFamilyFallback: FontManager.fallbackFontFamilies,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -371,12 +365,10 @@ class EpisodeSourcePod extends StatelessWidget {
                       const SizedBox(width: 3),
                       Text(
                         selectedSourceName,
-                        style: TextStyle(
+                        style: appTextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
                           color: isDark ? Colors.white : primaryColor,
-                          fontFamily: 'MiSans',
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
                         ),
                       ),
                       const SizedBox(width: 1),
@@ -410,12 +402,10 @@ class EpisodeSourcePod extends StatelessWidget {
                     children: [
                       Text(
                         '全部',
-                        style: TextStyle(
+                        style: appTextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
                           color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.85),
-                          fontFamily: 'MiSans',
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
                         ),
                       ),
                       const SizedBox(width: 2),
@@ -461,14 +451,12 @@ class EpisodeSourcePod extends StatelessWidget {
                         ),
                         child: Text(
                           roadNames[idx],
-                          style: TextStyle(
+                          style: appTextStyle(
                             fontSize: 11,
                             fontWeight: isRoadActive ? FontWeight.w700 : FontWeight.w500,
                             color: isRoadActive
                                 ? (isDark ? Colors.white : primaryColor)
                                 : theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
-                            fontFamily: 'MiSans',
-                            fontFamilyFallback: FontManager.fallbackFontFamilies,
                           ),
                         ),
                       ),
@@ -500,11 +488,9 @@ class EpisodeSourcePod extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     '正在从「$selectedSourceName」解析分集...',
-                    style: TextStyle(
+                    style: appTextStyle(
                       fontSize: 12,
                       color: theme.textTheme.bodySmall?.color,
-                      fontFamily: 'MiSans',
-                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                     ),
                   ),
                 ],
@@ -551,11 +537,9 @@ class EpisodeSourcePod extends StatelessWidget {
           Expanded(
             child: Text(
               resolveError ?? '当前视频源未收录此番剧',
-              style: TextStyle(
+              style: appTextStyle(
                 fontSize: 12,
                 color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.75),
-                fontFamily: 'MiSans',
-                fontFamilyFallback: FontManager.fallbackFontFamilies,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -581,12 +565,10 @@ class EpisodeSourcePod extends StatelessWidget {
                 children: [
                   Text(
                     '切换视频源',
-                    style: TextStyle(
+                    style: appTextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
                       color: isDark ? Colors.white : primaryColor,
-                      fontFamily: 'MiSans',
-                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                     ),
                   ),
                   const SizedBox(width: 2),
@@ -660,14 +642,12 @@ class EpisodeSourcePod extends StatelessWidget {
                   ? const _PodPlayingBarsAnimation()
                   : Text(
                       '${slot.canonicalEp}',
-                      style: TextStyle(
+                      style: appTextStyle(
                         fontSize: 13,
                         fontWeight: isPlaying ? FontWeight.w700 : FontWeight.w600,
                         color: isPlaying
                             ? Colors.white
                             : theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.9),
-                        fontFamily: 'MiSans',
-                        fontFamilyFallback: FontManager.fallbackFontFamilies,
                       ),
                     ),
             ),
@@ -692,13 +672,11 @@ class EpisodeSourcePod extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Row(
             children: [
-              const Text(
+              Text(
                 '选集列表',
-                style: TextStyle(
+                style: appTextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  fontFamily: 'MiSans',
-                  fontFamilyFallback: FontManager.fallbackFontFamilies,
                 ),
               ),
               const Spacer(),
@@ -722,12 +700,10 @@ class EpisodeSourcePod extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         selectedSourceName,
-                        style: TextStyle(
+                        style: appTextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: isDark ? Colors.white : primaryColor,
-                          fontFamily: 'MiSans',
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
                         ),
                       ),
                       const SizedBox(width: 2),

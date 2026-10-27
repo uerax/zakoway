@@ -132,19 +132,15 @@ class SearchBottomBar extends StatelessWidget {
                                   HapticFeedback.selectionClick();
                                   onSearch();
                                 },
-                                style: TextStyle(
+                                style: appTextStyle(
                                   fontSize: 14.5,
                                   color: theme.colorScheme.onSurface,
-                                  fontFamily: FontManager.instance.activeFontFamily ?? 'MiSans',
-                                  fontFamilyFallback: FontManager.fallbackFontFamilies,
                                 ),
                                 decoration: InputDecoration(
                                   hintText: '搜索番剧、剧场版…',
-                                  hintStyle: TextStyle(
+                                  hintStyle: appTextStyle(
                                     fontSize: 14.5,
                                     color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.65),
-                                    fontFamily: FontManager.instance.activeFontFamily ?? 'MiSans',
-                                    fontFamilyFallback: FontManager.fallbackFontFamilies,
                                   ),
                                   border: InputBorder.none,
                                   enabledBorder: InputBorder.none,

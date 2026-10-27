@@ -125,26 +125,22 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
         // 1. 顶部标题、总数与筛选类型胶囊栏
         Row(
           children: [
-            const Text(
+            Text(
               '吐槽',
-              style: TextStyle(
+              style: appTextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.3,
-                fontFamily: 'MiSans',
-                fontFamilyFallback: FontManager.fallbackFontFamilies,
               ),
             ),
             const SizedBox(width: 6),
             if (_total > 0)
               Text(
                 '$_total 条',
-                style: TextStyle(
+                style: appTextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
-                  fontFamily: 'MiSans',
-                  fontFamilyFallback: FontManager.fallbackFontFamilies,
                 ),
               ),
             const Spacer(),
@@ -177,14 +173,12 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
                     children: [
                       Text(
                         filter.label,
-                        style: TextStyle(
+                        style: appTextStyle(
                           fontSize: 12.5,
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                           color: isSelected
                               ? primaryColor
                               : (isDark ? Colors.white.withValues(alpha: 0.85) : Colors.black87),
-                          fontFamily: 'MiSans',
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
                         ),
                       ),
                       const Spacer(),
@@ -236,14 +230,12 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
                             (f) => f.type == _selectedType,
                             orElse: () => _typeFilters.first,
                           ).label,
-                          style: TextStyle(
+                          style: appTextStyle(
                             fontSize: 12.0,
                             fontWeight: _selectedType != null ? FontWeight.w700 : FontWeight.w500,
                             color: _selectedType != null
                                 ? primaryColor
                                 : theme.textTheme.bodySmall?.color?.withValues(alpha: 0.85),
-                            fontFamily: 'MiSans',
-                            fontFamilyFallback: FontManager.fallbackFontFamilies,
                           ),
                         ),
                         const SizedBox(width: 2),
@@ -375,11 +367,9 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
             const SizedBox(height: 10),
             Text(
               '暂无相关吐槽评论',
-              style: TextStyle(
+              style: appTextStyle(
                 fontSize: 13,
                 color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
-                fontFamily: 'MiSans',
-                fontFamilyFallback: FontManager.fallbackFontFamilies,
               ),
             ),
           ],
@@ -396,11 +386,9 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
           children: [
             Text(
               '吐槽列表加载暂不可用',
-              style: TextStyle(
+              style: appTextStyle(
                 fontSize: 13,
                 color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.6),
-                fontFamily: 'MiSans',
-                fontFamilyFallback: FontManager.fallbackFontFamilies,
               ),
             ),
             const SizedBox(height: 8),
@@ -408,12 +396,10 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
               onPressed: () => _fetchPage(_page, forceRefresh: true),
               child: Text(
                 '点击重试',
-                style: TextStyle(
+                style: appTextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: primaryColor,
-                  fontFamily: 'MiSans',
-                  fontFamilyFallback: FontManager.fallbackFontFamilies,
                 ),
               ),
             ),
@@ -454,14 +440,12 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
                 const SizedBox(width: 2),
                 Text(
                   '上一页',
-                  style: TextStyle(
+                  style: appTextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
                     color: canPrev
                         ? theme.textTheme.bodyMedium?.color
                         : theme.textTheme.bodySmall?.color?.withValues(alpha: 0.25),
-                    fontFamily: 'MiSans',
-                    fontFamilyFallback: FontManager.fallbackFontFamilies,
                   ),
                 ),
               ],
@@ -480,11 +464,9 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
           ),
           child: Text(
             '$_page / $totalPages',
-            style: TextStyle(
+            style: appTextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              fontFamily: 'MiSans',
-              fontFamilyFallback: FontManager.fallbackFontFamilies,
               color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
             ),
           ),
@@ -508,14 +490,12 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
               children: [
                 Text(
                   '下一页',
-                  style: TextStyle(
+                  style: appTextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
                     color: canNext
                         ? theme.textTheme.bodyMedium?.color
                         : theme.textTheme.bodySmall?.color?.withValues(alpha: 0.25),
-                    fontFamily: 'MiSans',
-                    fontFamilyFallback: FontManager.fallbackFontFamilies,
                   ),
                 ),
                 const SizedBox(width: 2),
@@ -599,12 +579,10 @@ class _CommentCardItemState extends State<_CommentCardItem> {
                             Flexible(
                               child: Text(
                                 comment.author.nickname.isNotEmpty ? comment.author.nickname : '匿名用户',
-                                style: TextStyle(
+                                style: appTextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.9),
-                                  fontFamily: 'MiSans',
-                                  fontFamilyFallback: FontManager.fallbackFontFamilies,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -628,12 +606,10 @@ class _CommentCardItemState extends State<_CommentCardItem> {
                                 ),
                                 child: Text(
                                   comment.collectionTypeLabel!,
-                                  style: TextStyle(
+                                  style: appTextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
                                     color: _resolveStatusColor(comment.collectionType),
-                                    fontFamily: 'MiSans',
-                                    fontFamilyFallback: FontManager.fallbackFontFamilies,
                                   ),
                                 ),
                               ),
@@ -646,11 +622,9 @@ class _CommentCardItemState extends State<_CommentCardItem> {
                       // 相对发布时间
                       Text(
                         comment.relativeTimeLabel,
-                        style: TextStyle(
+                        style: appTextStyle(
                           fontSize: 11,
                           color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5),
-                          fontFamily: 'MiSans',
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
                         ),
                       ),
                     ],
@@ -697,12 +671,10 @@ class _CommentCardItemState extends State<_CommentCardItem> {
       backgroundColor: widget.primaryColor.withValues(alpha: 0.2),
       child: Text(
         nickname.isNotEmpty ? nickname.characters.first : 'U',
-        style: TextStyle(
+        style: appTextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w700,
           color: widget.primaryColor,
-          fontFamily: 'MiSans',
-          fontFamilyFallback: FontManager.fallbackFontFamilies,
         ),
       ),
     );
@@ -813,13 +785,11 @@ class _CommentContentWithCensorState extends State<_CommentContentWithCensor> {
         if (!token.redacted || token.type == CommentTokenType.text) {
           return Text(
             token.raw,
-            style: TextStyle(
+            style: appTextStyle(
               fontSize: 13,
               height: 1.45,
               letterSpacing: -0.1,
               color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.88),
-              fontFamily: 'MiSans',
-              fontFamilyFallback: FontManager.fallbackFontFamilies,
             ),
           );
         }
@@ -852,14 +822,12 @@ class _CommentContentWithCensorState extends State<_CommentContentWithCensor> {
             ),
             child: Text(
               isRevealed ? token.raw : '█ ${token.label ?? '黑幕'} 点击查看',
-              style: TextStyle(
+              style: appTextStyle(
                 fontSize: 11.5,
                 fontWeight: isRevealed ? FontWeight.w500 : FontWeight.w600,
                 color: isRevealed
                     ? (isDark ? Colors.white70 : Colors.black87)
                     : (isDark ? Colors.white54 : Colors.white70),
-                fontFamily: 'MiSans',
-                fontFamilyFallback: FontManager.fallbackFontFamilies,
               ),
             ),
           ),
@@ -875,13 +843,11 @@ class _CommentContentWithCensorState extends State<_CommentContentWithCensor> {
         if (!widget.isExpanded && isLong && !hasRedacted)
           Text(
             widget.content,
-            style: TextStyle(
+            style: appTextStyle(
               fontSize: 13,
               height: 1.45,
               letterSpacing: -0.1,
               color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.88),
-              fontFamily: 'MiSans',
-              fontFamilyFallback: FontManager.fallbackFontFamilies,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -899,12 +865,10 @@ class _CommentContentWithCensorState extends State<_CommentContentWithCensor> {
                 children: [
                   Text(
                     widget.isExpanded ? '收起' : '展开',
-                    style: TextStyle(
+                    style: appTextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
                       color: theme.colorScheme.primary,
-                      fontFamily: 'MiSans',
-                      fontFamilyFallback: FontManager.fallbackFontFamilies,
                     ),
                   ),
                   const SizedBox(width: 2),

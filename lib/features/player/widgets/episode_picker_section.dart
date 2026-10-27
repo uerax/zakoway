@@ -240,13 +240,11 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
             children: [
               Text(
                 '选集',
-                style: TextStyle(
+                style: appTextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.3,
                   color: theme.colorScheme.onSurface,
-                  fontFamily: 'MiSans',
-                  fontFamilyFallback: FontManager.fallbackFontFamilies,
                 ),
               ),
               const SizedBox(width: 8),
@@ -262,13 +260,11 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                 ),
                 child: Text(
                   currentEpLabel,
-                  style: TextStyle(
+                  style: appTextStyle(
                     fontSize: 11,
                     color: theme.textTheme.bodySmall?.color,
                     fontWeight: FontWeight.w600,
                     letterSpacing: -0.1,
-                    fontFamily: 'MiSans',
-                    fontFamilyFallback: FontManager.fallbackFontFamilies,
                   ),
                 ),
               ),
@@ -309,14 +305,12 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                       const SizedBox(width: 4),
                       Text(
                         _isDescOrder ? '倒序' : '正序',
-                        style: TextStyle(
+                        style: appTextStyle(
                           fontSize: 12,
                           fontWeight: _isDescOrder ? FontWeight.w700 : FontWeight.w500,
                           color: _isDescOrder
                               ? primaryColor
                               : theme.textTheme.bodyMedium?.color,
-                          fontFamily: 'MiSans',
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
                         ),
                       ),
                     ],
@@ -375,12 +369,10 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                           ],
                           Text(
                             widget.roads[idx],
-                            style: TextStyle(
+                            style: appTextStyle(
                               fontSize: 11.5,
                               fontWeight: isRoadActive ? FontWeight.w600 : FontWeight.normal,
                               color: isRoadActive ? primaryColor : theme.textTheme.bodyMedium?.color,
-                              fontFamily: 'MiSans',
-                              fontFamilyFallback: FontManager.fallbackFontFamilies,
                             ),
                           ),
                         ],
@@ -434,12 +426,10 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                         children: [
                           Text(
                             '$rStart-$rEnd',
-                            style: TextStyle(
+                            style: appTextStyle(
                               fontSize: 11,
                               fontWeight: isRangeActive ? FontWeight.w600 : FontWeight.normal,
                               color: isRangeActive ? primaryColor : theme.textTheme.bodySmall?.color,
-                              fontFamily: 'MiSans',
-                              fontFamilyFallback: FontManager.fallbackFontFamilies,
                             ),
                           ),
                           if (containsPlaying && !isRangeActive) ...[
@@ -512,23 +502,19 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
               const SizedBox(height: 12),
               Text(
                 '$sourcePrefix暂无可播放分集',
-                style: TextStyle(
+                style: appTextStyle(
                   fontSize: 14.5,
                   fontWeight: FontWeight.w600,
                   color: theme.colorScheme.onSurface,
-                  fontFamily: 'MiSans',
-                  fontFamilyFallback: FontManager.fallbackFontFamilies,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
                 widget.errorMessage ?? '可能因源站更新未适配或网络受限，可开启「Animaku 服务端模式」或切换其他播放源',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: appTextStyle(
                   fontSize: 12,
                   color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
-                  fontFamily: 'MiSans',
-                  fontFamilyFallback: FontManager.fallbackFontFamilies,
                   height: 1.4,
                 ),
               ),
@@ -545,12 +531,10 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                       ),
                       onPressed: widget.onEnableServerMode,
                       icon: const Icon(Icons.cloud_sync_rounded, size: 16),
-                      label: const Text(
+                      label: Text(
                         '开启服务端模式',
-                        style: TextStyle(
+                        style: appTextStyle(
                           fontSize: 12.5,
-                          fontFamily: 'MiSans',
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
                         ),
                       ),
                     ),
@@ -561,12 +545,10 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                       ),
                       onPressed: widget.onSwitchSource,
                       icon: const Icon(Icons.swap_horiz_rounded, size: 16),
-                      label: const Text(
+                      label: Text(
                         '切换视频源',
-                        style: TextStyle(
+                        style: appTextStyle(
                           fontSize: 12.5,
-                          fontFamily: 'MiSans',
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
                         ),
                       ),
                     ),
@@ -577,12 +559,10 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                       ),
                       onPressed: widget.onRefresh,
                       icon: const Icon(Icons.refresh_rounded, size: 16),
-                      label: const Text(
+                      label: Text(
                         '重试',
-                        style: TextStyle(
+                        style: appTextStyle(
                           fontSize: 12.5,
-                          fontFamily: 'MiSans',
-                          fontFamilyFallback: FontManager.fallbackFontFamilies,
                         ),
                       ),
                     ),
@@ -701,7 +681,7 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                                     ],
                                     Text(
                                       cardTitle,
-                                      style: TextStyle(
+                                      style: appTextStyle(
                                         color: isPlaying
                                             ? Colors.white
                                             : (isWatched
@@ -712,8 +692,6 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                                             : FontWeight.w500,
                                         fontSize: 12.5,
                                         letterSpacing: -0.2,
-                                        fontFamily: 'MiSans',
-                                        fontFamilyFallback: FontManager.fallbackFontFamilies,
                                       ),
                                     ),
                                   ],
@@ -772,12 +750,10 @@ class _EpisodePickerSectionState extends State<EpisodePickerSection> {
                     const SizedBox(width: 8),
                     Text(
                       widget.loadingMessage ?? '正在解析分集列表...',
-                      style: TextStyle(
+                      style: appTextStyle(
                         fontSize: 12,
                         color: theme.textTheme.bodySmall?.color,
                         fontWeight: FontWeight.w500,
-                        fontFamily: 'MiSans',
-                        fontFamilyFallback: FontManager.fallbackFontFamilies,
                       ),
                     ),
                   ],

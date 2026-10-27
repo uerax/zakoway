@@ -134,14 +134,11 @@ class _DesktopVolumeHoverControlState extends State<DesktopVolumeHoverControl> {
                                 children: [
                                   Text(
                                     '$volPercent',
-                                    style: const TextStyle(
+                                    style: appTextStyle(
                                       color: Colors.white,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w600,
-                                      fontFamily: 'MiSans',
-                                      fontFamilyFallback:
-                                          FontManager.fallbackFontFamilies,
-                                      fontFeatures: [
+                                      fontFeatures: const [
                                         FontFeature.tabularFigures()
                                       ],
                                     ),
