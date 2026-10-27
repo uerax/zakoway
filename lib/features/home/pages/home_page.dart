@@ -96,55 +96,69 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
 
     try {
       // 并发启动各子模块数据拉取，每个接口成功后立刻局部 setState 渐进上屏，弱网 0 阻塞
+      // 特殊处理说明：无论成功、返回空还是捕获异常，接口完成时必须将对应字段置非 null（赋空列表），
+      // 避免变量永久保持 null 导致底层 Shimmer 流光骨架屏持续死循环动画，引发设备无操作高频重绘与严重发烫。
       final calendarTask = widget.client
           .getCalendar(forceRefresh: forceRefresh)
           .then((days) {
-            if (mounted && days.isNotEmpty) {
+            if (mounted) {
               setState(() => _calendarDays = days);
             }
             return days;
           })
           .catchError((e) {
             developer.log('首页获取每日放送失败: $e');
+            if (mounted && _calendarDays == null) {
+              setState(() => _calendarDays = const []);
+            }
             return <BangumiCalendarDay>[];
           });
 
       final tvTask = widget.client
           .getTrending(limit: 12, forceRefresh: forceRefresh)
           .then((items) {
-            if (mounted && items.isNotEmpty) {
+            if (mounted) {
               setState(() => _tv = items);
             }
             return items;
           })
           .catchError((e) {
             developer.log('首页获取热门 TV 失败: $e');
+            if (mounted && _tv == null) {
+              setState(() => _tv = const []);
+            }
             return <BangumiItem>[];
           });
 
       final moviesTask = widget.client
           .getHotMovies(limit: 12, forceRefresh: forceRefresh)
           .then((items) {
-            if (mounted && items.isNotEmpty) {
+            if (mounted) {
               setState(() => _movies = items);
             }
             return items;
           })
           .catchError((e) {
             developer.log('首页获取热门剧场版失败: $e');
+            if (mounted && _movies == null) {
+              setState(() => _movies = const []);
+            }
             return <BangumiItem>[];
           });
 
       final ovaTask = widget.client
           .getHotOva(limit: 12, forceRefresh: forceRefresh)
           .then((items) {
-            if (mounted && items.isNotEmpty) {
+            if (mounted) {
               setState(() => _ova = items);
             }
             return items;
           })
           .catchError((e) {
             developer.log('首页获取热门 OVA 失败: $e');
+            if (mounted && _ova == null) {
+              setState(() => _ova = const []);
+            }
             return <BangumiItem>[];
           });
 

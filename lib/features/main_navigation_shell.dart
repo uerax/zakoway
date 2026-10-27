@@ -101,41 +101,51 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
               // 3. 工业级顶级标准：IndexedStack 架构
               // - 0 丢帧、0 毫秒秒开响应、0 CPU 与 GPU 物理位移负担；
               // - 页面状态与滚动位置 100% 永久保活；
-              // - 底部高亮药丸保持 300ms 物理弹性滑动（Curves.easeOutBack）与果冻微交互，
-              //   完美兼顾极致流畅度与灵动的高级交互质感。
+              // - 底部高亮药丸保持 300ms 物理弹性滑动（Curves.easeOutBack）与果冻微交互；
+              // - 特殊处理说明：Flutter 的 IndexedStack 仅做离屏裁切，默认不挂起未激活页面的 Ticker。
+              //   包裹 TickerMode(enabled: _currentIndex == i) 确保非当前 Tab 的所有动画控制器（如骨架屏、刷新指示器）彻底静音挂起，消除离屏空转出帧与发热。
               IndexedStack(
                 index: _currentIndex,
                 children: [
-                  HomePage(
-                    key: ValueKey('home_$_refreshKey'),
-                    client: _client,
-                    onNavigateToCategory: (category, {year, month}) {
-                      setState(() {
-                        _targetCategory = category;
-                        _targetYear = year;
-                        _targetMonth = month;
-                      });
-                      _onTabTapped(1);
-                    },
+                  TickerMode(
+                    enabled: _currentIndex == 0,
+                    child: HomePage(
+                      key: ValueKey('home_$_refreshKey'),
+                      client: _client,
+                      onNavigateToCategory: (category, {year, month}) {
+                        setState(() {
+                          _targetCategory = category;
+                          _targetYear = year;
+                          _targetMonth = month;
+                        });
+                        _onTabTapped(1);
+                      },
+                    ),
                   ),
-                  CategoryPage(
-                    key: ValueKey('category_${_refreshKey}_${_targetCategory}_${_targetYear}_$_targetMonth'),
-                    client: _client,
-                    initialCategory: _targetCategory,
-                    initialYear: _targetYear,
-                    initialMonth: _targetMonth,
-                    isVisible: _currentIndex == 1,
+                  TickerMode(
+                    enabled: _currentIndex == 1,
+                    child: CategoryPage(
+                      key: ValueKey('category_${_refreshKey}_${_targetCategory}_${_targetYear}_$_targetMonth'),
+                      client: _client,
+                      initialCategory: _targetCategory,
+                      initialYear: _targetYear,
+                      initialMonth: _targetMonth,
+                      isVisible: _currentIndex == 1,
+                    ),
                   ),
-                  SettingsPage(
-                    client: _client,
-                    isVisible: _currentIndex == 2,
-                    onSettingsChanged: () {
-                      PaintingBinding.instance.imageCache.clear();
-                      PaintingBinding.instance.imageCache.clearLiveImages();
-                      setState(() {
-                        _refreshKey++;
-                      });
-                    },
+                  TickerMode(
+                    enabled: _currentIndex == 2,
+                    child: SettingsPage(
+                      client: _client,
+                      isVisible: _currentIndex == 2,
+                      onSettingsChanged: () {
+                        PaintingBinding.instance.imageCache.clear();
+                        PaintingBinding.instance.imageCache.clearLiveImages();
+                        setState(() {
+                          _refreshKey++;
+                        });
+                      },
+                    ),
                   ),
                 ],
               ),
