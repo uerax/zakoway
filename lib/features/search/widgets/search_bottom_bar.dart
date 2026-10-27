@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/utils/font_manager.dart';
 
-/// iOS Safari 风格底部悬浮搜索栏（包含返回、胶囊输入框、清空小圆钮与搜索操作键）
+/// Material 3 Expressive 风格悬浮搜索栏（对齐首页悬浮底栏设计规范）：
+/// 1. 左侧拉长输入胶囊：高透晶莹玻璃材质，集成单手返回键、沉浸式文本输入与一键清空圆钮；
+/// 2. 右侧独立悬浮搜索圆钮：54x54 同材质高斯模糊玻璃圆钮，完全继承首页搜索圆钮位置与物理投影；
+/// 3. 几何与触觉统一：高度严格锁定 54dp，圆角 27dp，底边距与首页一致，键盘弹起时自适应浮动。
 class SearchBottomBar extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -24,188 +27,225 @@ class SearchBottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
 
-    final barBg = isDark
-        ? const Color(0xFF1E1E22).withValues(alpha: 0.86)
-        : Colors.white.withValues(alpha: 0.88);
+    final safeBottom = MediaQuery.paddingOf(context).bottom;
+    final viewInsetsBottom = MediaQuery.viewInsetsOf(context).bottom;
+    final isKeyboardOpen = viewInsetsBottom > 0;
+    final bottomPadding = isKeyboardOpen ? 10.0 : (safeBottom < 10 ? 12.0 : safeBottom + 2.0);
 
-    final inputBg = isDark
-        ? theme.colorScheme.surfaceContainerHigh
-        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.65);
+    // 对齐首页 AppFloatingBottomBar 的微透高斯模糊与边框材质
+    final dockBg = isDark
+        ? const Color(0xFF1E1E22).withValues(alpha: 0.80)
+        : Colors.white.withValues(alpha: 0.82);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: barBg,
-        border: Border(
-          top: BorderSide(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.12)
-                : theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
-            width: 0.8,
-          ),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, -3),
-          ),
-        ],
+    final dockBorder = Border.all(
+      color: isDark
+          ? Colors.white.withValues(alpha: 0.16)
+          : theme.colorScheme.outlineVariant.withValues(alpha: 0.40),
+      width: 0.8,
+    );
+
+    final compoundShadow = [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
+        blurRadius: 8,
+        offset: const Offset(0, 2),
       ),
-      child: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 760),
-                  child: Row(
-                children: [
-                  // 1. iOS Safari 式轻量单手返回按钮
-                  IconButton(
-                    onPressed: () {
-                      HapticFeedback.selectionClick();
-                      onBack();
-                    },
-                    icon: Icon(
-                      Icons.arrow_back_rounded,
-                      size: 22,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                    tooltip: '返回',
-                    style: IconButton.styleFrom(
-                      minimumSize: const Size(40, 40),
-                      padding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
+      BoxShadow(
+        color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+        blurRadius: 20,
+        offset: const Offset(0, 6),
+        spreadRadius: -1,
+      ),
+    ];
 
-                  // 2. 居中一体化 iOS Safari 大胶囊搜索条
-                  Expanded(
-                    child: Container(
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: inputBg,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.08)
-                              : theme.colorScheme.outlineVariant.withValues(alpha: 0.28),
-                          width: 0.8,
+    const double barHeight = 54.0;
+    const double dockRadius = 27.0;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 6, 16, bottomPadding),
+      child: Center(
+        heightFactor: 1,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // 1. 左侧拉长的主输入胶囊（集成返回、输入区、清空键）
+              Expanded(
+                child: Container(
+                  height: barHeight,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(dockRadius),
+                    boxShadow: compoundShadow,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(dockRadius),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+                      child: Container(
+                        height: barHeight,
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: dockBg,
+                          borderRadius: BorderRadius.circular(dockRadius),
+                          border: dockBorder,
                         ),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.search_rounded,
-                            size: 20,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: controller,
-                              focusNode: focusNode,
-                              textInputAction: TextInputAction.search,
-                              onSubmitted: (_) {
-                                HapticFeedback.selectionClick();
-                                onSearch();
-                              },
-                              style: TextStyle(
-                                fontSize: 14.5,
-                                color: theme.colorScheme.onSurface,
-                                fontFamily: FontManager.instance.activeFontFamily ?? 'MiSans',
-                                fontFamilyFallback: FontManager.fallbackFontFamilies,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: '搜索番剧、剧场版…',
-                                hintStyle: TextStyle(
-                                  fontSize: 14.5,
-                                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.65),
-                                  fontFamily: FontManager.instance.activeFontFamily ?? 'MiSans',
-                                  fontFamilyFallback: FontManager.fallbackFontFamilies,
-                                ),
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                filled: false,
-                                isDense: true,
-                                contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                              ),
-                            ),
-                          ),
-                          // 清空输入文本按钮
-                          ListenableBuilder(
-                            listenable: controller,
-                            builder: (context, _) {
-                              if (controller.text.isEmpty) {
-                                return const SizedBox.shrink();
-                              }
-                              return GestureDetector(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // 单手返回轻触圆钮
+                            Material(
+                              color: Colors.transparent,
+                              shape: const CircleBorder(),
+                              clipBehavior: Clip.antiAlias,
+                              child: InkWell(
                                 onTap: () {
                                   HapticFeedback.selectionClick();
-                                  onClear();
+                                  onBack();
                                 },
-                                behavior: HitTestBehavior.opaque,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(4),
-                                  child: Container(
-                                    width: 20,
-                                    height: 20,
-                                    decoration: BoxDecoration(
-                                      color: isDark
-                                          ? Colors.white.withValues(alpha: 0.25)
-                                          : Colors.black.withValues(alpha: 0.22),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.close_rounded,
-                                      size: 13,
-                                      color: Colors.white,
+                                splashColor: primaryColor.withValues(alpha: 0.15),
+                                highlightColor: primaryColor.withValues(alpha: 0.08),
+                                child: SizedBox(
+                                  width: 38,
+                                  height: 38,
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.arrow_back_rounded,
+                                      size: 21,
+                                      color: theme.colorScheme.onSurface,
                                     ),
                                   ),
                                 ),
-                              );
-                            },
-                          ),
-                        ],
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+
+                            // 沉浸式文本输入区域
+                            Expanded(
+                              child: TextField(
+                                controller: controller,
+                                focusNode: focusNode,
+                                textInputAction: TextInputAction.search,
+                                onSubmitted: (_) {
+                                  HapticFeedback.selectionClick();
+                                  onSearch();
+                                },
+                                style: TextStyle(
+                                  fontSize: 14.5,
+                                  color: theme.colorScheme.onSurface,
+                                  fontFamily: FontManager.instance.activeFontFamily ?? 'MiSans',
+                                  fontFamilyFallback: FontManager.fallbackFontFamilies,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: '搜索番剧、剧场版…',
+                                  hintStyle: TextStyle(
+                                    fontSize: 14.5,
+                                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.65),
+                                    fontFamily: FontManager.instance.activeFontFamily ?? 'MiSans',
+                                    fontFamilyFallback: FontManager.fallbackFontFamilies,
+                                  ),
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  filled: false,
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                                ),
+                              ),
+                            ),
+
+                            // 文本一键清空圆钮
+                            ListenableBuilder(
+                              listenable: controller,
+                              builder: (context, _) {
+                                if (controller.text.isEmpty) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      HapticFeedback.selectionClick();
+                                      onClear();
+                                    },
+                                    behavior: HitTestBehavior.opaque,
+                                    child: Container(
+                                      width: 22,
+                                      height: 22,
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? Colors.white.withValues(alpha: 0.22)
+                                            : Colors.black.withValues(alpha: 0.18),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.close_rounded,
+                                        size: 13,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-
-                  const SizedBox(width: 8),
-
-                  // 3. 右侧搜索操作按钮（Safari 风格紧凑胶囊）
-                  FilledButton.tonal(
-                    onPressed: () {
-                      HapticFeedback.selectionClick();
-                      onSearch();
-                    },
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      minimumSize: const Size(58, 40),
-                      shape: const StadiumBorder(),
-                      textStyle: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: FontManager.instance.activeFontFamily ?? 'MiSans',
-                        fontFamilyFallback: FontManager.fallbackFontFamilies,
-                      ),
-                    ),
-                    child: const Text('搜索'),
-                  ),
-                ],
+                ),
               ),
-            ),
+
+              // 2. 右侧独立悬浮搜索圆钮（与首页搜索圆钮尺寸、材质、位置 100% 对齐）
+              const SizedBox(width: 10),
+              Container(
+                width: barHeight,
+                height: barHeight,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: compoundShadow,
+                ),
+                child: ClipOval(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+                    child: Material(
+                      color: dockBg,
+                      shape: CircleBorder(side: dockBorder.top),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          onSearch();
+                        },
+                        splashColor: primaryColor.withValues(alpha: 0.15),
+                        highlightColor: primaryColor.withValues(alpha: 0.08),
+                        child: ListenableBuilder(
+                          listenable: controller,
+                          builder: (context, _) {
+                            final hasText = controller.text.trim().isNotEmpty;
+                            final iconColor = hasText
+                                ? primaryColor
+                                : (isDark ? Colors.white : theme.colorScheme.onSurfaceVariant);
+                            return Center(
+                              child: Icon(
+                                Icons.search_rounded,
+                                size: 23,
+                                color: iconColor,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
-    ),
-  ),
-);
-}
+    );
+  }
 }
