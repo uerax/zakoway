@@ -191,6 +191,22 @@ class MediaKitPlayerBackend implements PlayerBackend {
     );
 
     await _player.open(media, play: autoplay);
+
+    // 特殊处理说明：
+    // 同步对齐底层已持有的物理尺寸：
+    // 当跨视频复用常驻播放器内核时，若新旧视频具有相同分辨率（如 1080P），底层 Stream 可能不会重复发射变化事件；
+    // 主动检查并同步已有尺寸，确保新 open 会话的代际门禁与尺寸状态准确就绪。
+    final syncW = _player.state.width;
+    final syncH = _player.state.height;
+    if ((_streamWidth == null && _videoParamsDw == null) &&
+        syncW != null &&
+        syncW > 0 &&
+        syncH != null &&
+        syncH > 0) {
+      _streamWidth = syncW;
+      _streamHeight = syncH;
+      _updateDimensions();
+    }
   }
 
   @override

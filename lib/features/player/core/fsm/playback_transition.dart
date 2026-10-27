@@ -794,8 +794,13 @@ TransitionResult _evaluateFirstFrameRendered(
     // 暂停意图：解码出物理首帧后被挂起，时钟停在 0ms，仅需尺寸有效
     canTrigger = context.hasValidDimensions;
   } else {
-    // 播放意图：必须同时满足尺寸有效且位置推进（产生物理出画位移）
-    canTrigger = context.hasValidDimensions && context.hasPositionAdvanced;
+    // 特殊处理说明：
+    // 首帧物理出画与存活事实双重判据 (Liveness Proof)：
+    // 1. 正常出画：尺寸有效且时间推进 (hasValidDimensions && hasPositionAdvanced)；
+    // 2. 存活事实出画：播放位置产生实质物理推进位移 (hasPositionAdvanced == true)。
+    //    当底层媒体时钟已向前推移、音频正常输出时，表明解复用与解码已经在事实运转出画；
+    //    绝不应因偶发的底层尺寸事件去重合并或时序延迟导致画面被防闪遮罩与转圈永久锁死在黑屏态。
+    canTrigger = context.hasPositionAdvanced;
   }
 
   if (canTrigger) {

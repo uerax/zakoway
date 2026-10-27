@@ -330,7 +330,7 @@ class GuguSource extends VideoSource {
         );
       }
 
-      final currentSourceId = data?['sourceId'];
+      final currentSourceId = data?['sourceId']?.toString();
       final rawSources = (data?['sources'] as List?) ?? [];
       final sources = rawSources.whereType<Map<String, dynamic>>().toList();
 
@@ -354,13 +354,15 @@ class GuguSource extends VideoSource {
         throw Exception('咕咕番该集源站未提供任何可用线路');
       }
 
-      final targetSourceId = matchedSource['id'] is int
-          ? matchedSource['id'] as int
-          : int.tryParse(matchedSource['id']?.toString() ?? '');
+      // 特殊处理说明：
+      // 线路 ID 严格归一化为字符串比对，消除源站 JSON 数据中 int 与 String 混用引发的假性不一致二次请求
+      final targetSourceId = matchedSource['id']?.toString();
 
       // 若锁定的目标源不同于默认下发的源，携带 &source 重新签发直链；
       // 若源站报错（如 503）如实抛出，不做任何后台换源容灾，挂了就明确显示挂了
-      if (targetSourceId != null && targetSourceId != currentSourceId) {
+      if (targetSourceId != null &&
+          targetSourceId.isNotEmpty &&
+          targetSourceId != currentSourceId) {
         final targetRes = await _dio.get<dynamic>(
           '$_baseUrl/api/playback?anime=$animeId&episode=$episodeId&source=$targetSourceId',
           options: Options(
