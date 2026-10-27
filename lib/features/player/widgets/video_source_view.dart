@@ -168,8 +168,18 @@ class _VideoSourceViewState extends State<VideoSourceView> {
     super.initState();
     AppPreferences.serverModeNotifier.addListener(_onServerStateUpdate);
     AnimakuServerClient.instance.supportedSourcesNotifier.addListener(_onServerStateUpdate);
+    widget.aggregator?.addListener(_onAggregatorUpdate);
     if (AppPreferences.isServerModeEnabled()) {
       AnimakuServerClient.instance.fetchSupportedSources().ignore();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant VideoSourceView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.aggregator != widget.aggregator) {
+      oldWidget.aggregator?.removeListener(_onAggregatorUpdate);
+      widget.aggregator?.addListener(_onAggregatorUpdate);
     }
   }
 
@@ -177,6 +187,7 @@ class _VideoSourceViewState extends State<VideoSourceView> {
   void dispose() {
     AppPreferences.serverModeNotifier.removeListener(_onServerStateUpdate);
     AnimakuServerClient.instance.supportedSourcesNotifier.removeListener(_onServerStateUpdate);
+    widget.aggregator?.removeListener(_onAggregatorUpdate);
     for (final c in _controllers.values) {
       c.dispose();
     }
@@ -184,6 +195,10 @@ class _VideoSourceViewState extends State<VideoSourceView> {
   }
 
   void _onServerStateUpdate() {
+    if (mounted) setState(() {});
+  }
+
+  void _onAggregatorUpdate() {
     if (mounted) setState(() {});
   }
 
@@ -1224,43 +1239,54 @@ class _VideoSourceViewState extends State<VideoSourceView> {
     VoidCallback? onTap,
   }) {
     final theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-        decoration: BoxDecoration(
-          color: isFilled ? color : color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: color.withValues(alpha: isFilled ? 1.0 : 0.35),
-            width: 0.5,
-          ),
+    final content = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.fastOutSlowIn,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: isFilled ? color : color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: color.withValues(alpha: isFilled ? 1.0 : 0.35),
+          width: 0.5,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isLoading) ...[
-              SizedBox(
-                width: 8,
-                height: 8,
-                child: CupertinoActivityIndicator(radius: 4, color: color),
-              ),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                fontFamily: theme.textTheme.labelSmall?.fontFamily,
-                fontFamilyFallback: theme.textTheme.labelSmall?.fontFamilyFallback,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isLoading) ...[
+            SizedBox(
+              width: 8,
+              height: 8,
+              child: CupertinoActivityIndicator(
+                radius: 4,
                 color: isFilled ? Colors.white : color,
               ),
             ),
+            const SizedBox(width: 4),
           ],
-        ),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: theme.textTheme.labelSmall?.fontFamily ?? 'MiSans',
+              fontFamilyFallback: FontManager.fallbackFontFamilies,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: isFilled ? Colors.white : color,
+            ),
+          ),
+        ],
       ),
+    );
+
+    if (onTap == null) {
+      return content;
+    }
+
+    return BouncingScaleCard(
+      scaleDown: 0.92,
+      onTap: onTap,
+      child: content,
     );
   }
 }

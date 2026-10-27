@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zakoway/core/models/bangumi/bangumi_item.dart';
+import 'package:zakoway/features/player/source/models/source_models.dart';
 import 'package:zakoway/features/player/source/source_aggregator.dart';
 import 'package:zakoway/features/player/source/source_keyword_matcher.dart';
 import 'package:zakoway/features/player/widgets/video_source_view.dart';
@@ -85,6 +86,64 @@ void main() {
         return false;
       });
       expect(amberWidgets, findsNothing);
+    });
+
+    testWidgets('4. VideoSourceView 实时监听 aggregator 状态流并在后台探活完成时秒级自动刷新', (tester) async {
+      final aggregator = SourceAggregator();
+      final src = const VideoSourceItem(
+        id: 'cycani',
+        name: '次元城',
+        description: '测试源',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: VideoSourceView(
+              sources: [src],
+              selectedSourceId: 'xifan-next',
+              aggregator: aggregator,
+              onSourceSelected: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 初始为待探活 (灰色)
+      expect(find.text('待探活 (点击探活)'), findsOneWidget);
+      expect(find.text('探活'), findsOneWidget);
+
+      // 模拟后台开始探活 -> probing
+      aggregator.updateSourceState(
+        'cycani',
+        AggregatedSourceState(
+          meta: const SourceMeta(id: 'cycani', name: '次元城', version: '1.0'),
+          status: SourceProbeStatus.probing,
+          searched: true,
+        ),
+      );
+      await tester.pump();
+
+      // UI 立即自动响应为探活中
+      expect(find.text('探活检索中...'), findsOneWidget);
+      expect(find.text('探活中'), findsOneWidget);
+
+      // 模拟后台探活成功完成 -> ready
+      aggregator.updateSourceState(
+        'cycani',
+        AggregatedSourceState(
+          meta: const SourceMeta(id: 'cycani', name: '次元城', version: '1.0'),
+          status: SourceProbeStatus.ready,
+          matchedHit: const SourceSearchResult(name: '命中番剧第1季', url: 'https://test/1'),
+          searched: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // UI 立即自动响应为命中并展示“切换”按钮，不再需要用户任何额外点击
+      expect(find.text('命中番剧第1季'), findsOneWidget);
+      expect(find.text('切换'), findsOneWidget);
     });
   });
 }

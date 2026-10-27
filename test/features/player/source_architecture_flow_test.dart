@@ -302,6 +302,19 @@ void main() {
       expect(breaker.checkBeforeRequest('test_source').allowed, isFalse);
       breaker.reset('test_source');
     });
+
+    test('用户手动操作 (isUserAction) 触发 prioritizeSource 时自动重置熔断状态，确保发起真实请求', () {
+      final breaker = PluginCircuitBreaker.instance;
+      breaker.recordFailure('cycani', 'SocketException: Connection refused');
+      expect(breaker.checkBeforeRequest('cycani').allowed, isFalse);
+
+      final aggregator = SourceAggregator();
+      aggregator.prioritizeSource('cycani', isUserAction: true);
+
+      // 验证熔断已被重置，允许发起真实请求
+      expect(breaker.checkBeforeRequest('cycani').allowed, isTrue);
+      breaker.reset('cycani');
+    });
   });
 
   group('6. 自适应宽限自动选源仲裁器测试 (AutoSourcePickCoordinator)', () {

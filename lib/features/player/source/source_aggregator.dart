@@ -628,6 +628,7 @@ class SourceAggregator extends ChangeNotifier {
 
     if (isUserAction) {
       lockByUserAction();
+      PluginCircuitBreaker.instance.reset(sId);
     }
 
     // 取消当前该源自身的旧请求 (若有)，必须先清除定时器并递增 actionId 使旧任务失效
