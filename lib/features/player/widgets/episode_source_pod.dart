@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
+import '../../common/widgets/directional_tab_bar_view.dart';
 import '../source/source_aggregator.dart';
 import '../source/utils/playable_slot_engine.dart';
 import 'episode_picker_section.dart';
@@ -232,7 +233,7 @@ class EpisodeSourcePod extends StatelessWidget {
                         ),
                         const Divider(height: 12, thickness: 0.5),
                         Expanded(
-                          child: TabBarView(
+                          child: DirectionalTabBarView(
                             children: [
                               // 1. 完整选集网格面板
                               EpisodePickerSection(

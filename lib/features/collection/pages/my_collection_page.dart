@@ -13,6 +13,7 @@ import '../../../core/utils/responsive.dart';
 import '../../auth/widgets/auth_login_sheet.dart';
 import '../../common/widgets/anime_card.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
+import '../../common/widgets/directional_tab_bar_view.dart';
 import '../../settings/widgets/tg_action_sheet.dart';
 
 /// “我的追番”主页面：
@@ -379,7 +380,7 @@ class _MyCollectionPageState extends ConsumerState<MyCollectionPage>
               AppearanceManager.instance.buildWallpaperLayer(pageKey: 'profile'),
 
               // 1. 5 分类内容视图
-              TabBarView(
+              DirectionalTabBarView(
                 controller: _tabController,
                 children: _tabs.map((type) {
                   return _CollectionCategoryView(

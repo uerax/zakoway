@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../../core/utils/font_manager.dart';
+import '../../../common/widgets/directional_tab_bar_view.dart';
 import '../video_play_tabs.dart';
 
 /// 桌面端/宽屏分栏并排布局
@@ -262,7 +263,7 @@ class DesktopVideoPlayerLayout extends StatelessWidget {
                             ),
                             // 标签页内容呈现区 (独立滚动)
                             Expanded(
-                              child: TabBarView(
+                              child: DirectionalTabBarView(
                                 controller: rightTabController!,
                                 children: [
                                   // Tab 0: 选集面板与番剧推荐

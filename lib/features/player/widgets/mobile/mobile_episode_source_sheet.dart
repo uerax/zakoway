@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/services/app_preferences.dart';
 import '../../../../core/utils/font_manager.dart';
+import '../../../common/widgets/directional_tab_bar_view.dart';
 import '../../source/models/source_models.dart';
 import '../../source/source_aggregator.dart';
 import '../../source/source_bundle_manager.dart';
@@ -223,7 +224,7 @@ class MobileEpisodeSourceSheet extends StatelessWidget {
                     ),
                     const Divider(height: 12, thickness: 0.5),
                     Expanded(
-                      child: TabBarView(
+                      child: DirectionalTabBarView(
                         children: [
                           EpisodePickerSection(
                             episodeCount: displayEpisodeCount,

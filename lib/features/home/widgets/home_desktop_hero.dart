@@ -5,6 +5,7 @@ import '../../../core/models/bangumi/bangumi_item.dart';
 import '../../../core/models/home/recommend_item.dart';
 import '../../../core/theme/m3_surface.dart';
 import '../../common/widgets/anime_card.dart';
+import '../../common/widgets/directional_horizontal_scroll.dart';
 import '../../common/widgets/shimmer_loading.dart';
 import 'home_banner_carousel.dart';
 
@@ -191,18 +192,20 @@ class _HomeDesktopHeroState extends State<HomeDesktopHero> {
                               ),
                             ),
                           )
-                        : PageView.builder(
-                            key: ValueKey('desktop_grid_$_selectedDayIndex'),
-                            controller: _gridPageController,
-                            itemCount: _totalPages,
-                            onPageChanged: (index) {
-                              setState(() {
-                                _gridPageIndex = index;
-                              });
-                            },
-                            itemBuilder: (context, pageIndex) {
-                              return _buildSixGridPage(pageIndex);
-                            },
+                        : DirectionalHorizontalScroll(
+                            child: PageView.builder(
+                              key: ValueKey('desktop_grid_$_selectedDayIndex'),
+                              controller: _gridPageController,
+                              itemCount: _totalPages,
+                              onPageChanged: (index) {
+                                setState(() {
+                                  _gridPageIndex = index;
+                                });
+                              },
+                              itemBuilder: (context, pageIndex) {
+                                return _buildSixGridPage(pageIndex);
+                              },
+                            ),
                           ),
                   ),
                 ],

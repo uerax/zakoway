@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:zakoway/core/models/bangumi/bangumi_item.dart';
 import 'package:zakoway/core/models/bangumi/bangumi_recommendation_item.dart';
 import 'package:zakoway/core/utils/font_manager.dart';
+import 'package:zakoway/features/common/widgets/directional_tab_bar_view.dart';
 import 'package:zakoway/features/player/source/models/source_models.dart';
 import 'package:zakoway/features/player/source/source_aggregator.dart';
 import 'package:zakoway/features/player/source/utils/playable_slot_engine.dart';
@@ -162,7 +163,7 @@ class VideoPlayTabContentView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TabBarView(
+    return DirectionalTabBarView(
       controller: tabController,
       children: [
         // Tab 0: 简介垂直流 (信息头部 + 选集选源融合舱 + 推荐列表)
