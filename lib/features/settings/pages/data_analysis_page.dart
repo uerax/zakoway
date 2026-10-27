@@ -56,67 +56,73 @@ class _DataAnalysisPageState extends State<DataAnalysisPage> {
     return ListenableBuilder(
       listenable: AppearanceManager.instance,
       builder: (context, _) {
-        return Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            title: Text('追番数据分析', style: titleStyle),
-            centerTitle: true,
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            actions: [
-              IconButton(
-                tooltip: '重新计算画像',
-                icon: const Icon(Icons.refresh_rounded),
-                onPressed: _computeReport,
-              ),
-            ],
+        final content = Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: AppBreakpoints.maxSettingsWidth),
+            child: _report.isEmpty
+                ? _buildEmptyState(context)
+                : ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+                    children: [
+                      // 1. 核心二次元人格与称号卡片
+                      _buildPersonaHeroCard(context),
+                      const SizedBox(height: 16),
+
+                      // 1.5 追番状态与完成率透视卡片 (由我的追番驱动)
+                      if (_report.totalCollectionCount > 0) ...[
+                        _buildCollectionInsightCard(context),
+                        const SizedBox(height: 16),
+                      ],
+
+                      // 2. 题材偏好分布雷达/条形图卡片
+                      _buildGenreDistributionCard(context),
+                      const SizedBox(height: 16),
+
+                      // 3. 追番作息与习惯卡片
+                      _buildHabitScheduleCard(context),
+                      const SizedBox(height: 16),
+
+                      // 4. 题材作品溯源足迹
+                      if (_report.genreAnimeSamples.isNotEmpty) ...[
+                        _buildFootprintCard(context),
+                        const SizedBox(height: 16),
+                      ],
+                    ],
+                  ),
           ),
-          body: Stack(
+        );
+
+        // 特殊处理说明：
+        // 1. 最外层包裹 100% 不透明的 ColoredBox(color: theme.scaffoldBackgroundColor)，
+        //    从物理层面杜绝移动端路由推入（0.5s 转场动画）期间或 AppBar 背后漏出底层页面内容与黑底；
+        // 2. 第二层铺满专属个人壁纸层，使壁纸从屏幕最顶端自然延伸至 AppBar 背后；
+        // 3. 内部 Scaffold 保持 transparent，AppBar 背景透明且 elevation: 0、scrolledUnderElevation: 0，
+        //    使标题栏与全屏壁纸柔和相融，同时 body 内容天然在 AppBar 下方正常流淌，零溢出与遮挡风险。
+        return ColoredBox(
+          color: theme.scaffoldBackgroundColor,
+          child: Stack(
             fit: StackFit.expand,
             children: [
-              // 0. 底衬背景色
-              Positioned.fill(
-                child: ColoredBox(color: theme.scaffoldBackgroundColor),
-              ),
-              // 1. 个人专属背景壁纸层
+              // 0. 个人专属背景壁纸层 (全景铺满，涵盖 AppBar 背后)
               AppearanceManager.instance.buildWallpaperLayer(pageKey: 'profile'),
-              // 2. 内容层
-              Positioned.fill(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: AppBreakpoints.maxSettingsWidth),
-                    child: _report.isEmpty
-                        ? _buildEmptyState(context)
-                        : ListView(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
-                            children: [
-                              // 1. 核心二次元人格与称号卡片
-                              _buildPersonaHeroCard(context),
-                              const SizedBox(height: 16),
-
-                              // 1.5 追番状态与完成率透视卡片 (由我的追番驱动)
-                              if (_report.totalCollectionCount > 0) ...[
-                                _buildCollectionInsightCard(context),
-                                const SizedBox(height: 16),
-                              ],
-
-                              // 2. 题材偏好分布雷达/条形图卡片
-                              _buildGenreDistributionCard(context),
-                              const SizedBox(height: 16),
-
-                              // 3. 追番作息与习惯卡片
-                              _buildHabitScheduleCard(context),
-                              const SizedBox(height: 16),
-
-                              // 4. 题材作品溯源足迹
-                              if (_report.genreAnimeSamples.isNotEmpty) ...[
-                                _buildFootprintCard(context),
-                                const SizedBox(height: 16),
-                              ],
-                            ],
-                          ),
-                  ),
+              // 1. 数据分析主脚手架
+              Scaffold(
+                backgroundColor: Colors.transparent,
+                appBar: AppBar(
+                  title: Text('追番数据分析', style: titleStyle),
+                  centerTitle: true,
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  actions: [
+                    IconButton(
+                      tooltip: '重新计算画像',
+                      icon: const Icon(Icons.refresh_rounded),
+                      onPressed: _computeReport,
+                    ),
+                  ],
                 ),
+                body: content,
               ),
             ],
           ),
