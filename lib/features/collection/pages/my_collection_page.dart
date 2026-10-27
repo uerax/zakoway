@@ -12,6 +12,7 @@ import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
 import '../../auth/widgets/auth_login_sheet.dart';
 import '../../common/widgets/anime_card.dart';
+import '../../common/widgets/app_refresh_indicator.dart';
 import '../../common/widgets/bouncing_scale_card.dart';
 import '../../common/widgets/directional_tab_bar_view.dart';
 import '../../settings/widgets/tg_action_sheet.dart';
@@ -457,7 +458,7 @@ class _CollectionCategoryView extends ConsumerWidget {
       );
     }
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: onRefresh,
       child: GridView.builder(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),

@@ -12,6 +12,7 @@ import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
 import '../../common/widgets/anime_card.dart';
+import '../../common/widgets/app_refresh_indicator.dart';
 import '../../common/widgets/shimmer_loading.dart';
 import '../../player/core/proxy/media_preload_coordinator.dart';
 import '../../history/pages/history_page.dart';
@@ -387,7 +388,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
     final isDesktop = context.isDesktop;
 
     // 渐进式渲染：无论网络是否就绪，页面骨架瞬间进入，本地历史 0ms 呈现，网络货架谁先到谁先出
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: () => _loadData(forceRefresh: true),
       child: isDesktop
           ? _buildDesktopLayout(

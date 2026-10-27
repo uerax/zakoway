@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/bangumi_client.dart';
+import '../../common/widgets/app_refresh_indicator.dart';
 import '../controllers/category_controller.dart';
 import '../controllers/category_state.dart';
 import '../widgets/category_content_view.dart';
@@ -149,10 +150,9 @@ class _CategoryPageState extends ConsumerState<CategoryPage>
 
           SafeArea(
             bottom: false,
-            child: RefreshIndicator(
+            child: AppRefreshIndicator(
               onRefresh: () => controller.fetchFirstPage(forceRefresh: true),
-              displacement: 20,
-              color: theme.colorScheme.primary,
+              displacement: 32,
               child: CustomScrollView(
                 controller: _scrollController,
                 scrollCacheExtent: const ScrollCacheExtent.pixels(180),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/appearance_manager.dart';
+import '../../common/widgets/app_refresh_indicator.dart';
 import '../controllers/search_controller.dart';
 import '../controllers/search_history_notifier.dart';
 import '../widgets/search_bottom_bar.dart';
@@ -142,13 +143,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                   .clearAll(),
                             ),
                           )
-                        : RefreshIndicator(
+                        : AppRefreshIndicator(
                             onRefresh: () => searchController.executeSearch(
                               searchState.keyword,
                               forceRefresh: true,
                             ),
-                            displacement: 20,
-                            color: theme.colorScheme.primary,
+                            displacement: 32,
                             child: CustomScrollView(
                               controller: _scrollController,
                               keyboardDismissBehavior:
