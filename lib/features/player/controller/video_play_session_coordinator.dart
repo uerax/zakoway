@@ -9,6 +9,7 @@ import '../core/utils/playback_tracer.dart';
 import '../danmaku/danmaku.dart';
 import '../source/models/source_models.dart';
 import '../source/services/source_binding_service.dart';
+import '../source/services/source_order_service.dart';
 import '../source/source_aggregator.dart';
 import '../source/source_bundle_manager.dart';
 import '../source/utils/playable_slot_engine.dart';
@@ -59,8 +60,11 @@ class VideoPlaySessionCoordinator extends ChangeNotifier {
     required this.onFocusEpisodesTab,
     required this.waitForRouteAnimation,
   }) {
+    final ordered = SourceOrderService.instance.getOrderedSources(SourceBundleManager.instance.sources);
     if (preferredSourceId != null && preferredSourceId!.isNotEmpty) {
       _selectedSourceId = preferredSourceId!;
+    } else if (ordered.isNotEmpty) {
+      _selectedSourceId = ordered.first.id;
     }
     if (initialRoad != null && initialRoad! >= 0) {
       _selectedRoadIndex = initialRoad!;
@@ -100,7 +104,7 @@ class VideoPlaySessionCoordinator extends ChangeNotifier {
   bool _disposed = false;
   bool get isDisposed => _disposed;
 
-  String _selectedSourceId = 'xifan-next';
+  String _selectedSourceId = '';
   String get selectedSourceId => _selectedSourceId;
 
   List<VideoSourceItem> get _sources => getDefaultSourceItems();
@@ -323,7 +327,7 @@ class VideoPlaySessionCoordinator extends ChangeNotifier {
         defaultTitle: title,
         item: effectiveBangumiItem,
         titleRefs: titleRefs,
-        preferredSourceId: preferredSourceId ?? _selectedSourceId,
+        preferredSourceId: preferredSourceId,
         maxProbeCount: 5,
         onWinnerReady: (winnerSource, winnerRoads, winnerHit) {
           if (_disposed) return;

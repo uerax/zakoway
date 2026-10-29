@@ -541,12 +541,74 @@ void main() {
 
       aggregator.dispose();
     });
+
+    test('首位优先决议：即使次选源更早完成(50ms)，慢速主选源(220ms)成功时依然优先作为胜出源', () async {
+      final runtime = SourceBundleManager.instance.runtime;
+      runtime.registerSource(_FastMockSource());
+      runtime.registerSource(_SlowMockSource());
+
+      final aggregator = SourceAggregator();
+      SourceMeta? winnerMeta;
+
+      // 指定 slow-mock 为首选源，fast-mock 为次选源
+      await aggregator.startSession(
+        bangumiId: 2003,
+        defaultTitle: '时序验证番剧A',
+        preferredSourceId: 'slow-mock',
+        onWinnerReady: (meta, roads, hit) {
+          winnerMeta = meta;
+        },
+      );
+
+      // fast-mock 在 70ms 即可 Ready，但 slow-mock 在 220ms 才 Ready。
+      // 在 100ms 时 fast-mock 已就绪，但不应抢跑宣布胜出
+      await Future.delayed(const Duration(milliseconds: 100));
+      expect(aggregator.states['fast-mock']?.status, equals(SourceProbeStatus.ready));
+      expect(winnerMeta, isNull, reason: '首选源 slow-mock 尚未决议，次选源 fast-mock 不得抢跑');
+
+      // 等待 slow-mock 完成
+      await Future.delayed(const Duration(milliseconds: 200));
+      expect(winnerMeta, isNotNull);
+      expect(winnerMeta!.id, equals('slow-mock'), reason: '首选源即使响应慢，成功时也拥有最高优先决议权');
+
+      aggregator.dispose();
+    });
+
+    test('主选源失败秒级接管：主选源失败时，先行就绪的次选源 0ms 瞬间接管起播', () async {
+      final runtime = SourceBundleManager.instance.runtime;
+      runtime.registerSource(_FastMockSource());
+      runtime.registerSource(_FailingMockSource());
+
+      final aggregator = SourceAggregator();
+      SourceMeta? winnerMeta;
+
+      // 指定 failing-mock 为首选源，fast-mock 也会并发探测
+      await aggregator.startSession(
+        bangumiId: 2004,
+        defaultTitle: '时序验证番剧B',
+        preferredSourceId: 'failing-mock',
+        onWinnerReady: (meta, roads, hit) {
+          winnerMeta = meta;
+        },
+      );
+
+      // 等待 failing-mock 失败与 fast-mock 成功
+      await Future.delayed(const Duration(milliseconds: 150));
+
+      expect(aggregator.states['failing-mock']?.status, equals(SourceProbeStatus.empty));
+      expect(winnerMeta, isNotNull);
+      expect(winnerMeta!.id, equals('fast-mock'), reason: '主选源确认失败后，次选就绪源立即接管胜出');
+
+      aggregator.dispose();
+    });
   });
 }
 
 class _FastMockSource extends VideoSource {
   @override
   String get id => 'fast-mock';
+  @override
+  int get weight => 100;
   @override
   String get name => '极速测试源';
   @override
@@ -557,7 +619,7 @@ class _FastMockSource extends VideoSource {
   @override
   Future<List<SourceSearchResult>> search(String keyword) async {
     await Future.delayed(const Duration(milliseconds: 50));
-    return [const SourceSearchResult(name: '葬送的芙莉莲', url: 'https://fast/1')];
+    return [SourceSearchResult(name: keyword, url: 'https://fast/1')];
   }
 
   @override
@@ -583,6 +645,8 @@ class _SlowMockSource extends VideoSource {
   @override
   String get id => 'slow-mock';
   @override
+  int get weight => 100;
+  @override
   String get name => '慢速测试源';
   @override
   String get version => '1.0';
@@ -592,7 +656,7 @@ class _SlowMockSource extends VideoSource {
   @override
   Future<List<SourceSearchResult>> search(String keyword) async {
     await Future.delayed(const Duration(milliseconds: 180));
-    return [const SourceSearchResult(name: '葬送的芙莉莲', url: 'https://slow/1')];
+    return [SourceSearchResult(name: keyword, url: 'https://slow/1')];
   }
 
   @override
@@ -627,6 +691,32 @@ class _HangingMockSource extends VideoSource {
   Future<List<SourceSearchResult>> search(String keyword) async {
     // 模拟底层网络请求无限挂起，永不返回
     await Completer<void>().future;
+    return [];
+  }
+
+  @override
+  Future<List<SourceChapterRoad>> chapters(String animeUrl) async => [];
+
+  @override
+  Future<SourceResolveResult> resolve(String episodeUrl) async =>
+      const SourceResolveResult(url: '');
+}
+
+class _FailingMockSource extends VideoSource {
+  @override
+  String get id => 'failing-mock';
+  @override
+  int get weight => 100;
+  @override
+  String get name => '失败测试源';
+  @override
+  String get version => '1.0';
+  @override
+  String get description => '失败测试源';
+
+  @override
+  Future<List<SourceSearchResult>> search(String keyword) async {
+    await Future.delayed(const Duration(milliseconds: 50));
     return [];
   }
 

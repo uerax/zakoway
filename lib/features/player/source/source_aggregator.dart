@@ -84,7 +84,7 @@ class AggregatedSourceState {
 /// 1. 并发上限控制: concurrencyLimit = 5 (严格限制后台与并发探测槽位)
 /// 2. 单源探活超时: probeTimeoutMs = 5000 (CancelToken + Future.timeout 双重熔断)
 /// 3. 极速响应流: 任何一个源探活状态变更立即触发 notifyListeners，按钮秒级响应变色
-/// 4. 竞速胜出首播: 首个进入 ready 态且含有效分集的源自动作为胜出源回调通知起播
+/// 4. 排序首位优先决议，失败秒级竞速接管: 排序第一的源优先采纳起播；若第一位失败，已就绪的次选竞速源 0ms 瞬间接管起播
 /// 5. 抢占式调度与用户互斥: 用户手动点选或换词时锁定为用户意图，废弃自动胜出
 /// 6. 单飞熔断联动: 异常/超时接入 PluginCircuitBreaker，防止坏源反复卡死界面
 class SourceAggregator extends ChangeNotifier {
@@ -317,6 +317,16 @@ class SourceAggregator extends ChangeNotifier {
 
     int completedCount = 0;
     final totalTargets = targetSources.length;
+    final primaryTarget = targetSources.first;
+    final primaryId = primaryTarget.id;
+    bool primaryFailed = false;
+
+    // 特殊处理说明：
+    // 当排序第一的主选源 (Top 1) 尚未决议时，其余并发源若先跑完且 Ready，
+    // 绝不能立即“抢跑篡位”胜出起播，而是暂存为 standbyWinner 备用。
+    // 只有在主选源确认失败 (empty/error/needsPick 或超时) 时，才秒级激活备用源接管起播，
+    // 从而严格保障“排序第一优先起播，失败才由竞速就绪源接管”的决议调度秩序。
+    ({SourceMeta target, List<SourceChapterRoad> roads, SourceSearchResult hit})? standbyWinner;
 
     // 真正并发向 5 个源同时发起探测
     for (final target in targetSources) {
@@ -330,14 +340,47 @@ class SourceAggregator extends ChangeNotifier {
           // 核心实时通知：只要某个源完成，立刻通知 UI 变色！
           notifyListeners();
 
-          // 胜出判定：若当前还没有胜出者、用户未手动接管，且该源已就绪，立即采纳起播！
-          if (!_userLocked &&
-              _winnerSourceId == null &&
-              sourceState.status == SourceProbeStatus.ready &&
+          final isPrimary = target.id == primaryId;
+          final isReady = sourceState.status == SourceProbeStatus.ready &&
               sourceState.matchedHit != null &&
-              sourceState.roads.isNotEmpty) {
-            _winnerSourceId = target.id;
-            onWinnerReady?.call(target, sourceState.roads, sourceState.matchedHit!);
+              sourceState.roads.isNotEmpty;
+
+          // 胜出判定：首位优先决议，失败秒级接管
+          if (!_userLocked && _winnerSourceId == null) {
+            if (isPrimary) {
+              if (isReady) {
+                // 1. 排序第一的主选源就绪：拥有最高决议权，无论比其他源早或晚，直接宣布胜出起播
+                _winnerSourceId = target.id;
+                onWinnerReady?.call(target, sourceState.roads, sourceState.matchedHit!);
+              } else {
+                // 2. 排序第一的主选源失败（未收录、异常、需点选或超时）
+                primaryFailed = true;
+                // 若此时已有其余次选源先行就绪，0ms 立即激活备用源接管起播
+                if (standbyWinner != null) {
+                  _winnerSourceId = standbyWinner!.target.id;
+                  onWinnerReady?.call(
+                    standbyWinner!.target,
+                    standbyWinner!.roads,
+                    standbyWinner!.hit,
+                  );
+                }
+              }
+            } else {
+              if (isReady) {
+                if (primaryFailed) {
+                  // 主选源此前已明确失败，首个就绪的次选源直接胜出接管
+                  _winnerSourceId = target.id;
+                  onWinnerReady?.call(target, sourceState.roads, sourceState.matchedHit!);
+                } else {
+                  // 主选源尚在请求中，次选源暂存备用，绝不擅自抢跑起播
+                  standbyWinner ??= (
+                    target: target,
+                    roads: sourceState.roads,
+                    hit: sourceState.matchedHit!,
+                  );
+                }
+              }
+            }
           }
 
           completedCount++;

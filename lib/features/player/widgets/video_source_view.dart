@@ -88,13 +88,14 @@ List<VideoSourceItem> getDefaultSourceItems() {
 
   final rawDynamicSources = SourceBundleManager.instance.sources;
   final dynamicSources = SourceOrderService.instance.getOrderedSources(rawDynamicSources);
+  final firstSourceId = dynamicSources.firstOrNull?.id;
   if (dynamicSources.isEmpty) {
     return descriptions.entries.map((e) {
       return VideoSourceItem(
         id: e.key,
         name: sourceNames[e.key] ?? e.key,
         description: e.value,
-        isDefault: e.key == 'xifan-next',
+        isDefault: e.key == descriptions.keys.first,
         isDirect: directMap[e.key] ?? true,
       );
     }).toList();
@@ -105,7 +106,7 @@ List<VideoSourceItem> getDefaultSourceItems() {
       id: s.id,
       name: s.name,
       description: descriptions[s.id] ?? 'v${s.version} · 动态解析',
-      isDefault: s.id == 'xifan-next',
+      isDefault: s.id == firstSourceId,
       isDirect: s.isDirect,
     );
   }).toList();
