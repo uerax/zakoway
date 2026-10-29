@@ -43,6 +43,9 @@ class AppPreferences {
   static const _kGuguSessionCookie = 'pref_gugu_session_cookie';
   static const _kCycaniToken = 'pref_cycani_token';
   static const _kCycaniTokenExpiresAt = 'pref_cycani_token_expires_at';
+  static const _kUpdateDownloadPrefix = 'pref_update_download_prefix';
+  static const _kIgnoredUpdateVersion = 'pref_ignored_update_version';
+  static const _kIncludeBetaChannel = 'pref_include_beta_channel';
 
   /// 默认公开免费 Animaku 服务端地址
   static const String defaultServerModeApiUrl = 'https://bakasine.eu.org';
@@ -450,5 +453,48 @@ class AppPreferences {
       await _prefs?.setString(_kCycaniToken, token);
       await _prefs?.setInt(_kCycaniTokenExpiresAt, expiresAt);
     }
+  }
+
+  // --- 更新下载镜像加速前缀与忽略版本持久化 ---
+
+  /// 获取用户自定义的 Release 下载加速镜像前缀（例如 https://ghproxy.net/）
+  static String getUpdateDownloadPrefix() {
+    return _prefs?.getString(_kUpdateDownloadPrefix) ?? '';
+  }
+
+  /// 保存下载加速镜像前缀，自动规范化尾部斜杠
+  static Future<void> setUpdateDownloadPrefix(String prefix) async {
+    final trimmed = prefix.trim();
+    if (trimmed.isEmpty) {
+      await _prefs?.remove(_kUpdateDownloadPrefix);
+      return;
+    }
+    final normalized = trimmed.endsWith('/') ? trimmed : '$trimmed/';
+    await _prefs?.setString(_kUpdateDownloadPrefix, normalized);
+  }
+
+  /// 获取用户选择跳过/忽略的版本号
+  static String? getIgnoredUpdateVersion() {
+    return _prefs?.getString(_kIgnoredUpdateVersion);
+  }
+
+  /// 保存或清除用户忽略的版本号
+  static Future<void> setIgnoredUpdateVersion(String? version) async {
+    if (version == null || version.isEmpty) {
+      await _prefs?.remove(_kIgnoredUpdateVersion);
+    } else {
+      await _prefs?.setString(_kIgnoredUpdateVersion, version);
+    }
+  }
+
+  /// 是否接收测试尝鲜版 (Beta) 更新推送
+  /// 默认值：若当前编译版本自带测试连字符则默认开启，否则默认关闭
+  static bool getIncludeBetaChannel() {
+    return _prefs?.getBool(_kIncludeBetaChannel) ?? false;
+  }
+
+  /// 设置是否接收测试尝鲜版更新
+  static Future<void> setIncludeBetaChannel(bool enabled) async {
+    await _prefs?.setBool(_kIncludeBetaChannel, enabled);
   }
 }

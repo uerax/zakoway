@@ -17,6 +17,14 @@ class AppConstants {
   /// 开源项目主页仓库地址
   static const String projectUrl = 'https://github.com/uerax/zakoway';
 
+  /// 开源项目 GitHub Releases 发布页地址
+  static const String projectReleasesUrl =
+      'https://github.com/uerax/zakoway/releases';
+
+  /// 借助 jsDelivr CDN 加速拉取版本检测元数据 JSON 的全球分发地址
+  static const String updateManifestCdnUrl =
+      'https://cdn.jsdelivr.net/gh/uerax/zakoway@master/version.json';
+
   /// 遵循 Bangumi 官方 API 开发者准则规范生成的合规 User-Agent:
   /// 格式: <开发者ID>/<应用名>/<版本号> (<项目主页URL>)
   static const String bangumiUserAgent =
