@@ -319,7 +319,7 @@ class AnimakuServerClient {
         final data = res.data['data'];
         if (data is Map) {
           final playUrl = data['playUrl']?.toString() ?? '';
-          final streamUrl = data['streamUrl']?.toString() ?? '';
+          final streamUrl = data['proxyUrl']?.toString() ?? data['streamUrl']?.toString() ?? '';
           final format = data['format']?.toString().toLowerCase() ?? 'hls';
           final headers = <String, String>{};
 
@@ -331,6 +331,44 @@ class AnimakuServerClient {
             });
           }
 
+          final subtitles = <SourceSubtitleTrack>[];
+          final fonts = <String>[];
+
+          // 优先解析统一 subtitle 资产包
+          if (data['subtitle'] is Map) {
+            final subBundle = data['subtitle'] as Map;
+            if (subBundle['subtitles'] is List) {
+              for (final s in subBundle['subtitles'] as List) {
+                if (s is Map) {
+                  subtitles.add(SourceSubtitleTrack.fromJson(Map<String, dynamic>.from(s)));
+                }
+              }
+            }
+            if (subBundle['fonts'] is List) {
+              for (final f in subBundle['fonts'] as List) {
+                if (f != null && f.toString().isNotEmpty) {
+                  fonts.add(f.toString());
+                }
+              }
+            }
+          }
+
+          // 兼容旧版顶层 subtitles 与 fonts 字段
+          if (subtitles.isEmpty && data['subtitles'] is List) {
+            for (final s in data['subtitles'] as List) {
+              if (s is Map) {
+                subtitles.add(SourceSubtitleTrack.fromJson(Map<String, dynamic>.from(s)));
+              }
+            }
+          }
+          if (fonts.isEmpty && data['fonts'] is List) {
+            for (final f in data['fonts'] as List) {
+              if (f != null && f.toString().isNotEmpty) {
+                fonts.add(f.toString());
+              }
+            }
+          }
+
           SourceResolveResult? rawResult;
           // 1. 优先源站原始播放地址直连（零服务器代理带宽原则，原生注入 Referer/Cookie/UA）
           if (playUrl.isNotEmpty) {
@@ -338,6 +376,8 @@ class AnimakuServerClient {
               url: playUrl,
               format: format == 'mp4' ? 'mp4' : 'hls',
               headers: headers,
+              subtitles: subtitles,
+              fonts: fonts,
             );
           } else if (streamUrl.isNotEmpty) {
             // 2. 兜底回退：若服务端未给出原始 playUrl，使用受控代理流地址
@@ -349,6 +389,8 @@ class AnimakuServerClient {
               url: fullStreamUrl,
               format: format == 'mp4' ? 'mp4' : 'hls',
               headers: headers,
+              subtitles: subtitles,
+              fonts: fonts,
             );
           }
 

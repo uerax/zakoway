@@ -12,7 +12,7 @@ void main() {
     final source = NeosekSource();
     expect(source.id, 'neosekai');
     expect(source.name, 'neosek');
-    expect(source.isDirect, isTrue);
+    expect(source.isDirect, isFalse);
     expect(source.description, contains('香港 CDN'));
 
     final runtime = NativeSourceRuntime();
@@ -21,7 +21,7 @@ void main() {
     final defaultItems = getDefaultSourceItems();
     final neosekItem = defaultItems.firstWhere((i) => i.id == 'neosekai');
     expect(neosekItem.name, 'neosek');
-    expect(neosekItem.isDirect, isTrue);
+    expect(neosekItem.isDirect, isFalse);
   });
 
   test('测试 NeosekSource 搜索、分集与直链解析 (优先 original 原画)', () async {

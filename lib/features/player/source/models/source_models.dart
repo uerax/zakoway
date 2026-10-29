@@ -74,15 +74,54 @@ class SourceChapterRoad {
   };
 }
 
+/// 外挂字幕轨数据模型
+class SourceSubtitleTrack {
+  final String id;
+  final String label;
+  final String url;
+  final String format; // 'ass' | 'vtt'
+  final bool isDefault;
+
+  const SourceSubtitleTrack({
+    required this.id,
+    required this.label,
+    required this.url,
+    this.format = 'ass',
+    this.isDefault = false,
+  });
+
+  factory SourceSubtitleTrack.fromJson(Map<String, dynamic> json) {
+    return SourceSubtitleTrack(
+      id: json['id']?.toString() ?? '',
+      label: json['label']?.toString() ?? '外挂字幕',
+      url: json['url']?.toString() ?? '',
+      format: json['format']?.toString().toLowerCase() ?? 'ass',
+      isDefault: json['default'] as bool? ?? json['isDefault'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'label': label,
+    'url': url,
+    'format': format,
+    'default': isDefault,
+  };
+}
+
 class SourceResolveResult {
   final String url;
   final Map<String, String> headers;
   final String format; // 'mp4' | 'hls'
+  final List<SourceSubtitleTrack> subtitles;
+  final List<String> fonts;
 
   const SourceResolveResult({
     required this.url,
     this.headers = const {},
     this.format = 'hls',
+    this.subtitles = const [],
+    this.fonts = const [],
   });
 
   factory SourceResolveResult.fromJson(Map<String, dynamic> json) {
@@ -98,10 +137,21 @@ class SourceResolveResult {
     final rawFormat = json['format']?.toString();
     final format = rawFormat ?? (url.toLowerCase().contains('.mp4') ? 'mp4' : 'hls');
 
+    final rawSubtitles = json['subtitles'] as List? ?? [];
+    final subtitles = rawSubtitles
+        .whereType<Map<String, dynamic>>()
+        .map(SourceSubtitleTrack.fromJson)
+        .toList();
+
+    final rawFonts = json['fonts'] as List? ?? [];
+    final fonts = rawFonts.map((e) => e.toString()).toList();
+
     return SourceResolveResult(
       url: url,
       headers: headers,
       format: format,
+      subtitles: subtitles,
+      fonts: fonts,
     );
   }
 
@@ -109,6 +159,9 @@ class SourceResolveResult {
     'url': url,
     'headers': headers,
     'format': format,
+    if (subtitles.isNotEmpty)
+      'subtitles': subtitles.map((s) => s.toJson()).toList(),
+    if (fonts.isNotEmpty) 'fonts': fonts,
   };
 }
 

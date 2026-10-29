@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:zakoway/features/player/source/models/source_models.dart';
+import 'package:zakoway/features/player/source/server/adapters/neosek_animaku_adapter.dart';
 import 'package:zakoway/features/player/source/server/adapters/xifan_next_animaku_adapter.dart';
 import 'package:zakoway/features/player/source/server/animaku_server_client.dart';
 
@@ -76,6 +77,7 @@ class AnimakuAdapterRegistry {
     if (_defaultsInitialized) return;
     _defaultsInitialized = true;
     register(XifanNextAnimakuAdapter());
+    register(NeosekAnimakuAdapter());
   }
 
   /// 注册源专属的服务端适配器

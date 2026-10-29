@@ -8,6 +8,7 @@ import 'package:zakoway/features/player/source/engines/local_source_engine.dart'
 import 'package:zakoway/features/player/source/models/source_models.dart';
 import 'package:zakoway/features/player/source/native_source_runtime.dart';
 import 'package:zakoway/features/player/source/server/adapters/animaku_source_adapter.dart';
+import 'package:zakoway/features/player/source/server/adapters/neosek_animaku_adapter.dart';
 import 'package:zakoway/features/player/source/server/adapters/xifan_next_animaku_adapter.dart';
 import 'package:zakoway/features/player/source/server/animaku_server_client.dart';
 import 'package:zakoway/features/player/widgets/episode_picker_section.dart';
@@ -422,13 +423,171 @@ void main() {
       expect(m3u8Optimized.headers['Referer'], equals('https://next.xifanacg.com/'));
     });
 
-    test('AnimakuAdapterRegistry 默认内置稀饭适配器', () {
+    test('AnimakuAdapterRegistry 默认内置稀饭与 Neosek 适配器', () {
       AnimakuAdapterRegistry.resetForTesting(reinitializeDefaults: true);
-      final adapter = AnimakuAdapterRegistry.get('xifan-next');
-      expect(adapter, isA<XifanNextAnimakuAdapter>());
+      final xifanAdapter = AnimakuAdapterRegistry.get('xifan-next');
+      expect(xifanAdapter, isA<XifanNextAnimakuAdapter>());
       expect(AnimakuAdapterRegistry.hasCustomAdapter('xifan-next'), isTrue);
       // 兼容别名
       expect(AnimakuAdapterRegistry.get('xifan'), isA<XifanNextAnimakuAdapter>());
+
+      final neosekAdapter = AnimakuAdapterRegistry.get('neosekai');
+      expect(neosekAdapter, isA<NeosekAnimakuAdapter>());
+      expect(AnimakuAdapterRegistry.hasCustomAdapter('neosekai'), isTrue);
+      // 兼容别名
+      expect(AnimakuAdapterRegistry.get('neosek'), isA<NeosekAnimakuAdapter>());
+    });
+
+    test('AnimakuServerClient 完整解析最新 subtitle 与 subtitles 外挂字幕契约', () async {
+      final mockDio = Dio();
+      mockDio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            if (options.path.endsWith('/api/source/resolve')) {
+              return handler.resolve(
+                Response(
+                  requestOptions: options,
+                  statusCode: 200,
+                  data: {
+                    'data': {
+                      'playUrl': 'https://media.neosek.ai/video/828_ep1_1080p.mp4',
+                      'proxyUrl': '/api/media/stream?url=test',
+                      'format': 'mp4',
+                      'headers': {
+                        'Referer': 'https://neosek.ai/',
+                        'User-Agent': 'Test-Agent',
+                      },
+                      'subtitle': {
+                        'subtitles': [
+                          {
+                            'id': 'sub-0',
+                            'label': '简体中文 (ASS特效)',
+                            'url': 'https://assets.neosek.ai/subs/828_ep1_zh.ass',
+                            'format': 'ass',
+                            'default': true,
+                          },
+                          {
+                            'id': 'sub-1',
+                            'label': '繁体中文 (VTT)',
+                            'url': 'https://assets.neosek.ai/subs/828_ep1_tc.vtt',
+                            'format': 'vtt',
+                            'default': false,
+                          },
+                        ],
+                        'fonts': [
+                          'https://assets.neosek.ai/fonts/SourceHanSansCN-Bold.woff2',
+                        ],
+                      },
+                    },
+                  },
+                ),
+              );
+            }
+            return handler.next(options);
+          },
+        ),
+      );
+
+      final client = AnimakuServerClient(dio: mockDio);
+      final res = await client.resolve('neosekai', 'https://neosek.ai/anime/0/828/episode/101');
+
+      expect(res.url, equals('https://media.neosek.ai/video/828_ep1_1080p.mp4'));
+      expect(res.format, equals('mp4'));
+      expect(res.headers['Referer'], equals('https://neosek.ai/'));
+      expect(res.subtitles.length, equals(2));
+      expect(res.subtitles.first.label, contains('简体中文'));
+      expect(res.subtitles.first.isDefault, isTrue);
+      expect(res.subtitles[1].label, contains('繁体中文'));
+      expect(res.subtitles[1].isDefault, isFalse);
+      expect(res.fonts.first, contains('SourceHanSansCN-Bold.woff2'));
+    });
+
+    test('NeosekAnimakuAdapter 自动清洗外挂字幕且在缺失时通过源站补齐', () async {
+      final mockDio = Dio();
+      mockDio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            // 模拟源站 units/items 返回外挂字幕
+            if (options.path.contains('/api/v1/units/')) {
+              return handler.resolve(
+                Response(
+                  requestOptions: options,
+                  statusCode: 200,
+                  data: {
+                    'code': 0,
+                    'data': {
+                      'items': [
+                        {
+                          'video': {'original': {'url': 'https://media.neosek.ai/ep1.mp4'}},
+                          'subtitles': [
+                            {
+                              'id': 's1',
+                              'label': '简体中文',
+                              'url': 'https://assets.neosek.ai/s1.ass',
+                              'format': 'ass',
+                            },
+                          ],
+                          'fonts': [
+                            'https://assets.neosek.ai/font1.woff2',
+                          ],
+                        },
+                      ],
+                    },
+                  },
+                ),
+              );
+            }
+            return handler.next(options);
+          },
+        ),
+      );
+
+      final adapter = NeosekAnimakuAdapter(dio: mockDio);
+
+      // 情况 1: 服务端未返回字幕（旧服务端），适配器自动调用源站 API 补齐
+      const rawWithoutSub = SourceResolveResult(
+        url: 'https://media.neosek.ai/ep1.mp4',
+        format: 'mp4',
+      );
+      final enriched = await adapter.transformResolve(
+        rawWithoutSub,
+        episodeUrl: 'https://neosek.ai/anime/828/101',
+      );
+      expect(enriched.headers['Referer'], equals('https://neosek.ai/'));
+      expect(enriched.subtitles, isNotEmpty);
+      expect(enriched.subtitles.first.label, equals('简体中文'));
+      expect(enriched.subtitles.first.isDefault, isTrue);
+      expect(enriched.fonts.first, contains('font1.woff2'));
+
+      // 情况 2: 服务端已返回多条字幕，确保 ASS 简中激活为 isDefault
+      const rawWithSubs = SourceResolveResult(
+        url: 'https://media.neosek.ai/ep1.mp4',
+        format: 'mp4',
+        subtitles: [
+          SourceSubtitleTrack(
+            id: 'tc',
+            label: '繁体中文 (VTT)',
+            url: 'https://test/tc.vtt',
+            format: 'vtt',
+            isDefault: true,
+          ),
+          SourceSubtitleTrack(
+            id: 'sc',
+            label: '简体中文 (ASS)',
+            url: 'https://test/sc.ass',
+            format: 'ass',
+            isDefault: false,
+          ),
+        ],
+      );
+      final optimized = await adapter.transformResolve(
+        rawWithSubs,
+        episodeUrl: 'https://neosek.ai/anime/828/101',
+      );
+      final scTrack = optimized.subtitles.firstWhere((s) => s.id == 'sc');
+      final tcTrack = optimized.subtitles.firstWhere((s) => s.id == 'tc');
+      expect(scTrack.isDefault, isTrue);
+      expect(tcTrack.isDefault, isFalse);
     });
 
     test('LocalSourceEngine 与 AnimakuServerEngine 双引擎完全解耦与独立运作', () async {

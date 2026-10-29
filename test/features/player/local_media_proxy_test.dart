@@ -50,6 +50,26 @@ void main() {
           req.response.headers.set('Content-Type', 'video/MP2T');
           req.response.write('TS_SEGMENT_1_CONTENT');
           await req.response.close();
+        } else if (req.uri.path == '/master.m3u8') {
+          req.response.headers.set('Content-Type', 'application/vnd.apple.mpegurl');
+          req.response.write(
+            '#EXTM3U\n'
+            '#EXT-X-VERSION:7\n'
+            '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="ja",URI="audio.m3u8"\n'
+            '#EXT-X-STREAM-INF:BANDWIDTH=5000000,AUDIO="aud"\n'
+            'video-1080p.m3u8\n',
+          );
+          await req.response.close();
+        } else if (req.uri.path == '/video-1080p.m3u8') {
+          req.response.headers.set('Content-Type', 'application/vnd.apple.mpegurl');
+          req.response.write(
+            '#EXTM3U\n'
+            '#EXT-X-VERSION:7\n'
+            '#EXT-X-MAP:URI="init.mp4"\n'
+            '#EXTINF:6.0,\n'
+            'seg1.m4s\n',
+          );
+          await req.response.close();
         } else if (req.uri.path == '/seg2.ts') {
           req.response.statusCode = HttpStatus.ok;
           req.response.headers.set('Content-Type', 'video/MP2T');
@@ -154,6 +174,48 @@ void main() {
       expect(resp2.headers.value('x-proxy-cache'), equals('HIT'));
       final body2 = await resp2.transform(utf8.decoder).join();
       expect(body2, equals('TS_SEGMENT_1_CONTENT'));
+
+      client.close();
+    });
+
+    test('高阶 Master Playlist 多码率索引与 fMP4 #EXT-X-MAP 递归改写测试', () async {
+      final remoteMasterUrl = 'http://127.0.0.1:$remotePort/master.m3u8';
+      final proxyMasterUrl = LocalMediaProxyServer.instance.buildProxyUrl(remoteMasterUrl);
+
+      final client = HttpClient();
+
+      // 1. 请求 master.m3u8
+      final req1 = await client.getUrl(Uri.parse(proxyMasterUrl));
+      final resp1 = await req1.close();
+      expect(resp1.statusCode, equals(HttpStatus.ok));
+      final body1 = await resp1.transform(utf8.decoder).join();
+
+      final port = LocalMediaProxyServer.instance.port;
+
+      // 验证 #EXT-X-MEDIA 中的音频轨被正确改写为 /stream
+      expect(body1, contains('#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="ja",URI="http://127.0.0.1:$port/stream?url='));
+      expect(body1, contains('audio.m3u8'));
+
+      // 验证子播放列表被正确改写为 /stream (而非 /segment)
+      expect(body1, contains('http://127.0.0.1:$port/stream?url='));
+      expect(body1, contains('video-1080p.m3u8'));
+
+      // 2. 模拟播放器递归请求子播放列表 video-1080p.m3u8
+      final subProxyUrl = LocalMediaProxyServer.instance.buildProxyUrl(
+        'http://127.0.0.1:$remotePort/video-1080p.m3u8',
+      );
+      final req2 = await client.getUrl(Uri.parse(subProxyUrl));
+      final resp2 = await req2.close();
+      expect(resp2.statusCode, equals(HttpStatus.ok));
+      final body2 = await resp2.transform(utf8.decoder).join();
+
+      // 验证 #EXT-X-MAP 中的 init.mp4 被正确改写为 /segment
+      expect(body2, contains('#EXT-X-MAP:URI="http://127.0.0.1:$port/segment?url='));
+      expect(body2, contains('init.mp4'));
+
+      // 验证 fMP4 切片 seg1.m4s 被正确改写为 /segment
+      expect(body2, contains('http://127.0.0.1:$port/segment?url='));
+      expect(body2, contains('seg1.m4s'));
 
       client.close();
     });

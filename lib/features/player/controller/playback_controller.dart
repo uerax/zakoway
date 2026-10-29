@@ -20,6 +20,7 @@ import 'package:zakoway/features/player/core/proxy/local_media_proxy_server.dart
 import 'package:zakoway/features/player/core/utils/playback_tracer.dart';
 import 'package:zakoway/features/player/services/player_preferences_service.dart';
 import 'package:zakoway/features/player/services/shader_asset_service.dart';
+import 'package:zakoway/features/player/source/models/source_models.dart';
 import 'playback_controller_interface.dart';
 
 export 'playback_controller_factory.dart';
@@ -73,6 +74,18 @@ class ZakowayPlaybackController implements PlaybackController {
   @override
   final ValueNotifier<VideoController?> videoControllerNotifier =
       ValueNotifier<VideoController?>(null);
+
+  final ValueNotifier<List<SourceSubtitleTrack>> _availableSubtitlesNotifier =
+      ValueNotifier<List<SourceSubtitleTrack>>(const []);
+  @override
+  ValueNotifier<List<SourceSubtitleTrack>> get availableSubtitlesNotifier =>
+      _availableSubtitlesNotifier;
+
+  final ValueNotifier<SourceSubtitleTrack?> _currentSubtitleTrackNotifier =
+      ValueNotifier<SourceSubtitleTrack?>(null);
+  @override
+  ValueNotifier<SourceSubtitleTrack?> get currentSubtitleTrackNotifier =>
+      _currentSubtitleTrackNotifier;
 
   final StreamController<Duration> _seekStreamController =
       StreamController<Duration>.broadcast();
@@ -341,9 +354,19 @@ class ZakowayPlaybackController implements PlaybackController {
     Duration? start,
     bool autoplay = true,
     bool isPreResolved = true,
+    List<SourceSubtitleTrack>? subtitles,
   }) async {
     _currentUri = uri;
     PlaybackTracer.instance.current?.markBackendOpenDispatched();
+
+    final subs = subtitles ?? const [];
+    _availableSubtitlesNotifier.value = subs;
+
+    SourceSubtitleTrack? defaultTrack;
+    if (subs.isNotEmpty) {
+      defaultTrack = subs.firstWhere((s) => s.isDefault, orElse: () => subs.first);
+    }
+    _currentSubtitleTrackNotifier.value = defaultTrack;
 
     // 起播/切集立即进入 loading 状态并撤销首帧遮罩标记，防止残影
     core.value = core.value.copyWith(
@@ -368,6 +391,9 @@ class ZakowayPlaybackController implements PlaybackController {
       } catch (_) {}
     }
 
+    // 预注入当前选定的默认外挂字幕轨
+    _backend?.setSubtitleTrack(defaultTrack).ignore();
+
     // 特殊处理说明：
     // 本地流媒体反向代理无缝映射 (Local Media Proxy)：
     // 远程流无论是 MP4 还是 HLS M3U8，全部自动重定向至纯本地回环地址 (127.0.0.1:port)。
@@ -387,6 +413,12 @@ class ZakowayPlaybackController implements PlaybackController {
         isPreResolved: isPreResolved,
       );
     }
+  }
+
+  @override
+  Future<void> setSubtitleTrack(SourceSubtitleTrack? track) async {
+    _currentSubtitleTrackNotifier.value = track;
+    await _backend?.setSubtitleTrack(track);
   }
 
   // ===========================================================================

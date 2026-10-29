@@ -191,7 +191,7 @@ class LocalMediaProxyServer {
         final fileLen = cacheFile.lengthSync();
         if (fileLen > 0) {
           clientResp.statusCode = HttpStatus.ok;
-          clientResp.headers.set('Content-Type', 'video/MP2T');
+          clientResp.headers.set('Content-Type', _resolveSegmentContentType(remoteUrl));
           clientResp.headers.set('Content-Length', fileLen.toString());
           clientResp.headers.set('Access-Control-Allow-Origin', '*');
           clientResp.headers.set('Accept-Ranges', 'bytes');
@@ -322,14 +322,55 @@ class LocalMediaProxyServer {
     }
   }
 
+  static final RegExp _hlsUriAttributeRegex = RegExp(r'URI="([^"]+)"');
+
+  /// 根据分片扩展名解析对应的 Content-Type，确保 fMP4/MP4/TS/KEY 格式准确
+  String _resolveSegmentContentType(String url, {String? defaultType}) {
+    final lower = url.toLowerCase();
+    if (lower.contains('.mp4') || lower.contains('.m4s') || lower.contains('.m4a') || lower.contains('init_')) {
+      return 'video/mp4';
+    }
+    if (lower.contains('.key')) {
+      return 'application/octet-stream';
+    }
+    if (lower.contains('.vtt')) {
+      return 'text/vtt';
+    }
+    return defaultType ?? 'video/MP2T';
+  }
+
+  /// 构建本地代理回环 URL（严格区分 /stream 播放列表递归与 /segment 实体分片）
+  String _buildLocalProxyUrl({
+    required String targetUrl,
+    required bool isStream,
+    required Map<String, String> headers,
+  }) {
+    final query = <String, String>{
+      'url': targetUrl,
+    };
+    if (headers.isNotEmpty) {
+      query['headers'] = jsonEncode(headers);
+    }
+    return Uri(
+      scheme: 'http',
+      host: '127.0.0.1',
+      port: _port,
+      path: isStream ? '/stream' : '/segment',
+      queryParameters: query,
+    ).toString();
+  }
+
   /// M3U8 文本逐行解析与切片 URL 回环重写引擎
   ///
   /// 特殊处理说明：
-  /// 此处严禁对 M3U8 做任何丢弃切片的“虚拟剪裁”！
-  /// 点播流 (VOD HLS) 的总时长由全部分片累加而成。若人为剔除历史断点前的切片，
-  /// 会导致播放器 Duration 永久缩水、时间轴归零错乱、弹幕无法对齐并引发滚雪球式截短。
-  /// 断点起播已由底层 media_kit 原生 `Media(start: start)` 通过 mpv `--start` 一体化直达，
-  /// 无需且绝不可侵入 M3U8 的切片列表。
+  /// 1. 严禁对 M3U8 做任何丢弃切片的“虚拟剪裁”，点播流总时长由全部分片累加而成；
+  /// 2. HLS 高阶协议标签严密改写 (RFC 8216 / RFC 8216bis)：
+  ///    - #EXT-X-MAP:URI="..." (fMP4 初始化分片头)：重写为 /segment 代理地址，避免相对路径请求 127.0.0.1 导致 404；
+  ///    - #EXT-X-MEDIA:TYPE=AUDIO/SUBTITLES (外挂/独立音轨与字幕轨)：若为 .m3u8 重写为 /stream 代理地址，保证多音轨与字幕完整加载；
+  ///    - #EXT-X-KEY:URI="..." (AES 加密密钥)：重写为 /segment 代理地址，自动附带 Referer 凭证，消除 403 无法解密问题；
+  /// 3. Master Playlist 多码率索引子播放列表：
+  ///    - 非 # 开头的行如果为 .m3u8 或上一行为 #EXT-X-STREAM-INF，重写为 /stream 路由，进行二级递归改写，
+  ///      绝不能粗暴当作 /segment 二进制 TS 切片，从根本上杜绝解复用器格式冲突崩溃。
   Future<void> _handleM3u8Rewrite(
     HttpClientResponse remoteResp,
     HttpResponse clientResp, {
@@ -346,28 +387,77 @@ class LocalMediaProxyServer {
       final line = lines[i].trim();
       if (line.isEmpty) continue;
 
+      if (line.startsWith('#EXT-X-MAP')) {
+        // fMP4 初始化分片头：#EXT-X-MAP:URI="init_0.mp4"
+        final match = _hlsUriAttributeRegex.firstMatch(line);
+        if (match != null) {
+          final rawUri = match.group(1)!;
+          final absoluteUrl = baseUri.resolve(rawUri).toString();
+          final localUrl = _buildLocalProxyUrl(
+            targetUrl: absoluteUrl,
+            isStream: false,
+            headers: headers,
+          );
+          rewrittenLines.add(line.replaceFirst(rawUri, localUrl));
+          continue;
+        }
+      } else if (line.startsWith('#EXT-X-MEDIA')) {
+        // 分离音轨/字幕轨：#EXT-X-MEDIA:TYPE=AUDIO,...,URI="v1/audio-0/index.m3u8"
+        final match = _hlsUriAttributeRegex.firstMatch(line);
+        if (match != null) {
+          final rawUri = match.group(1)!;
+          final absoluteUrl = baseUri.resolve(rawUri).toString();
+          final isSubStream = absoluteUrl.toLowerCase().contains('.m3u8');
+          final localUrl = _buildLocalProxyUrl(
+            targetUrl: absoluteUrl,
+            isStream: isSubStream,
+            headers: headers,
+          );
+          rewrittenLines.add(line.replaceFirst(rawUri, localUrl));
+          continue;
+        }
+      } else if (line.startsWith('#EXT-X-KEY')) {
+        // AES-128 加密密钥：#EXT-X-KEY:METHOD=AES-128,URI="ts.key"
+        final match = _hlsUriAttributeRegex.firstMatch(line);
+        if (match != null) {
+          final rawUri = match.group(1)!;
+          final absoluteUrl = baseUri.resolve(rawUri).toString();
+          final localUrl = _buildLocalProxyUrl(
+            targetUrl: absoluteUrl,
+            isStream: false,
+            headers: headers,
+          );
+          rewrittenLines.add(line.replaceFirst(rawUri, localUrl));
+          continue;
+        }
+      }
+
       if (line.startsWith('#')) {
         rewrittenLines.add(line);
       } else {
-        final absoluteTsUrl = baseUri.resolve(line).toString();
-        orderedSegments.add(absoluteTsUrl);
+        final absoluteUrl = baseUri.resolve(line).toString();
+        // 区分该 URI 究竟是子播放列表 (Variant Playlist) 还是具体音视频媒体切片
+        final isSubPlaylist = absoluteUrl.toLowerCase().contains('.m3u8') ||
+            (i > 0 && lines[i - 1].trim().startsWith('#EXT-X-STREAM-INF'));
 
-        final segmentQuery = <String, String>{
-          'url': absoluteTsUrl,
-        };
-        if (headers.isNotEmpty) {
-          segmentQuery['headers'] = jsonEncode(headers);
+        if (isSubPlaylist) {
+          // 子播放列表路由到 /stream，允许播放器递归请求并由代理二次改写
+          final localStreamUrl = _buildLocalProxyUrl(
+            targetUrl: absoluteUrl,
+            isStream: true,
+            headers: headers,
+          );
+          rewrittenLines.add(localStreamUrl);
+        } else {
+          // 真实视频/音频切片登记入后继预读表并路由到 /segment 享受缓存加速
+          orderedSegments.add(absoluteUrl);
+          final localSegmentUrl = _buildLocalProxyUrl(
+            targetUrl: absoluteUrl,
+            isStream: false,
+            headers: headers,
+          );
+          rewrittenLines.add(localSegmentUrl);
         }
-
-        final localSegmentUrl = Uri(
-          scheme: 'http',
-          host: '127.0.0.1',
-          port: _port,
-          path: '/segment',
-          queryParameters: segmentQuery,
-        ).toString();
-
-        rewrittenLines.add(localSegmentUrl);
       }
     }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zakoway/core/utils/font_manager.dart';
 
 /// 面板分节小标题
 class PanelSectionHeader extends StatelessWidget {
@@ -141,7 +142,7 @@ class PanelOptionChip extends StatelessWidget {
           ),
           child: Text(
             label,
-            style: TextStyle(
+            style: appTextStyle(
               color: Colors.white,
               fontSize: 11,
               fontWeight: selected ? FontWeight.bold : FontWeight.w500,

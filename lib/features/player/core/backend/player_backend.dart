@@ -8,6 +8,7 @@
 /// 3. generationId 由适配层在收到底层事件时统一打上，随事件向上派发。
 library;
 
+import '../../source/models/source_models.dart';
 import '../models/backend_error.dart';
 import 'backend_event.dart';
 
@@ -42,6 +43,9 @@ abstract class PlayerBackend {
 
   /// 精准寻道
   Future<void> seek(Duration position);
+
+  /// 切换或设置外挂字幕轨（传入 null 即关闭或卸载外挂字幕）
+  Future<void> setSubtitleTrack(SourceSubtitleTrack? track);
 
   /// 释放播放器底层资源
   Future<void> dispose();

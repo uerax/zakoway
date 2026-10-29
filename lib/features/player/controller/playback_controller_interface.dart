@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:zakoway/features/player/source/models/source_models.dart';
 import 'playback_state.dart';
 
 /// 播放器控制器统一接口契约
@@ -43,7 +44,17 @@ abstract interface class PlaybackController {
     Duration? start,
     bool autoplay = true,
     bool isPreResolved = true,
+    List<SourceSubtitleTrack>? subtitles,
   });
+
+  /// 当前视频源提供的可用外挂字幕轨列表
+  ValueNotifier<List<SourceSubtitleTrack>> get availableSubtitlesNotifier;
+
+  /// 当前选中的外挂字幕轨（null 代表关闭字幕）
+  ValueNotifier<SourceSubtitleTrack?> get currentSubtitleTrackNotifier;
+
+  /// 切换外挂字幕轨（传入 null 即关闭字幕）
+  Future<void> setSubtitleTrack(SourceSubtitleTrack? track);
 
   /// 播放 / 暂停切换
   Future<void> togglePlay();

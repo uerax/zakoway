@@ -2,6 +2,7 @@ library;
 
 import 'dart:async';
 import 'package:media_kit/media_kit.dart';
+import 'package:zakoway/features/player/source/models/source_models.dart';
 
 import '../classifier/player_log_classifier.dart';
 import '../models/backend_error.dart';
@@ -91,6 +92,7 @@ class MediaKitPlayerBackend implements PlayerBackend {
   int? _videoParamsDh;
   int? _lastEmittedWidth = -1;
   int? _lastEmittedHeight = -1;
+  SourceSubtitleTrack? _pendingSubtitleTrack;
 
   final List<StreamSubscription<dynamic>> _subscriptions = [];
 
@@ -193,6 +195,22 @@ class MediaKitPlayerBackend implements PlayerBackend {
     await _player.open(media, play: autoplay);
 
     // 特殊处理说明：
+    // 外挂字幕与特效字体排版渲染：
+    // 在底层媒体 open 握手就绪后立即挂载待处理外挂字幕轨，
+    // 使得首帧出画时即与外部 ASS/VTT 字幕完美同步。
+    if (_pendingSubtitleTrack != null) {
+      try {
+        await _player.setSubtitleTrack(
+          SubtitleTrack.uri(
+            _pendingSubtitleTrack!.url,
+            title: _pendingSubtitleTrack!.label,
+            language: 'zh',
+          ),
+        );
+      } catch (_) {}
+    }
+
+    // 特殊处理说明：
     // 同步对齐底层已持有的物理尺寸：
     // 当跨视频复用常驻播放器内核时，若新旧视频具有相同分辨率（如 1080P），底层 Stream 可能不会重复发射变化事件；
     // 主动检查并同步已有尺寸，确保新 open 会话的代际门禁与尺寸状态准确就绪。
@@ -222,6 +240,24 @@ class MediaKitPlayerBackend implements PlayerBackend {
   @override
   Future<void> seek(Duration position) async {
     await _player.seek(position);
+  }
+
+  @override
+  Future<void> setSubtitleTrack(SourceSubtitleTrack? track) async {
+    _pendingSubtitleTrack = track;
+    try {
+      if (track == null) {
+        await _player.setSubtitleTrack(SubtitleTrack.no());
+      } else {
+        await _player.setSubtitleTrack(
+          SubtitleTrack.uri(
+            track.url,
+            title: track.label,
+            language: 'zh',
+          ),
+        );
+      }
+    } catch (_) {}
   }
 
   @override

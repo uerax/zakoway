@@ -266,6 +266,7 @@ class VideoPlaySessionCoordinator extends ChangeNotifier {
     Map<String, String>? httpHeaders,
     Duration? start,
     bool isPreResolved = true,
+    List<SourceSubtitleTrack>? subtitles,
   }) async {
     await waitForRouteAnimation();
     if (_disposed) return;
@@ -274,6 +275,7 @@ class VideoPlaySessionCoordinator extends ChangeNotifier {
       httpHeaders: httpHeaders,
       start: start,
       isPreResolved: isPreResolved,
+      subtitles: subtitles,
     );
   }
 
@@ -513,6 +515,7 @@ class VideoPlaySessionCoordinator extends ChangeNotifier {
         httpHeaders: result.headers,
         start: startPos,
         isPreResolved: true,
+        subtitles: result.subtitles,
       );
 
       final slots = currentSlots;

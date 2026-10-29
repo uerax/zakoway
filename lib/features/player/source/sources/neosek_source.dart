@@ -182,28 +182,54 @@ class NeosekSource extends VideoSource {
     final items = (resData?['data']?['items'] as List?) ?? [];
     String? playUrl;
     String format = 'hls';
+    final subtitles = <SourceSubtitleTrack>[];
+    final fonts = <String>[];
 
     // 特殊处理说明：
     // 该站 HLS Master Playlist (fMP4) 包含 1400+ 秒独立长 VTT 字幕分片，
     // 在底层 libmpv/FFmpeg 解析交错时间戳时会触发 Packet corrupt 导致视频帧丢失黑屏。
     // 优先采用原站提供的 original 完整原画直链 (source.mkv / source.mp4)，
     // 零转码损失、原生支持 Range 寻道且播放秒开；无 original 时再回退 hls。
+    // 同时提取原站提供的 ASS/VTT 外挂字幕与独立字体包，由播放器原生 libass 引擎高保真渲染。
     for (final item in items.whereType<Map<String, dynamic>>()) {
       final video = item['video'] as Map<String, dynamic>?;
-      if (video == null) continue;
-
-      final originalUrl = video['original']?['url']?.toString().trim();
-      if (originalUrl != null && originalUrl.isNotEmpty) {
-        playUrl = originalUrl;
-        format = originalUrl.contains('.m3u8') ? 'hls' : 'mp4';
-        break;
+      if (video != null && playUrl == null) {
+        final originalUrl = video['original']?['url']?.toString().trim();
+        if (originalUrl != null && originalUrl.isNotEmpty) {
+          playUrl = originalUrl;
+          format = originalUrl.contains('.m3u8') ? 'hls' : 'mp4';
+        } else {
+          final hlsUrl = video['hls']?['url']?.toString().trim();
+          if (hlsUrl != null && hlsUrl.isNotEmpty) {
+            playUrl = hlsUrl;
+            format = 'hls';
+          }
+        }
       }
 
-      final hlsUrl = video['hls']?['url']?.toString().trim();
-      if (hlsUrl != null && hlsUrl.isNotEmpty) {
-        playUrl = hlsUrl;
-        format = 'hls';
-        break;
+      final rawSubs = (item['subtitles'] as List?) ?? (item['captions'] as List?) ?? [];
+      for (final s in rawSubs.whereType<Map<String, dynamic>>()) {
+        final subUrl = s['url']?.toString() ?? s['file']?['url']?.toString();
+        if (subUrl != null && subUrl.isNotEmpty) {
+          final label = s['label']?.toString() ?? s['name']?.toString() ?? s['language']?.toString() ?? '外挂字幕';
+          final subFormat = (s['format']?.toString() ?? (subUrl.endsWith('.ass') ? 'ass' : 'vtt')).toLowerCase();
+          final isDef = s['default'] as bool? ?? false;
+          subtitles.add(SourceSubtitleTrack(
+            id: s['id']?.toString() ?? 'sub-${subtitles.length}',
+            label: label,
+            url: subUrl,
+            format: subFormat,
+            isDefault: isDef,
+          ));
+        }
+      }
+
+      final rawFonts = (item['fonts'] as List?) ?? [];
+      for (final f in rawFonts) {
+        final fontUrl = f is Map ? f['url']?.toString() : f?.toString();
+        if (fontUrl != null && fontUrl.isNotEmpty) {
+          fonts.add(fontUrl);
+        }
       }
     }
 
@@ -218,6 +244,8 @@ class NeosekSource extends VideoSource {
         'User-Agent': _kDefaultUserAgent,
       },
       format: format,
+      subtitles: subtitles,
+      fonts: fonts,
     );
   }
 }
