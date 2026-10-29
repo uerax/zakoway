@@ -205,5 +205,28 @@ void main() {
       final recs = await client.getRecommendations(364450);
       expect(recs.length, greaterThanOrEqualTo(10));
     });
+
+    test('peekCommentsPage returns null when unpopulated, and returns cached comments when populated', () async {
+      final client = BangumiClient();
+      expect(client.peekCommentsPage(999999, page: 1), isNull);
+      expect(client.peekCommentsPage(364450, page: 0), isNull);
+      expect(client.peekCommentsPage(364450, page: 2001), isNull);
+
+      // 模拟调用 getCommentsPage 填充第 1 块 Chunk 缓存 (30条)
+      final res = await client.getCommentsPage(364450, page: 1, pageSize: 10);
+      if (res.items.isNotEmpty) {
+        final peeked = client.peekCommentsPage(364450, page: 1, pageSize: 10);
+        expect(peeked, isNotNull);
+        expect(peeked!.items.length, res.items.length);
+        expect(peeked.total, res.total);
+        expect(peeked.isStale, isFalse);
+
+        // 第 2 页 (index 10~19) 属于同一个 30 条 Chunk，同样应能 0ms 瞬间 peek 命中
+        final peekedPage2 = client.peekCommentsPage(364450, page: 2, pageSize: 10);
+        expect(peekedPage2, isNotNull);
+        expect(peekedPage2!.total, res.total);
+        expect(peekedPage2.isStale, isFalse);
+      }
+    });
   });
 }

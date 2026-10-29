@@ -26,10 +26,16 @@ class WatchCommentsSection extends ConsumerStatefulWidget {
   ConsumerState<WatchCommentsSection> createState() => _WatchCommentsSectionState();
 }
 
-class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
+class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   int _page = 1;
   int? _selectedType; // null: 全部, 2: 看过, 3: 在看, 1: 想看
   bool _isLoading = false;
+  bool _isUsingStale = false;
+  bool _isRevalidating = false;
   String? _error;
   List<BangumiCommentItem> _comments = const [];
   int _total = 0;
@@ -70,13 +76,47 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
     final subjectId = widget.bangumiId ?? 0;
     if (subjectId <= 0) return;
 
-    setState(() {
-      _isLoading = true;
+    final client = ref.read(bangumiClientProvider);
+
+    // 1. 同步探测内存缓存 (0ms 瞬间出画，彻底消除白屏与转圈闪烁)
+    final peeked = client.peekCommentsPage(
+      subjectId,
+      page: page,
+      pageSize: 10,
+      type: _selectedType,
+    );
+
+    if (peeked != null && !forceRefresh) {
+      _page = page;
+      _comments = peeked.items;
+      _total = peeked.total;
+      _isLoading = false;
       _error = null;
-    });
+      _isUsingStale = peeked.isStale;
+
+      // 若内存缓存完全新鲜 (3 小时 TTL 内)，直接 0ms 呈现，绝不无故发起后台请求引起阅读跳变
+      if (!peeked.isStale) {
+        _isRevalidating = false;
+        if (mounted) setState(() {});
+        return;
+      }
+
+      // 若为已过期缓存，先 0ms 出画陈旧数据，在后台静默异步刷新最新数据 (SWR)
+      _isRevalidating = true;
+      if (mounted) setState(() {});
+    } else {
+      // 没有任何内存缓存（或用户主动强制刷新）：开启加载骨架屏
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+          _error = null;
+          _isUsingStale = false;
+          _isRevalidating = false;
+        });
+      }
+    }
 
     try {
-      final client = ref.read(bangumiClientProvider);
       final res = await client.getCommentsPage(
         subjectId,
         page: page,
@@ -91,12 +131,21 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
         _comments = res.items;
         _total = res.total;
         _isLoading = false;
+        _isUsingStale = false;
+        _isRevalidating = false;
+        _error = null;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = e.toString();
+        _isRevalidating = false;
+        if (_comments.isEmpty) {
+          _error = e.toString();
+        } else {
+          // 若已有陈旧缓存，保留内容展示并标记为历史缓存
+          _isUsingStale = true;
+        }
       });
     }
   }
@@ -115,6 +164,7 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
@@ -255,6 +305,51 @@ class _WatchCommentsSectionState extends ConsumerState<WatchCommentsSection> {
           ],
         ),
         const SizedBox(height: 14),
+
+        // 1.5 弱网或离线缓存温和状态条 (后台拉取成功后自动消去，不破坏用户沉浸阅读)
+        if (_isUsingStale && _comments.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withAlpha(10) : Colors.black.withAlpha(6),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 14,
+                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _isRevalidating ? '正在后台拉取最新吐槽...' : '当前展示历史缓存 (网络连接较慢)',
+                      style: appTextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                  if (!_isRevalidating)
+                    GestureDetector(
+                      onTap: () => _fetchPage(_page, forceRefresh: true),
+                      child: Text(
+                        '重试',
+                        style: appTextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
 
         // 2. 评论内容呈现区
         if (_isLoading && _comments.isEmpty)

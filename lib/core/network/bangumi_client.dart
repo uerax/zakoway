@@ -1396,6 +1396,12 @@ class BangumiClient {
 
     final future = () async {
       try {
+        // 【特殊处理说明与架构约束】：
+        // 1. 此处严禁将 URL 改写为 _baseUrl 或接入镜像源体系！
+        // 2. 第三方镜像源 (如 anibt.net) 与各类用户自建反代仅中继了 Bangumi 核心 API (/v0/*, /calendar 等)，
+        //    并未部署或反代 next.bgm.tv/p1/ 的 Next 新版评论微服务接口。
+        // 3. 故此处必须且只能严格直连官方 next.bgm.tv 接口，不可做线路替换；
+        // 4. 为对抗国内直连网络抖动与超时，设置 4 秒快速超时，由 L1 内存/L2 磁盘缓存与 Stale 降级容灾。
         final url = 'https://next.bgm.tv/p1/subjects/$subjectId/comments';
         final queryParams = <String, dynamic>{
           'limit': chunkSize,
@@ -1403,7 +1409,7 @@ class BangumiClient {
           'type': ?type,
         };
 
-        // 特殊处理说明：官方 Next 评论服务若网络不通或受限，设置 4 秒快速超时，避免详情页无限转圈加载
+        // 官方 Next 评论服务若网络不通或受限，设置 4 秒快速超时，避免详情页无限转圈加载
         final res = await _dio.get(
           url,
           queryParameters: queryParams,
@@ -1436,6 +1442,15 @@ class BangumiClient {
             maxAge: const Duration(hours: 3),
           ) ?? Future.value());
 
+          // 特殊处理说明：当首块 Chunk (前 30 条) 拉取到最新数据时，为防止新增评论导致后续页产生偏移重复，
+          // 同步作废内存中该条目后续 Chunk (index >= 1) 的缓存，确保用户翻到后续页时拉取与最新偏移一致的数据。
+          if (chunkIndex == 0) {
+            final typeStr = type ?? 'all';
+            for (var i = 1; i < 50; i++) {
+              _commentsChunkCache.remove('comments_chunk_${subjectId}_${i}_$typeStr');
+            }
+          }
+
           return result;
         }
 
@@ -1463,6 +1478,40 @@ class BangumiClient {
     } finally {
       _inflight.remove(inflightKey);
     }
+  }
+
+  /// 同步检查是否有吐槽分页内存缓存（用于 0ms 瞬间上屏，消除骨架屏闪烁）
+  /// 返回元组中的 [isStale] 标记该内存缓存是否已超过 3 小时 TTL：
+  /// - 若 isStale == false：数据完全新鲜，直接展示，无需发网络请求；
+  /// - 若 isStale == true：数据为陈旧缓存，供 SWR 0ms 先行呈现，并在后台静默更新。
+  ({List<BangumiCommentItem> items, int total, bool isStale})? peekCommentsPage(
+    int subjectId, {
+    int page = 1,
+    int pageSize = 10,
+    int? type,
+  }) {
+    if (page < 1 || page > 2000 || subjectId <= 0) return null;
+
+    const chunkSize = 30;
+    final targetOffset = (page - 1) * pageSize;
+    final chunkIndex = targetOffset ~/ chunkSize;
+    final chunkStartOffset = chunkIndex * chunkSize;
+    final relativeIndex = targetOffset - chunkStartOffset;
+
+    final cacheKey = 'comments_chunk_${subjectId}_${chunkIndex}_${type ?? 'all'}';
+    final freshChunk = _commentsChunkCache.peek(cacheKey);
+    final isStale = freshChunk == null;
+    final chunk = freshChunk ?? _commentsChunkCache.getStale(cacheKey);
+    if (chunk == null) return null;
+
+    if (relativeIndex >= chunk.items.length) {
+      return (items: const <BangumiCommentItem>[], total: chunk.total, isStale: isStale);
+    }
+
+    final end = min(relativeIndex + pageSize, chunk.items.length);
+    final pageRows = chunk.items.sublist(relativeIndex, end);
+
+    return (items: pageRows, total: chunk.total, isStale: isStale);
   }
 
   /// 获取条目标准分页吐槽列表 (单页 10 条，底层基于 30 条 Chunk 缓存实现 0ms 翻页)
