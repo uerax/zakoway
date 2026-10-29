@@ -367,7 +367,7 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
       children: List.generate(count, (index) {
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(9),
           decoration: BoxDecoration(
             color: isDark ? Colors.white.withAlpha(8) : Colors.black.withAlpha(5),
             borderRadius: BorderRadius.circular(14),
@@ -375,14 +375,14 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
           child: Row(
             children: [
               Container(
-                width: 124,
-                height: 70, // 16:9 比例标准宽幅封面 (124 * 70)
+                width: 110,
+                height: 70, // 宽幅大封面 (110 * 70)
                 decoration: BoxDecoration(
                   color: isDark ? Colors.white.withAlpha(12) : Colors.black.withAlpha(8),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -390,7 +390,7 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
                   children: [
                     // 行 1: 标题骨架
                     Container(
-                      width: 140,
+                      width: double.infinity,
                       height: 14,
                       decoration: BoxDecoration(
                         color: isDark ? Colors.white.withAlpha(12) : Colors.black.withAlpha(8),
@@ -492,29 +492,33 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // 16:9 标准宽幅封面 (124 * 70) 解决画面过小问题
+                // 宽幅画卷封面 (110 * 70)：
+                // 1. 保留 110px 宽幅大画面的视觉冲击力；
+                // 2. alignment: (0, -0.2) 略微偏上聚焦角色面部；
+                // 3. 移除右侧纯装饰性箭头释放 18px 宽度，间距设为 10px，
+                //    使右侧标题在窄侧栏下依然拥有约 120px 宽度，配合 maxLines: 2 彻底解决 5 字截断问题。
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                   child: Container(
-                    width: 124,
+                    width: 110,
                     height: 70,
                     color: isDark ? const Color(0xFF202026) : const Color(0xFFECECF0),
                     child: item.cover.isNotEmpty
                         ? CachedAnimeImage(
                             imageUrl: item.cover,
-                            width: 124,
+                            width: 110,
                             height: 70,
                             fit: BoxFit.cover,
-                            alignment: const Alignment(0, -0.6), // 聚焦上半身特写
+                            alignment: const Alignment(0, -0.2), // 视觉焦点微偏上聚焦面部
                           )
                         : Icon(
                             Icons.movie_outlined,
-                            size: 24,
+                            size: 20,
                             color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.3),
                           ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
 
                 // 右侧文本信息：清晰呈现 3 行独立结构
                 Expanded(
@@ -522,15 +526,16 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // 第 1 行: 番剧主标题
+                      // 第 1 行: 番剧主标题（放宽至 2 行，彻底解决超长剧名截断问题）
                       Text(
                         item.displayName,
                         style: appTextStyle(
-                          fontSize: 14.0,
+                          fontSize: 13.5,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.2,
+                          height: 1.25,
                         ),
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 5),
@@ -597,12 +602,6 @@ class _WatchRecommendSectionState extends ConsumerState<WatchRecommendSection> {
                         ),
                     ],
                   ),
-                ),
-
-                Icon(
-                  Icons.chevron_right_rounded,
-                  size: 18,
-                  color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.3),
                 ),
               ],
             ),
