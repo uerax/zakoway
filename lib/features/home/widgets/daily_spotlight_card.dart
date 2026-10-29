@@ -181,6 +181,7 @@ class _DailySpotlightCardState extends State<DailySpotlightCard> {
                                   ? item.thumbnailUrl
                                   : item.coverUrl,
                               fit: BoxFit.cover,
+                              filterQuality: FilterQuality.high,
                             ),
                           ),
                         ),

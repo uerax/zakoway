@@ -231,6 +231,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
             imageUrl: item.coverUrl,
             fit: BoxFit.cover,
             alignment: const Alignment(0, -0.4),
+            filterQuality: FilterQuality.high,
           ),
 
             // 全局微暗底色，增强层次感

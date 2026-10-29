@@ -18,6 +18,7 @@ class CachedAnimeImage extends StatefulWidget {
   final int? resizeWidth;
   final BorderRadius? borderRadius;
   final int loadDelayMs;
+  final FilterQuality filterQuality;
 
   const CachedAnimeImage({
     super.key,
@@ -29,6 +30,7 @@ class CachedAnimeImage extends StatefulWidget {
     this.resizeWidth,
     this.borderRadius,
     this.loadDelayMs = 0,
+    this.filterQuality = FilterQuality.medium,
   });
 
   @override
@@ -106,7 +108,7 @@ class _CachedAnimeImageState extends State<CachedAnimeImage> {
       fit: widget.fit,
       alignment: widget.alignment,
       memCacheWidth: widget.resizeWidth,
-      filterQuality: FilterQuality.medium,
+      filterQuality: widget.filterQuality,
       fadeInDuration: const Duration(milliseconds: 180),
       fadeOutDuration: const Duration(milliseconds: 180),
       useOldImageOnUrlChange: true,
