@@ -437,12 +437,14 @@ void main() {
     });
   });
 
-  group('HomeDesktopHero desktop week strip tests', () {
-    testWidgets('Renders segmented week strip and switches days on desktop width', (tester) async {
+  group('HomeDesktopHero desktop tests', () {
+    testWidgets('Renders control bar with today anime info and opens timeline', (tester) async {
       tester.view.physicalSize = const Size(1200, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
 
+      bool timelineOpened = false;
+      final todayWeekday = DateTime.now().weekday;
       final mockCalendarDays = List.generate(7, (i) {
         final dayId = i + 1;
         return BangumiCalendarDay(
@@ -456,20 +458,22 @@ void main() {
           home: Scaffold(
             body: HomeDesktopHero(
               calendarDays: mockCalendarDays,
+              onOpenTimeline: () {
+                timelineOpened = true;
+              },
             ),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      for (final char in ['一', '二', '三', '四', '五', '六', '日']) {
-        expect(find.text(char), findsOneWidget);
-      }
+      expect(find.text('今日放送'), findsOneWidget);
+      expect(find.text('时间表'), findsOneWidget);
 
-      // 点击“六”能正常响应并切换标题显示
-      await tester.tap(find.text('六'));
+      // 点击“时间表”能正常响应并触发回调
+      await tester.tap(find.text('时间表'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('周六'), findsOneWidget);
+      expect(timelineOpened, isTrue);
     });
 
     testWidgets('HomeDesktopHero renders AnimeCard with glass overlay and single Chinese title', (tester) async {

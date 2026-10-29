@@ -8,6 +8,7 @@ import '../../../core/models/home/recommend_item.dart';
 import '../../../core/network/bangumi_client.dart';
 import '../../../core/services/daily_recommend_service.dart';
 import '../../../core/services/watch_history_service.dart';
+import '../../../core/utils/adaptive_page_route.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/font_manager.dart';
 import '../../../core/utils/responsive.dart';
@@ -16,6 +17,7 @@ import '../../common/widgets/app_refresh_indicator.dart';
 import '../../common/widgets/shimmer_loading.dart';
 import '../../player/core/proxy/media_preload_coordinator.dart';
 import '../../history/pages/history_page.dart';
+import '../../timeline/pages/timeline_page.dart';
 import '../widgets/continue_watching_shelf.dart';
 import '../widgets/daily_spotlight_card.dart';
 import '../widgets/home_desktop_hero.dart';
@@ -501,6 +503,14 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                       calendarDays: _calendarDays,
                       todayItems: _todayItems,
                       weekdayName: _weekdayName,
+                      onOpenTimeline: () {
+                        Navigator.of(context).push(
+                          AdaptivePageRoute.build<void>(
+                            context,
+                            builder: (context) => TimelinePage(client: widget.client),
+                          ),
+                        );
+                      },
                     ),
             ),
           ),
