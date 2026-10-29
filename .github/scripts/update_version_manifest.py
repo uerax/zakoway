@@ -71,7 +71,7 @@ def main():
 
     target_channel = 'beta' if is_pre else 'latest'
     existing_node = manifest.get(target_channel, {}) if isinstance(manifest.get(target_channel), dict) else {}
-    min_supported = manifest.get('latest', {}).get('minSupportedVersion', '1.0.0')
+    min_supported = manifest.get('latest', {}).get('minSupportedVersion', '0.0.1')
 
     title = f"{tag} {'测试尝鲜版' if is_pre else '正式稳定版'}发布"
     changelog = existing_node.get('changelog', '')

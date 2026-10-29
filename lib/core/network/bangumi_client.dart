@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:math';
 import 'package:dio/dio.dart';
-import '../constants/app_constants.dart';
 import '../models/bangumi/bangumi_calendar.dart';
 import '../models/bangumi/bangumi_collection.dart';
 import '../models/bangumi/bangumi_comment.dart';
@@ -38,7 +37,7 @@ class BangumiClient {
 
   /// 支持按动态版本号与可选平台标识构造合规 User-Agent
   static String buildUserAgent({
-    String version = AppConstants.appVersion,
+    String? version,
     String? platform,
   }) =>
       BangumiUserAgent.build(version: version, platform: platform);

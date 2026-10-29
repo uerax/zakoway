@@ -1,81 +1,81 @@
 {
   "latest": {
-    "version": "1.0.0",
+    "version": "0.0.1",
     "buildNumber": 1,
     "releaseDate": "2026-10-29",
-    "minSupportedVersion": "1.0.0",
+    "minSupportedVersion": "0.0.1",
     "isPrerelease": false,
-    "title": "v1.0.0 正式稳定版",
+    "title": "v0.0.1 正式稳定版",
     "changelog": "1. 跨平台动漫流媒体播放与番剧追踪客户端全新上线\n2. 引入 jsDelivr CDN 版本检测与自动更新功能",
     "downloads": {
       "windows_x64": {
-        "fileName": "Zakoway-v1.0.0-windows-x64.zip",
-        "url": "https://github.com/uerax/zakoway/releases/download/v1.0.0/Zakoway-v1.0.0-windows-x64.zip",
+        "fileName": "Zakoway-v0.0.1-windows-x64.zip",
+        "url": "https://github.com/uerax/zakoway/releases/download/v0.0.1/Zakoway-v0.0.1-windows-x64.zip",
         "size": 52428800,
         "sha256": ""
       },
       "android_arm64": {
-        "fileName": "Zakoway-v1.0.0-android-arm64-v8a.apk",
-        "url": "https://github.com/uerax/zakoway/releases/download/v1.0.0/Zakoway-v1.0.0-android-arm64-v8a.apk",
+        "fileName": "Zakoway-v0.0.1-android-arm64-v8a.apk",
+        "url": "https://github.com/uerax/zakoway/releases/download/v0.0.1/Zakoway-v0.0.1-android-arm64-v8a.apk",
         "size": 36700160,
         "sha256": ""
       },
       "android_universal": {
-        "fileName": "Zakoway-v1.0.0-android-universal.apk",
-        "url": "https://github.com/uerax/zakoway/releases/download/v1.0.0/Zakoway-v1.0.0-android-universal.apk",
+        "fileName": "Zakoway-v0.0.1-android-universal.apk",
+        "url": "https://github.com/uerax/zakoway/releases/download/v0.0.1/Zakoway-v0.0.1-android-universal.apk",
         "size": 65011712,
         "sha256": ""
       },
       "macos_universal": {
-        "fileName": "Zakoway-v1.0.0-macos-universal.zip",
-        "url": "https://github.com/uerax/zakoway/releases/download/v1.0.0/Zakoway-v1.0.0-macos-universal.zip",
+        "fileName": "Zakoway-v0.0.1-macos-universal.zip",
+        "url": "https://github.com/uerax/zakoway/releases/download/v0.0.1/Zakoway-v0.0.1-macos-universal.zip",
         "size": 58720256,
         "sha256": ""
       },
       "ios": {
-        "fileName": "Zakoway-v1.0.0-ios.ipa",
-        "url": "https://github.com/uerax/zakoway/releases/download/v1.0.0/Zakoway-v1.0.0-ios.ipa",
+        "fileName": "Zakoway-v0.0.1-ios.ipa",
+        "url": "https://github.com/uerax/zakoway/releases/download/v0.0.1/Zakoway-v0.0.1-ios.ipa",
         "size": 41943040,
         "sha256": ""
       }
     }
   },
   "beta": {
-    "version": "1.0.0",
+    "version": "0.0.1",
     "buildNumber": 1,
     "releaseDate": "2026-10-29",
-    "minSupportedVersion": "1.0.0",
+    "minSupportedVersion": "0.0.1",
     "isPrerelease": true,
-    "title": "v1.0.0 测试版",
+    "title": "v0.0.1 测试版",
     "changelog": "1. 跨平台动漫流媒体播放与番剧追踪客户端全新上线\n2. 引入 jsDelivr CDN 版本检测与自动更新功能",
     "downloads": {
       "windows_x64": {
-        "fileName": "Zakoway-v1.0.0-windows-x64.zip",
-        "url": "https://github.com/uerax/zakoway/releases/download/v1.0.0/Zakoway-v1.0.0-windows-x64.zip",
+        "fileName": "Zakoway-v0.0.1-windows-x64.zip",
+        "url": "https://github.com/uerax/zakoway/releases/download/v0.0.1/Zakoway-v0.0.1-windows-x64.zip",
         "size": 52428800,
         "sha256": ""
       },
       "android_arm64": {
-        "fileName": "Zakoway-v1.0.0-android-arm64-v8a.apk",
-        "url": "https://github.com/uerax/zakoway/releases/download/v1.0.0/Zakoway-v1.0.0-android-arm64-v8a.apk",
+        "fileName": "Zakoway-v0.0.1-android-arm64-v8a.apk",
+        "url": "https://github.com/uerax/zakoway/releases/download/v0.0.1/Zakoway-v0.0.1-android-arm64-v8a.apk",
         "size": 36700160,
         "sha256": ""
       },
       "android_universal": {
-        "fileName": "Zakoway-v1.0.0-android-universal.apk",
-        "url": "https://github.com/uerax/zakoway/releases/download/v1.0.0/Zakoway-v1.0.0-android-universal.apk",
+        "fileName": "Zakoway-v0.0.1-android-universal.apk",
+        "url": "https://github.com/uerax/zakoway/releases/download/v0.0.1/Zakoway-v0.0.1-android-universal.apk",
         "size": 65011712,
         "sha256": ""
       },
       "macos_universal": {
-        "fileName": "Zakoway-v1.0.0-macos-universal.zip",
-        "url": "https://github.com/uerax/zakoway/releases/download/v1.0.0/Zakoway-v1.0.0-macos-universal.zip",
+        "fileName": "Zakoway-v0.0.1-macos-universal.zip",
+        "url": "https://github.com/uerax/zakoway/releases/download/v0.0.1/Zakoway-v0.0.1-macos-universal.zip",
         "size": 58720256,
         "sha256": ""
       },
       "ios": {
-        "fileName": "Zakoway-v1.0.0-ios.ipa",
-        "url": "https://github.com/uerax/zakoway/releases/download/v1.0.0/Zakoway-v1.0.0-ios.ipa",
+        "fileName": "Zakoway-v0.0.1-ios.ipa",
+        "url": "https://github.com/uerax/zakoway/releases/download/v0.0.1/Zakoway-v0.0.1-ios.ipa",
         "size": 41943040,
         "sha256": ""
       }

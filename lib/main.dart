@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
+import 'core/constants/app_constants.dart';
 import 'core/network/bangumi_client.dart';
 import 'core/providers/bangumi_providers.dart';
 import 'core/services/app_preferences.dart';
@@ -24,6 +25,9 @@ import 'features/player/source/source_bundle_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 初始化从原生平台读取应用动态版本号 (pubspec.yaml 打包注入)
+  await AppConstants.initialize();
 
   // 0. 初始化跨平台视频播放底座 (基于 libmpv)
   MediaKit.ensureInitialized();

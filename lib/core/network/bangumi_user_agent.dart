@@ -8,10 +8,11 @@ class BangumiUserAgent {
 
   /// 支持按动态版本号与可选平台标识构造合规 User-Agent
   static String build({
-    String version = AppConstants.appVersion,
+    String? version,
     String? platform,
   }) {
+    final v = version ?? AppConstants.appVersion;
     final platformInfo = platform != null ? ' ($platform)' : '';
-    return '${AppConstants.developerId}/${AppConstants.appName}/$version$platformInfo (${AppConstants.projectUrl})';
+    return '${AppConstants.developerId}/${AppConstants.appName}/$v$platformInfo (${AppConstants.projectUrl})';
   }
 }

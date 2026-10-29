@@ -31,6 +31,13 @@
 ## 其他
 - commit message 用英文，格式 `<type>: <description>`。
 
+## 版本号与发版规范（单一源与 Git Tag 联动）
+- `pubspec.yaml` 是项目唯一的版本真实源（Single Source of Truth），应用运行时通过 `package_info_plus` 动态读取并注入 `AppConstants.appVersion`。
+- 当用户主动提出版本号升级或发版时，严禁手动逐个修改文件，必须统一运行内置脚本执行：
+  - 发布正式版：`dart run tool/bump_version.dart <版本号>`（例如 `0.0.2`，或语义化模式 `patch` / `minor` / `major`）
+  - 发布测试版：`dart run tool/bump_version.dart <版本号-beta>`（例如 `0.0.2-beta`，或语义化模式 `beta`）
+- 脚本会自动同步更新 `pubspec.yaml`、回退配置与 `version.json`，自动生成 Release Commit 并打好对应 Git Tag，执行后提示用户执行 `git push origin master --tags` 触发多端 CI/CD 构建与自动发布。
+
 ## 字体与排版规范（严防 Windows 跌入宋体）
 - 严禁在全局主题、模态弹窗、按钮、输入框、下拉菜单、气泡等任何组件样式中手写未指定字体的裸 `TextStyle`（如 `const TextStyle(...)`）。
 - Windows 平台在遇到未定义字族的粗体或局部文本时，DirectWrite 底层会直接粗暴降级回退至 Windows 远古的“中易宋体 (SimSun)”。

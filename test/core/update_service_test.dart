@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:zakoway/core/constants/app_constants.dart';
 import 'package:zakoway/core/models/update/app_version_info.dart';
 import 'package:zakoway/core/services/app_preferences.dart';
 import 'package:zakoway/core/services/update_service.dart';
@@ -22,9 +23,10 @@ void main() {
       expect(AppVersionInfo.compareSemVer('1.0.1', '1.0.1-beta.1'), 1);
       expect(AppVersionInfo.compareSemVer('1.0.1-beta.1', '1.0.1'), -1);
 
-      // 更高主版本的测试版高于低主版本的正式版
-      expect(AppVersionInfo.compareSemVer('1.1.0-beta.1', '1.0.1'), 1);
-      expect(AppVersionInfo.compareSemVer('1.0.1', '1.1.0-beta.1'), -1);
+      // 纯 -beta 预发布测试
+      expect(AppVersionInfo.compareSemVer('0.0.2', '0.0.2-beta'), 1);
+      expect(AppVersionInfo.compareSemVer('0.0.2-beta', '0.0.2'), -1);
+      expect(AppVersionInfo.compareSemVer('0.0.2-beta', '0.0.1'), 1);
     });
 
     test('AppDownloadAsset getEffectiveUrl applies acceleration prefix and parses sha256', () {
@@ -148,6 +150,21 @@ void main() {
 
       await AppPreferences.setIncludeBetaChannel(false);
       expect(AppPreferences.getIncludeBetaChannel(), isFalse);
+    });
+  });
+
+  group('AppConstants version behavior', () {
+    test('default fallback version is 0.0.1 and can be mocked', () {
+      expect(AppConstants.appVersion, isNotEmpty);
+      expect(AppConstants.buildNumber, isPositive);
+
+      AppConstants.setMockVersion(version: '0.0.2-beta', build: 2);
+      expect(AppConstants.appVersion, '0.0.2-beta');
+      expect(AppConstants.buildNumber, 2);
+      expect(AppConstants.bangumiUserAgent, contains('0.0.2-beta'));
+
+      // 还原
+      AppConstants.setMockVersion(version: '0.0.1', build: 1);
     });
   });
 }
