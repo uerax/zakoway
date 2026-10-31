@@ -444,7 +444,6 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
 
       bool timelineOpened = false;
-      final todayWeekday = DateTime.now().weekday;
       final mockCalendarDays = List.generate(7, (i) {
         final dayId = i + 1;
         return BangumiCalendarDay(

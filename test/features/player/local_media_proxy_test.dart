@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zakoway/features/player/controller/playback_controller.dart';
 import 'package:zakoway/features/player/core/proxy/local_media_proxy_server.dart';
+import 'package:zakoway/features/player/source/models/source_models.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -75,6 +77,67 @@ void main() {
           req.response.headers.set('Content-Type', 'video/MP2T');
           req.response.write('TS_SEGMENT_2_CONTENT');
           await req.response.close();
+        } else if (req.uri.path == '/range-master.m3u8') {
+          // 若收到 Range 头返回 206，无 Range 则返回 200
+          final range = req.headers.value('range');
+          req.response.statusCode = range != null ? HttpStatus.partialContent : HttpStatus.ok;
+          req.response.headers.set('Content-Type', 'application/vnd.apple.mpegurl');
+          req.response.write(
+            '#EXTM3U\n'
+            '#EXT-X-VERSION:7\n'
+            '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="ja",URI="v1/audio-0/index.m3u8"\n'
+            '#EXT-X-STREAM-INF:BANDWIDTH=5000000,AUDIO="aud"\n'
+            'v1/1080/index.m3u8\n',
+          );
+          await req.response.close();
+        } else if (req.uri.path == '/forced-206.m3u8') {
+          // 模拟某些极端 CDN 强制返回 206 Partial Content
+          req.response.statusCode = HttpStatus.partialContent;
+          req.response.headers.set('Content-Type', 'application/vnd.apple.mpegurl');
+          req.response.write(
+            '#EXTM3U\n'
+            '#EXT-X-VERSION:7\n'
+            '#EXT-X-STREAM-INF:BANDWIDTH=5000000\n'
+            'v1/1080/index.m3u8\n',
+          );
+          await req.response.close();
+        } else if (req.uri.path == '/master-with-subs.m3u8') {
+          req.response.statusCode = HttpStatus.ok;
+          req.response.headers.contentType = ContentType('application', 'vnd.apple.mpegurl', charset: 'utf-8');
+          req.response.add(utf8.encode(
+            '#EXTM3U\n'
+            '#EXT-X-VERSION:7\n'
+            '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="ja",URI="audio.m3u8"\n'
+            '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="[Sakurato] 简体中文",LANGUAGE="zh",URI="subs/zh.m3u8"\n'
+            '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="[Sakurato] 繁体中文",LANGUAGE="zh",URI="subs/zh-tw.m3u8"\n'
+            '#EXT-X-STREAM-INF:BANDWIDTH=5000000,AUDIO="aud",SUBTITLES="subs"\n'
+            'video-1080p.m3u8\n',
+          ));
+          await req.response.close();
+        } else if (req.uri.path == '/subs/zh.m3u8') {
+          req.response.statusCode = HttpStatus.ok;
+          req.response.headers.contentType = ContentType('application', 'vnd.apple.mpegurl', charset: 'utf-8');
+          req.response.write(
+            '#EXTM3U\n'
+            '#EXT-X-VERSION:3\n'
+            '#EXT-X-TARGETDURATION:1421\n'
+            '#EXTINF:1420.0,\n'
+            'zh.vtt\n'
+            '#EXT-X-ENDLIST\n',
+          );
+          await req.response.close();
+        } else if (req.uri.path == '/subs/zh-tw.m3u8') {
+          req.response.statusCode = HttpStatus.ok;
+          req.response.headers.contentType = ContentType('application', 'vnd.apple.mpegurl', charset: 'utf-8');
+          req.response.write(
+            '#EXTM3U\n'
+            '#EXT-X-VERSION:3\n'
+            '#EXT-X-TARGETDURATION:1421\n'
+            '#EXTINF:1420.0,\n'
+            'zh-tw.vtt\n'
+            '#EXT-X-ENDLIST\n',
+          );
+          await req.response.close();
         } else {
           req.response.statusCode = HttpStatus.notFound;
           await req.response.close();
@@ -137,8 +200,8 @@ void main() {
       expect(resp.statusCode, equals(HttpStatus.ok));
       final body = await resp.transform(utf8.decoder).join();
 
-      // 验证切片被重写为 127.0.0.1 的 /segment
-      expect(body, contains('http://127.0.0.1:${LocalMediaProxyServer.instance.port}/segment?url='));
+      // 验证切片被重写为 127.0.0.1 的 /segment 并保留后缀名
+      expect(body, contains('http://127.0.0.1:${LocalMediaProxyServer.instance.port}/segment/seg1.ts?url='));
       expect(body, contains('seg1.ts'));
       expect(body, contains('seg2.ts'));
       client.close();
@@ -150,7 +213,7 @@ void main() {
         scheme: 'http',
         host: '127.0.0.1',
         port: LocalMediaProxyServer.instance.port,
-        path: '/segment',
+        path: '/segment/seg1.ts',
         queryParameters: {'url': remoteTsUrl},
       );
 
@@ -193,11 +256,11 @@ void main() {
       final port = LocalMediaProxyServer.instance.port;
 
       // 验证 #EXT-X-MEDIA 中的音频轨被正确改写为 /stream
-      expect(body1, contains('#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="ja",URI="http://127.0.0.1:$port/stream?url='));
+      expect(body1, contains('#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="ja",URI="http://127.0.0.1:$port/stream/audio.m3u8?url='));
       expect(body1, contains('audio.m3u8'));
 
       // 验证子播放列表被正确改写为 /stream (而非 /segment)
-      expect(body1, contains('http://127.0.0.1:$port/stream?url='));
+      expect(body1, contains('http://127.0.0.1:$port/stream/video-1080p.m3u8?url='));
       expect(body1, contains('video-1080p.m3u8'));
 
       // 2. 模拟播放器递归请求子播放列表 video-1080p.m3u8
@@ -210,14 +273,142 @@ void main() {
       final body2 = await resp2.transform(utf8.decoder).join();
 
       // 验证 #EXT-X-MAP 中的 init.mp4 被正确改写为 /segment
-      expect(body2, contains('#EXT-X-MAP:URI="http://127.0.0.1:$port/segment?url='));
+      expect(body2, contains('#EXT-X-MAP:URI="http://127.0.0.1:$port/segment/init.mp4?url='));
       expect(body2, contains('init.mp4'));
 
       // 验证 fMP4 切片 seg1.m4s 被正确改写为 /segment
-      expect(body2, contains('http://127.0.0.1:$port/segment?url='));
+      expect(body2, contains('http://127.0.0.1:$port/segment/seg1.m4s?url='));
       expect(body2, contains('seg1.m4s'));
 
       client.close();
+    });
+
+    test('带 Range 请求头的 M3U8 播放列表剥离 Range 并成功改写测试', () async {
+      final remoteUrl = 'http://127.0.0.1:$remotePort/range-master.m3u8';
+      final proxyUrl = LocalMediaProxyServer.instance.buildProxyUrl(remoteUrl);
+
+      final client = HttpClient();
+      final req = await client.getUrl(Uri.parse(proxyUrl));
+      // 模拟 mpv / FFmpeg 默认发送 Range: bytes=0-
+      req.headers.set('Range', 'bytes=0-');
+      final resp = await req.close();
+
+      expect(resp.statusCode, equals(HttpStatus.ok));
+      final body = await resp.transform(utf8.decoder).join();
+
+      final port = LocalMediaProxyServer.instance.port;
+      // 验证音频子播放列表与视频子播放列表均被正确重写为 /stream，未出现相对路径
+      expect(body, contains('#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="ja",URI="http://127.0.0.1:$port/stream/index.m3u8?url='));
+      expect(body, contains('http://127.0.0.1:$port/stream/index.m3u8?url='));
+      expect(body, contains('v1%2F1080%2Findex.m3u8'));
+      expect(body, isNot(contains('URI="v1/audio-0/index.m3u8"')));
+
+      client.close();
+    });
+
+    test('强制返回 206 Partial Content 的 M3U8 依然能够被正常改写', () async {
+      final remoteUrl = 'http://127.0.0.1:$remotePort/forced-206.m3u8';
+      final proxyUrl = LocalMediaProxyServer.instance.buildProxyUrl(remoteUrl);
+
+      final client = HttpClient();
+      final req = await client.getUrl(Uri.parse(proxyUrl));
+      final resp = await req.close();
+
+      expect(resp.statusCode, equals(HttpStatus.ok));
+      final body = await resp.transform(utf8.decoder).join();
+
+      final port = LocalMediaProxyServer.instance.port;
+      expect(body, contains('http://127.0.0.1:$port/stream/index.m3u8?url='));
+      expect(body, contains('v1%2F1080%2Findex.m3u8'));
+
+      client.close();
+    });
+
+    test('Master M3U8 字幕解耦与外挂结构化提取测试', () async {
+      final remoteUrl = 'http://127.0.0.1:$remotePort/master-with-subs.m3u8';
+      final proxyUrl = LocalMediaProxyServer.instance.buildProxyUrl(remoteUrl);
+
+      final client = HttpClient();
+      final req = await client.getUrl(Uri.parse(proxyUrl));
+      final resp = await req.close();
+
+      expect(resp.statusCode, equals(HttpStatus.ok));
+      final body = await resp.transform(utf8.decoder).join();
+
+      // 验证 1：#EXT-X-MEDIA:TYPE=SUBTITLES 被彻底从 HLS 清单中剔除，防止 libmpv 交错丢帧黑屏
+      expect(body, isNot(contains('TYPE=SUBTITLES')));
+      expect(body, isNot(contains('subs/zh.m3u8')));
+      expect(body, isNot(contains('subs/zh-tw.m3u8')));
+
+      // 验证 2：#EXT-X-STREAM-INF 中的 SUBTITLES 属性被清洗
+      expect(body, isNot(contains('SUBTITLES="subs"')));
+      expect(body, contains('AUDIO="aud"'));
+
+      // 验证 3：从 Master 清单提取的字幕已安全解析为纯文本分片直链
+      final extracted = LocalMediaProxyServer.instance.getEmbeddedSubtitles(remoteUrl);
+      expect(extracted.length, equals(2));
+      expect(extracted[0].label, equals('[Sakurato] 简体中文'));
+      expect(extracted[0].url, contains('/segment/zh.vtt?url='));
+      expect(extracted[0].url, contains('zh.vtt'));
+      expect(extracted[1].label, equals('[Sakurato] 繁体中文'));
+      expect(extracted[1].url, contains('/segment/zh-tw.vtt?url='));
+      expect(extracted[1].url, contains('zh-tw.vtt'));
+
+      client.close();
+    });
+
+    test('ZakowayPlaybackController.selectBestSubtitle 优先级决选与抛弃测试', () {
+      final extSimp = const SourceSubtitleTrack(id: '1', label: '外挂简体', url: 'http://a/1.ass');
+      final extTrad = const SourceSubtitleTrack(id: '2', label: '外挂繁体', url: 'http://a/2.ass');
+      final embSimp = const SourceSubtitleTrack(id: '3', label: '[Sakurato] 简体中文', url: 'http://a/3.vtt');
+      final embTrad = const SourceSubtitleTrack(id: '4', label: '[Sakurato] 繁体中文', url: 'http://a/4.vtt');
+      final engSub = const SourceSubtitleTrack(id: '5', label: 'English', url: 'http://a/5.ass');
+      final jpnSub = const SourceSubtitleTrack(id: '6', label: '日本語', url: 'http://a/6.vtt');
+
+      // 1. 外挂简体 优先级最高
+      expect(
+        ZakowayPlaybackController.selectBestSubtitle(
+          externalSubtitles: [extTrad, extSimp],
+          embeddedSubtitles: [embSimp, embTrad],
+        )?.id,
+        equals('1'),
+      );
+
+      // 2. 无外挂简体时，外挂繁体 优先于 内置简体
+      expect(
+        ZakowayPlaybackController.selectBestSubtitle(
+          externalSubtitles: [extTrad],
+          embeddedSubtitles: [embSimp, embTrad],
+        )?.id,
+        equals('2'),
+      );
+
+      // 3. 无外挂字幕时，内置简体 优先于 内置繁体
+      expect(
+        ZakowayPlaybackController.selectBestSubtitle(
+          externalSubtitles: [engSub],
+          embeddedSubtitles: [embTrad, embSimp],
+        )?.id,
+        equals('3'),
+      );
+
+      // 4. 仅有内置繁体时，选用内置繁体
+      expect(
+        ZakowayPlaybackController.selectBestSubtitle(
+          externalSubtitles: const [],
+          embeddedSubtitles: [embTrad],
+        )?.id,
+        equals('4'),
+      );
+
+      // 5. 其它非中文字幕完全忽略抛弃，返回 null
+      expect(
+        ZakowayPlaybackController.selectBestSubtitle(
+          externalSubtitles: [engSub],
+          embeddedSubtitles: [jpnSub],
+        ),
+        isNull,
+      );
     });
   });
 }

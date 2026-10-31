@@ -87,6 +87,8 @@ class ZakowayPlaybackController implements PlaybackController {
   ValueNotifier<SourceSubtitleTrack?> get currentSubtitleTrackNotifier =>
       _currentSubtitleTrackNotifier;
 
+  List<SourceSubtitleTrack> _currentExternalSubtitles = const [];
+
   final StreamController<Duration> _seekStreamController =
       StreamController<Duration>.broadcast();
 
@@ -240,6 +242,11 @@ class ZakowayPlaybackController implements PlaybackController {
         if (_fsm != null && _fsm!.state == core_state.PlaybackState.seeking) {
           _fsm!.dispatch(SeekAcknowledgedEvent(e.data));
         }
+
+        // 若时间轴产生有效物理前进但 UI 仍处于加载/首帧未就绪态，主动触发状态自愈刷新
+        if (_lastPosition > Duration.zero && !core.value.firstFrameRendered) {
+          _onFsmCoreStateChanged();
+        }
       }),
     );
 
@@ -271,6 +278,14 @@ class ZakowayPlaybackController implements PlaybackController {
         }
       }),
     );
+
+    // 监听本地代理从 HLS Master 播放列表提取的内置字幕轨
+    _subscriptions.add(
+      LocalMediaProxyServer.instance.onEmbeddedSubtitlesExtracted.listen((event) {
+        if (_disposed) return;
+        _handleEmbeddedSubtitles(event.masterUrl, event.tracks);
+      }),
+    );
   }
 
   void _onFsmCoreStateChanged() {
@@ -279,12 +294,19 @@ class ZakowayPlaybackController implements PlaybackController {
     final fsmCore = _fsm!.coreState;
     final failure = _fsm!.failure;
 
-    final hasFirstFrame = fsmCore.firstFrameRendered;
-    final isPlaying = fsmCore.playing;
+    // 特殊处理说明：
+    // 事实存活与状态自愈双重对齐 (Liveness Proof Overrides Stale FSM)：
+    // 若底层播放时间轴已向前推进 (例如直链 MP4 瞬间解码开播)，事实播放拥有最高权威；
+    // 强制将 hasFirstFrame 置为 true、isPlaying 置为 true、isLoading 置为 false，
+    // 彻底杜绝底层已经在播但 UI 误显暂停图标或小菊花卡死的问题。
+    final isFactuallyPlaying = fsmCore.playing || _lastPosition > Duration.zero;
+    final hasFirstFrame = fsmCore.firstFrameRendered || isFactuallyPlaying;
+    final isPlaying = isFactuallyPlaying;
     final isLoading = (fsmState == core_state.PlaybackState.resolving ||
             fsmState == core_state.PlaybackState.preparing ||
             fsmState == core_state.PlaybackState.recovering ||
             !hasFirstFrame) &&
+        !isFactuallyPlaying &&
         fsmState != core_state.PlaybackState.error;
     final isBuffering = fsmCore.buffering;
     final isCompleted = fsmCore.completed;
@@ -360,12 +382,18 @@ class ZakowayPlaybackController implements PlaybackController {
     PlaybackTracer.instance.current?.markBackendOpenDispatched();
 
     final subs = subtitles ?? const [];
-    _availableSubtitlesNotifier.value = subs;
+    _currentExternalSubtitles = subs;
 
-    SourceSubtitleTrack? defaultTrack;
-    if (subs.isNotEmpty) {
-      defaultTrack = subs.firstWhere((s) => s.isDefault, orElse: () => subs.first);
-    }
+    // 优先读取本地代理已从该 Master M3U8 提取的内置字幕轨（二次起播/切集秒取）
+    final cachedEmbedded = LocalMediaProxyServer.instance.getEmbeddedSubtitles(uri);
+
+    // 按照 简体 -> 繁体 -> 内置简体 -> 内置繁体 严格优先级自动决策
+    final defaultTrack = selectBestSubtitle(
+      externalSubtitles: subs,
+      embeddedSubtitles: cachedEmbedded,
+    );
+
+    _availableSubtitlesNotifier.value = defaultTrack != null ? [defaultTrack] : const [];
     _currentSubtitleTrackNotifier.value = defaultTrack;
 
     // 起播/切集立即进入 loading 状态并撤销首帧遮罩标记，防止残影
@@ -419,6 +447,100 @@ class ZakowayPlaybackController implements PlaybackController {
   Future<void> setSubtitleTrack(SourceSubtitleTrack? track) async {
     _currentSubtitleTrackNotifier.value = track;
     await _backend?.setSubtitleTrack(track);
+  }
+
+  /// 判定字幕标签是否表达“简体中文”
+  static bool _isSimplified(String label) {
+    final l = label.toLowerCase();
+    if (l.contains('简') ||
+        l.contains('chs') ||
+        l.contains('zh-hans') ||
+        l.contains('zh-cn') ||
+        l.contains('gb')) {
+      return true;
+    }
+    return RegExp(r'(^|[^a-z])(sc)($|[^a-z])', caseSensitive: false).hasMatch(l);
+  }
+
+  /// 判定字幕标签是否表达“繁体中文”
+  static bool _isTraditional(String label) {
+    final l = label.toLowerCase();
+    if (l.contains('繁') ||
+        l.contains('cht') ||
+        l.contains('zh-hant') ||
+        l.contains('zh-tw') ||
+        l.contains('zh-hk') ||
+        l.contains('big5')) {
+      return true;
+    }
+    return RegExp(r'(^|[^a-z])(tc)($|[^a-z])', caseSensitive: false).hasMatch(l);
+  }
+
+  /// 字幕自动决选算法（严格遵循优先级：外挂简体 -> 外挂繁体 -> 内置简体 -> 内置繁体，其余全部抛弃）
+  ///
+  /// 特殊处理说明：
+  /// 用户明确要求后台自动化决策，不再向用户呈现繁杂的选择面板：
+  /// 1. 优先采用外挂简体字幕；
+  /// 2. 次选外挂繁体字幕；
+  /// 3. 若无合适外挂字幕，自动选用 HLS 清单解耦出的内置简体字幕；
+  /// 4. 再次选内置繁体字幕；
+  /// 5. 其他任何非中文字幕完全忽略抛弃，不挂载。
+  static SourceSubtitleTrack? selectBestSubtitle({
+    List<SourceSubtitleTrack>? externalSubtitles,
+    List<SourceSubtitleTrack>? embeddedSubtitles,
+  }) {
+    final ext = externalSubtitles ?? const [];
+    final emb = embeddedSubtitles ?? const [];
+
+    // 1. 外挂简体
+    for (final s in ext) {
+      if (_isSimplified(s.label)) return s;
+    }
+
+    // 2. 外挂繁体
+    for (final s in ext) {
+      if (_isTraditional(s.label)) return s;
+    }
+
+    // 3. 内置简体
+    for (final s in emb) {
+      if (_isSimplified(s.label)) return s;
+    }
+
+    // 4. 内置繁体
+    for (final s in emb) {
+      if (_isTraditional(s.label)) return s;
+    }
+
+    return null;
+  }
+
+  void _handleEmbeddedSubtitles(String masterUrl, List<SourceSubtitleTrack> tracks) {
+    if (_disposed || _currentUri == null) return;
+    if (!masterUrl.contains(_currentUri!) && !_currentUri!.contains(masterUrl)) {
+      return;
+    }
+
+    // 若当前已选中的是外挂字幕中的简体或繁体，则因外挂优先级天然高于内置字幕，保持不变
+    final current = _currentSubtitleTrackNotifier.value;
+    final hasExternalMatch = current != null &&
+        _currentExternalSubtitles.contains(current) &&
+        (_isSimplified(current.label) || _isTraditional(current.label));
+
+    if (hasExternalMatch) {
+      return;
+    }
+
+    final bestTrack = selectBestSubtitle(
+      externalSubtitles: _currentExternalSubtitles,
+      embeddedSubtitles: tracks,
+    );
+
+    if (bestTrack != null && bestTrack.id != current?.id) {
+      _currentSubtitleTrackNotifier.value = bestTrack;
+      _availableSubtitlesNotifier.value = [bestTrack];
+      _backend?.setSubtitleTrack(bestTrack).ignore();
+    }
   }
 
   // ===========================================================================

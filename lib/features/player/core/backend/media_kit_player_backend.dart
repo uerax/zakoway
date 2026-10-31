@@ -249,6 +249,15 @@ class MediaKitPlayerBackend implements PlayerBackend {
       if (track == null) {
         await _player.setSubtitleTrack(SubtitleTrack.no());
       } else {
+        // 特殊处理说明：
+        // 严禁将 HLS .m3u8 播放列表作为外挂字幕注入 libmpv：
+        // 1. mpv 的 sub-add 引擎专为纯文本字幕 (ASS/VTT/SRT) 设计；
+        // 2. 若将包含子切片的 .m3u8 当作外挂字幕，底层解复用线程在主视频 Seek 时无法对字幕流正确寻道，
+        //    会触发解复用死锁并连带阻塞主视频与音频的音画同步管线，造成拖动进度条卡死 30 秒；
+        // 3. 此处实施硬安全门禁，若为 .m3u8 格式严禁下发给底层原生播放器。
+        if (track.url.toLowerCase().contains('.m3u8')) {
+          return;
+        }
         await _player.setSubtitleTrack(
           SubtitleTrack.uri(
             track.url,

@@ -60,27 +60,6 @@ class VideoSurface extends StatelessWidget {
             },
           ),
 
-          // 1.5 首帧感知防闪遮罩：在起播或切集新视频首帧未就绪前，以纯黑底色覆盖底层残留的旧视频帧
-          // 特殊处理说明：
-          // 1. 职责彻底解耦：作为纯粹的 GPU 渲染纹理屏障，专注于遮挡切集时残留的上一集最后一帧画面与未出画黑屏；
-          // 2. 剥离内部耦合的 CircularProgressIndicator，避免业务加载状态侵入物理防闪图层；
-          // 3. 保持 duration: Duration.zero 零延迟瞬间生效与撤除，首帧出画时瞬间撤去，彻底消除黑屏拖泥带水。
-          ValueListenableBuilder<PlaybackCoreState>(
-            valueListenable: controller.core,
-            builder: (context, coreState, _) {
-              final showCover = !coreState.firstFrameRendered && !coreState.hasError;
-              return IgnorePointer(
-                child: AnimatedOpacity(
-                  opacity: showCover ? 1.0 : 0.0,
-                  duration: Duration.zero,
-                  child: const ColoredBox(
-                    color: Colors.black,
-                  ),
-                ),
-              );
-            },
-          ),
-
           // 2. 中层：纯 Flutter 原生高性能 Canvas 弹幕层
           if (danmakuController != null)
             Positioned.fill(
@@ -121,8 +100,12 @@ class VideoSurface extends StatelessWidget {
                     );
                   }
 
+                  // 特殊处理说明：
+                  // 只要底层事实出声且时钟向前推进，即视为已出画进入正常播放态，转圈立刻淡出，杜绝转圈遮挡正在播放的画面
+                  final isFactuallyPlaying =
+                      coreState.playing && controller.timeline.value.position > Duration.zero;
                   final isLoading = videoController == null ||
-                      !coreState.firstFrameRendered ||
+                      (!coreState.firstFrameRendered && !isFactuallyPlaying) ||
                       coreState.buffering ||
                       coreState.loading;
 

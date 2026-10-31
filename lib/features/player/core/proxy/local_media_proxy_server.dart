@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:zakoway/features/player/source/models/source_models.dart';
 
 /// 本地流媒体反向代理服务器 (Local Media Proxy)
 ///
@@ -29,6 +30,20 @@ class LocalMediaProxyServer {
   Directory? _cacheDir;
   final Map<String, String> _nextSegmentMap = {};
   final Set<String> _inflightPrefetch = {};
+
+  final _embeddedSubtitlesController =
+      StreamController<({String masterUrl, List<SourceSubtitleTrack> tracks})>.broadcast();
+
+  /// 监听从 HLS Master 播放列表中提取出的内置字幕轨广播流
+  Stream<({String masterUrl, List<SourceSubtitleTrack> tracks})>
+      get onEmbeddedSubtitlesExtracted => _embeddedSubtitlesController.stream;
+
+  final Map<String, List<SourceSubtitleTrack>> _embeddedSubtitlesMap = {};
+
+  /// 同步读取指定 Master M3U8 已提取的内置字幕轨
+  List<SourceSubtitleTrack> getEmbeddedSubtitles(String masterUrl) {
+    return _embeddedSubtitlesMap[masterUrl] ?? const [];
+  }
 
   /// 代理服务当前绑定的回环端口 (未启动时为 0)
   int get port => _port;
@@ -142,6 +157,7 @@ class LocalMediaProxyServer {
     _httpClient = null;
     _nextSegmentMap.clear();
     _inflightPrefetch.clear();
+    _embeddedSubtitlesMap.clear();
   }
 
   // ===========================================================================
@@ -150,7 +166,7 @@ class LocalMediaProxyServer {
 
   Future<void> _handleIncomingRequest(HttpRequest request) async {
     final path = request.uri.path;
-    if (path == '/stream' || path == '/segment') {
+    if (path.startsWith('/stream') || path.startsWith('/segment')) {
       await _proxyMediaStream(request);
     } else {
       request.response.statusCode = HttpStatus.notFound;
@@ -182,7 +198,7 @@ class LocalMediaProxyServer {
     // =========================================================================
     // 1. 分片本地磁盘缓存击穿检测 (Cache Hit -> 0ms 本地瞬发)
     // =========================================================================
-    final isSegmentRequest = clientReq.uri.path == '/segment';
+    final isSegmentRequest = clientReq.uri.path.startsWith('/segment');
     final urlHash = md5.convert(utf8.encode(remoteUrl)).toString();
     final cacheFile = File('${_cacheDir?.path}/seg_$urlHash.ts');
 
@@ -190,7 +206,14 @@ class LocalMediaProxyServer {
       try {
         final fileLen = cacheFile.lengthSync();
         if (fileLen > 0) {
-          clientResp.statusCode = HttpStatus.ok;
+          final rangeHeader = clientReq.headers.value('range');
+          if (rangeHeader != null && rangeHeader.startsWith('bytes=0-')) {
+            clientResp.statusCode = HttpStatus.partialContent;
+            clientResp.headers.set('Content-Range', 'bytes 0-${fileLen - 1}/$fileLen');
+          } else {
+            clientResp.statusCode = HttpStatus.ok;
+          }
+
           clientResp.headers.set('Content-Type', _resolveSegmentContentType(remoteUrl));
           clientResp.headers.set('Content-Length', fileLen.toString());
           clientResp.headers.set('Access-Control-Allow-Origin', '*');
@@ -213,10 +236,20 @@ class LocalMediaProxyServer {
       final targetUri = Uri.parse(remoteUrl);
       final remoteReq = await _httpClient!.openUrl(clientReq.method, targetUri);
 
-      // 1. 透传客户端的 Range 请求头与标准请求头
+      // 特殊处理说明：
+      // 对于 M3U8 播放列表文本，严禁向远程转发客户端的 Range 请求头：
+      // 1. FFmpeg/mpv 在可寻道模式下默认会附带 Range: bytes=0- 探测服务器 Range 支持能力；
+      // 2. 若将 Range 头透传给支持断点续传的 CDN，CDN 会响应 206 Partial Content 甚至文本截断分段；
+      // 3. 剥离 Range 请求头后，远程必定返回包含完整标签的 200 OK 文本，确保 M3U8 改写引擎完整解析。
+      final isM3u8Url = clientReq.uri.path.startsWith('/stream') &&
+          (remoteUrl.toLowerCase().contains('.m3u8') ||
+              clientReq.headers.value('accept')?.toLowerCase().contains('mpegurl') == true);
+
+      // 1. 透传客户端的请求头（M3U8 播放列表请求剥离 Range 头）
       clientReq.headers.forEach((name, values) {
         final lower = name.toLowerCase();
         if (lower != 'host' && lower != 'connection') {
+          if (isM3u8Url && lower == 'range') return;
           for (final v in values) {
             remoteReq.headers.add(name, v);
           }
@@ -232,13 +265,15 @@ class LocalMediaProxyServer {
 
       // 判断是否为 M3U8 播放列表文本
       final contentType = remoteResp.headers.contentType?.toString().toLowerCase() ?? '';
-      final isM3u8 = clientReq.uri.path == '/stream' &&
-          (remoteUrl.contains('.m3u8') ||
+      final isM3u8 = clientReq.uri.path.startsWith('/stream') &&
+          (remoteUrl.toLowerCase().contains('.m3u8') ||
               contentType.contains('mpegurl') ||
               contentType.contains('application/x-mpegurl') ||
               contentType.contains('application/vnd.apple.mpegurl'));
 
-      if (isM3u8 && remoteResp.statusCode == HttpStatus.ok) {
+      if (isM3u8 &&
+          (remoteResp.statusCode == HttpStatus.ok ||
+              remoteResp.statusCode == HttpStatus.partialContent)) {
         // HLS M3U8 核心改写流与切片顺序表登记
         await _handleM3u8Rewrite(
           remoteResp,
@@ -276,10 +311,28 @@ class LocalMediaProxyServer {
           } catch (_) {}
 
           final completer = Completer<void>();
-          remoteResp.listen(
+          late StreamSubscription<List<int>> sub;
+          sub = remoteResp.listen(
             (chunk) {
-              clientResp.add(chunk);
-              sink?.add(chunk);
+              try {
+                clientResp.add(chunk);
+              } catch (_) {
+                // 特殊处理说明：
+                // 客户端（播放器 mpv）在播放中途 Seek 会主动切断中止前序切片的 TCP 连接；
+                // 此时向 clientResp 写入会抛出已断开异常。必须立即 cancel 远程流监听、
+                // 关闭临时 sink、清理未下完的临时文件碎片，并唤醒 completer 正常退出，
+                // 彻底杜绝请求协程挂死、文件句柄泄漏与 HttpClient 远程长连接被占满。
+                sub.cancel().catchError((_) {});
+                sink?.close().catchError((_) {});
+                try {
+                  tempFile.deleteSync();
+                } catch (_) {}
+                if (!completer.isCompleted) completer.complete();
+                return;
+              }
+              try {
+                sink?.add(chunk);
+              } catch (_) {}
             },
             onDone: () async {
               try {
@@ -327,7 +380,10 @@ class LocalMediaProxyServer {
   /// 根据分片扩展名解析对应的 Content-Type，确保 fMP4/MP4/TS/KEY 格式准确
   String _resolveSegmentContentType(String url, {String? defaultType}) {
     final lower = url.toLowerCase();
-    if (lower.contains('.mp4') || lower.contains('.m4s') || lower.contains('.m4a') || lower.contains('init_')) {
+    if (lower.contains('audio') || lower.contains('.m4a') || lower.contains('.aac') || lower.contains('.mp3')) {
+      return 'audio/mp4';
+    }
+    if (lower.contains('.mp4') || lower.contains('.m4s') || lower.contains('init_')) {
       return 'video/mp4';
     }
     if (lower.contains('.key')) {
@@ -335,6 +391,9 @@ class LocalMediaProxyServer {
     }
     if (lower.contains('.vtt')) {
       return 'text/vtt';
+    }
+    if (lower.contains('.ass')) {
+      return 'text/x-ssa';
     }
     return defaultType ?? 'video/MP2T';
   }
@@ -351,11 +410,29 @@ class LocalMediaProxyServer {
     if (headers.isNotEmpty) {
       query['headers'] = jsonEncode(headers);
     }
+
+    // 特殊处理说明：
+    // FFmpeg HLS demuxer (hls.c) 在执行 seek 寻道时会对播放列表中所有切片 URL 执行严格的
+    // allowed_segment_extensions 扩展名白名单校验。
+    // 若代理 URL 为纯 /segment?url=...&headers=...，URL 末尾为 %7D 或参数，
+    // FFmpeg 判定扩展名非法并抛出 "is not in allowed_segment_extensions"，
+    // 导致 "could not seek to position" 并直接以 EOF 失败退出（表现为播放进度瞬间跳至 24:00 尽头）。
+    // 将真实文件名及合法扩展名附加到 path（如 /segment/seg-00000.m4s 或 /stream/index.m3u8），
+    // 使 FFmpeg 准确识别扩展名，瞬时解复用出画。
+    final targetUri = Uri.tryParse(targetUrl);
+    final rawFileName = targetUri != null && targetUri.pathSegments.isNotEmpty
+        ? targetUri.pathSegments.last
+        : '';
+    final safeFileName = Uri.encodeComponent(rawFileName);
+
+    final basePath = isStream ? '/stream' : '/segment';
+    final effectivePath = safeFileName.isNotEmpty ? '$basePath/$safeFileName' : basePath;
+
     return Uri(
       scheme: 'http',
       host: '127.0.0.1',
       port: _port,
-      path: isStream ? '/stream' : '/segment',
+      path: effectivePath,
       queryParameters: query,
     ).toString();
   }
@@ -382,6 +459,7 @@ class LocalMediaProxyServer {
 
     final rewrittenLines = <String>[];
     final orderedSegments = <String>[];
+    final extractedSubtitles = <SourceSubtitleTrack>[];
 
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i].trim();
@@ -402,8 +480,50 @@ class LocalMediaProxyServer {
           continue;
         }
       } else if (line.startsWith('#EXT-X-MEDIA')) {
-        // 分离音轨/字幕轨：#EXT-X-MEDIA:TYPE=AUDIO,...,URI="v1/audio-0/index.m3u8"
         final match = _hlsUriAttributeRegex.firstMatch(line);
+        if (line.contains('TYPE=SUBTITLES')) {
+          // 特殊处理说明：
+          // HLS Master 清单字幕解耦与外挂化提取：
+          // 1. 部分源站（如 hentai.wiki / Hanime）在 Master M3U8 中内嵌整集时长（如 1420 秒）的单个 WebVTT 切片；
+          // 2. FFmpeg HLS demuxer 在并行解复用 6 秒音视频切片与 1420 秒字幕切片时，多路流交错队列发生时间戳冲突，
+          //    导致 libmpv 误判视频帧严重落后时钟并全部 drop 丢弃，表现为持续黑屏且仅有声音；
+          // 3. 此处将其从 M3U8 清单彻底剔除，并提取其标题与 URI 结构化转存为内置字幕轨，交由上层外挂字幕线程独立加载，
+          //    既彻底根除了 HLS 解复用黑屏丢帧死锁，又保全了字幕内容。
+          if (match != null) {
+            final rawUri = match.group(1)!;
+            final absoluteUrl = baseUri.resolve(rawUri).toString();
+            final nameMatch = RegExp(r'NAME="([^"]+)"').firstMatch(line);
+            final name = nameMatch?.group(1) ?? '内置字幕';
+
+            // 特殊处理说明：
+            // 若提取出的字幕 URI 包含 .m3u8 播放列表，绝不能直接交由底层 mpv sub-add：
+            // 必须预解析出其内部真正的 .vtt 纯文本切片直链，以静态文本文件方式提供外挂渲染；
+            // 纯文本字幕加载后一次性常驻内存按时间戳二分匹配，彻底消除解复用器在主视频 Seek 时的流式寻道死锁。
+            String? targetVttUrl = absoluteUrl;
+            if (absoluteUrl.toLowerCase().contains('.m3u8')) {
+              targetVttUrl = await _resolveVttUrlFromSubM3u8(absoluteUrl, headers);
+            }
+
+            if (targetVttUrl != null && targetVttUrl.isNotEmpty) {
+              final localSubUrl = _buildLocalProxyUrl(
+                targetUrl: targetVttUrl,
+                isStream: false,
+                headers: headers,
+              );
+
+              extractedSubtitles.add(SourceSubtitleTrack(
+                id: 'embedded_${extractedSubtitles.length}',
+                label: name,
+                url: localSubUrl,
+                format: 'vtt',
+              ));
+            }
+          }
+          // 关键：不加入 rewrittenLines，彻底从 HLS 协议层剥离
+          continue;
+        }
+
+        // 分离音轨：#EXT-X-MEDIA:TYPE=AUDIO,...,URI="v1/audio-0/index.m3u8"
         if (match != null) {
           final rawUri = match.group(1)!;
           final absoluteUrl = baseUri.resolve(rawUri).toString();
@@ -430,6 +550,12 @@ class LocalMediaProxyServer {
           rewrittenLines.add(line.replaceFirst(rawUri, localUrl));
           continue;
         }
+      } else if (line.startsWith('#EXT-X-STREAM-INF')) {
+        // 特殊处理说明：
+        // 移除 #EXT-X-STREAM-INF 中的 SUBTITLES 属性关联，避免播放器尝试绑定已剥离的字幕组
+        final sanitized = line.replaceAll(RegExp(r',?SUBTITLES="[^"]*"'), '');
+        rewrittenLines.add(sanitized);
+        continue;
       }
 
       if (line.startsWith('#')) {
@@ -464,6 +590,17 @@ class LocalMediaProxyServer {
     // 建立后继切片映射表 (用于顺序预读流水线)
     for (var i = 0; i < orderedSegments.length - 1; i++) {
       _nextSegmentMap[orderedSegments[i]] = orderedSegments[i + 1];
+    }
+
+    if (extractedSubtitles.isNotEmpty) {
+      final masterKey = baseUri.toString();
+      _embeddedSubtitlesMap[masterKey] = extractedSubtitles;
+      if (!_embeddedSubtitlesController.isClosed) {
+        _embeddedSubtitlesController.add((
+          masterUrl: masterKey,
+          tracks: extractedSubtitles,
+        ));
+      }
     }
 
     final outputText = rewrittenLines.join('\n');
@@ -527,5 +664,30 @@ class LocalMediaProxyServer {
     if (nextUrl == null || nextUrl.isEmpty) return;
 
     prefetchSegment(nextUrl, headers: headers).ignore();
+  }
+
+  /// 从字幕 M3U8 清单中解析提取真实的 WebVTT 纯文本切片绝对直链
+  Future<String?> _resolveVttUrlFromSubM3u8(
+    String subM3u8Url,
+    Map<String, String> headers,
+  ) async {
+    try {
+      final baseUri = Uri.parse(subM3u8Url);
+      final req = await _httpClient!.getUrl(baseUri);
+      headers.forEach((k, v) => req.headers.set(k, v));
+      final resp = await req.close();
+      if (resp.statusCode != HttpStatus.ok) return null;
+      final body = await resp.transform(utf8.decoder).join();
+      final lines = const LineSplitter().convert(body);
+      for (final l in lines) {
+        final trimmed = l.trim();
+        if (trimmed.isNotEmpty && !trimmed.startsWith('#')) {
+          return baseUri.resolve(trimmed).toString();
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 }

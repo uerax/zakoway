@@ -5,7 +5,6 @@ import 'package:zakoway/core/utils/font_manager.dart';
 import 'package:zakoway/features/player/controller/playback_controller.dart';
 import 'package:zakoway/features/player/controller/playback_state.dart';
 import 'package:zakoway/features/player/services/player_preferences_service.dart';
-import 'package:zakoway/features/player/source/models/source_models.dart';
 import '../../desktop/desktop_shortcut_help_dialog.dart';
 import '../super_resolution_dialog_helper.dart';
 import 'player_panel_widgets.dart';
@@ -160,72 +159,6 @@ class PlayerSettingsPanelBody extends StatelessWidget {
               );
             },
           ),
-
-          // 外挂字幕轨自适应切换（仅当当前视频流包含外挂字幕时动态呈现）
-          ValueListenableBuilder<List<SourceSubtitleTrack>>(
-            valueListenable: controller.availableSubtitlesNotifier,
-            builder: (context, subtitles, _) {
-              if (subtitles.isEmpty) return const SizedBox.shrink();
-
-              return ValueListenableBuilder<SourceSubtitleTrack?>(
-                valueListenable: controller.currentSubtitleTrackNotifier,
-                builder: (context, currentTrack, _) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(height: 10),
-                      const PanelSectionHeader(title: '外挂字幕'),
-                      Container(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        padding: const EdgeInsets.all(2.5),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 70,
-                                child: PanelOptionChip(
-                                  label: '关闭',
-                                  selected: currentTrack == null,
-                                  primaryColor: primaryColor,
-                                  onTap: () {
-                                    controller.setSubtitleTrack(null);
-                                    onTriggerSkipToast?.call('已关闭外挂字幕');
-                                  },
-                                ),
-                              ),
-                              for (final sub in subtitles)
-                                Container(
-                                  constraints: const BoxConstraints(minWidth: 80, maxWidth: 160),
-                                  margin: const EdgeInsets.only(left: 4),
-                                  child: PanelOptionChip(
-                                    label: sub.label,
-                                    selected: currentTrack?.id == sub.id,
-                                    primaryColor: primaryColor,
-                                    onTap: () {
-                                      controller.setSubtitleTrack(sub);
-                                      onTriggerSkipToast?.call('已切换至字幕: ${sub.label}');
-                                    },
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          ),
-
-          const SizedBox(height: 10),
 
           // 2. 播放速度
           const PanelSectionHeader(title: '播放速度'),

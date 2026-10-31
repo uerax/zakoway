@@ -67,6 +67,13 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+dependency_overrides:
+  # 覆盖 Windows 平台底层 mpv 依赖包：
+  # media_kit_libs_windows_video 官方包内置硬编码了 2023 年旧版 libmpv-2.dll，在 Windows 上存在严重的 HLS/渲染/内存泄漏 bug。
+  # 通过本地 packages 包将构建拉取地址无缝升级到了 mpv v0.41.0-dev 最新构建。
+  media_kit_libs_windows_video:
+    path: packages/media_kit_libs_windows_video
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

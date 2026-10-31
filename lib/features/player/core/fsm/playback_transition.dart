@@ -302,18 +302,25 @@ TransitionResult _onPreparing(
         PlaybackState.preparing,
         context.copyWith(pendingSeekPosition: position),
       ),
-    BackendDispatchedEvent(:final generationId) => TransitionResult(
-        targetState: PlaybackState.prebuffering,
-        disposition: TransitionDisposition.exec,
-        nextContext: context.copyWith(
+    BackendDispatchedEvent(:final generationId) => () {
+        final nextCtx = context.copyWith(
           generationId: generationId,
           // 特殊处理说明：
-          // 继承当前媒体会话已捕获的有效尺寸，消除底层 open 异步期间尺寸抢先到达被抹杀的竞态风险；
+          // 继承当前媒体会话已捕获的有效尺寸与位移推进，消除底层 open 异步期间尺寸/时钟抢先到达被抹杀的竞态风险；
           // 新媒体会话初始状态已由 stop() 与 _handleLoadRequest 严格重置为 false，此处继承安全无污染。
           hasValidDimensions: context.hasValidDimensions,
-          hasPositionAdvanced: false,
-        ),
-      ),
+          hasPositionAdvanced: context.hasPositionAdvanced,
+        );
+        // 若在 open 期间底层直链 (如极速 MP4) 已完成解码出画或时钟已推移，直接触发首帧决断，彻底消除死锁
+        if (nextCtx.hasPositionAdvanced || nextCtx.hasValidDimensions) {
+          return _evaluateFirstFrameRendered(nextCtx, currentState: PlaybackState.prebuffering);
+        }
+        return TransitionResult(
+          targetState: PlaybackState.prebuffering,
+          disposition: TransitionDisposition.exec,
+          nextContext: nextCtx,
+        );
+      }(),
     FatalErrorReceivedEvent(:final error) => _handleFatalError(
         PlaybackState.preparing,
         context,
@@ -796,11 +803,10 @@ TransitionResult _evaluateFirstFrameRendered(
   } else {
     // 特殊处理说明：
     // 首帧物理出画与存活事实双重判据 (Liveness Proof)：
-    // 1. 正常出画：尺寸有效且时间推进 (hasValidDimensions && hasPositionAdvanced)；
+    // 1. 正常出画：尺寸有效 (hasValidDimensions == true，底层已完成画面解码)；
     // 2. 存活事实出画：播放位置产生实质物理推进位移 (hasPositionAdvanced == true)。
-    //    当底层媒体时钟已向前推移、音频正常输出时，表明解复用与解码已经在事实运转出画；
-    //    绝不应因偶发的底层尺寸事件去重合并或时序延迟导致画面被防闪遮罩与转圈永久锁死在黑屏态。
-    canTrigger = context.hasPositionAdvanced;
+    // 满足任意一项即代表媒体已经在事实运转出画，绝不因事件去重或时序延迟导致状态机死锁。
+    canTrigger = context.hasValidDimensions || context.hasPositionAdvanced;
   }
 
   if (canTrigger) {
