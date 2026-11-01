@@ -61,7 +61,7 @@ class _SlideFromRightRoute<T> extends PageRouteBuilder<T> {
                 Tween<Offset>(begin: const Offset(1.0, 0.0), end: Offset.zero)
                     .chain(CurveTween(curve: Curves.easeInOutCubic)),
               ),
-              child: child,
+              child: RepaintBoundary(child: child),
             );
           },
         );

@@ -1,6 +1,6 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../utils/smooth_page_transitions_builder.dart';
 
 /// Material 3 Expressive 全局主题构建工厂
 class M3ExpressiveTheme {
@@ -75,14 +75,17 @@ class M3ExpressiveTheme {
       textTheme: textTheme,
       scaffoldBackgroundColor: isDark ? colorScheme.surface : colorScheme.surfaceContainer,
 
-      // 全平台统一采用 iOS 丝滑平滑推入视差转场（CupertinoPageTransitionsBuilder），移动端保留边缘右滑返回手势
+      // 移动端采用轻量丝滑视差转场（SmoothCupertinoPageTransitionsBuilder）：
+      // 1. 时长由 iOS 默认的 500ms 冗长减速收紧至 280ms 黄金窗口，避开高刷屏脱手动态降频阶段；
+      // 2. 自动注入 RepaintBoundary 图层隔离，避免转场位移时双层全屏深层重绘；
+      // 3. 完整保留原生级边缘右滑返回（Cupertino Pop Gesture）手势。
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.android: SmoothCupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: SmoothCupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: SmoothCupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: SmoothCupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: SmoothCupertinoPageTransitionsBuilder(),
         },
       ),
 
