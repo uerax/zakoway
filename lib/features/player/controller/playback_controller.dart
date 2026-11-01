@@ -459,6 +459,8 @@ class ZakowayPlaybackController implements PlaybackController {
         l.contains('chs') ||
         l.contains('zh-hans') ||
         l.contains('zh-cn') ||
+        l.contains('simplified') ||
+        l.contains('hans') ||
         l.contains('gb')) {
       return true;
     }
@@ -473,20 +475,36 @@ class ZakowayPlaybackController implements PlaybackController {
         l.contains('zh-hant') ||
         l.contains('zh-tw') ||
         l.contains('zh-hk') ||
+        l.contains('traditional') ||
+        l.contains('hant') ||
         l.contains('big5')) {
       return true;
     }
     return RegExp(r'(^|[^a-z])(tc)($|[^a-z])', caseSensitive: false).hasMatch(l);
   }
 
-  /// 字幕自动决选算法（严格遵循优先级：外挂简体 -> 外挂繁体 -> 内置简体 -> 内置繁体，其余全部抛弃）
+  /// 判定字幕标签是否表达“通用中文”（未明确区分简繁的中文标签，如“中文”、“Chinese”、“zh”等）
+  static bool _isGenericChinese(String label) {
+    final l = label.toLowerCase();
+    if (_isTraditional(l)) return false;
+    if (l.contains('中文') ||
+        l.contains('汉语') ||
+        l.contains('华语') ||
+        l.contains('chinese') ||
+        l.contains('mandarin')) {
+      return true;
+    }
+    return RegExp(r'(^|[^a-z])(zh|chi|zho)($|[^a-z])', caseSensitive: false).hasMatch(l);
+  }
+
+  /// 字幕自动决选算法（严格遵循优先级：外挂简体 -> 外挂通用中文 -> 外挂繁体 -> 内置简体 -> 内置通用中文 -> 内置繁体，其余全部抛弃；同级优先采用 ASS 特效字幕与 default 默认轨）
   ///
   /// 特殊处理说明：
   /// 用户明确要求后台自动化决策，不再向用户呈现繁杂的选择面板：
-  /// 1. 优先采用外挂简体字幕；
-  /// 2. 次选外挂繁体字幕；
-  /// 3. 若无合适外挂字幕，自动选用 HLS 清单解耦出的内置简体字幕；
-  /// 4. 再次选内置繁体字幕；
+  /// 1. 优先采用外挂简体字幕（且优先 ASS 特效字幕，高保真还原画面）；
+  /// 2. 次选外挂通用中文字幕（未明确标明简繁的“中文/Chinese”标签，在简体中文环境下通常为简体或主轨；若源站指定 default 则优先采纳，同时同级 ASS 优先）；
+  /// 3. 再次选外挂繁体字幕（同样优先 ASS 特效字幕）；
+  /// 4. 若无合适外挂字幕，自动选用 HLS 清单解耦出的内置简体/通用中文/繁体字幕；
   /// 5. 其他任何非中文字幕完全忽略抛弃，不挂载。
   static SourceSubtitleTrack? selectBestSubtitle({
     List<SourceSubtitleTrack>? externalSubtitles,
@@ -495,24 +513,54 @@ class ZakowayPlaybackController implements PlaybackController {
     final ext = externalSubtitles ?? const [];
     final emb = embeddedSubtitles ?? const [];
 
-    // 1. 外挂简体
+    // 1. 外挂简体 (优先 ASS 特效字幕，次选其他文本字幕)
+    for (final s in ext) {
+      if (_isSimplified(s.label) && s.format.toLowerCase() == 'ass') return s;
+    }
     for (final s in ext) {
       if (_isSimplified(s.label)) return s;
     }
 
-    // 2. 外挂繁体
+    // 2. 外挂通用中文 (未明确标繁体的“中文/Chinese”标签，优先 ASS 特效字幕与 default 默认轨)
+    for (final s in ext) {
+      if (_isGenericChinese(s.label) && s.format.toLowerCase() == 'ass') return s;
+    }
+    for (final s in ext) {
+      if (_isGenericChinese(s.label) && s.isDefault) return s;
+    }
+    for (final s in ext) {
+      if (_isGenericChinese(s.label)) return s;
+    }
+
+    // 3. 外挂繁体 (优先 ASS 特效字幕，次选其他文本字幕)
+    for (final s in ext) {
+      if (_isTraditional(s.label) && s.format.toLowerCase() == 'ass') return s;
+    }
     for (final s in ext) {
       if (_isTraditional(s.label)) return s;
     }
 
-    // 3. 内置简体
+    // 4. 内置简体
     for (final s in emb) {
       if (_isSimplified(s.label)) return s;
     }
 
-    // 4. 内置繁体
+    // 5. 内置通用中文
+    for (final s in emb) {
+      if (_isGenericChinese(s.label) && s.isDefault) return s;
+    }
+    for (final s in emb) {
+      if (_isGenericChinese(s.label)) return s;
+    }
+
+    // 6. 内置繁体
     for (final s in emb) {
       if (_isTraditional(s.label)) return s;
+    }
+
+    // 7. 终极兜底：若以上明确语义均未匹配到，优先采纳标记为 default 的外挂字幕轨
+    for (final s in ext) {
+      if (s.isDefault) return s;
     }
 
     return null;
@@ -524,11 +572,13 @@ class ZakowayPlaybackController implements PlaybackController {
       return;
     }
 
-    // 若当前已选中的是外挂字幕中的简体或繁体，则因外挂优先级天然高于内置字幕，保持不变
+    // 若当前已选中的是外挂字幕中的中文，则因外挂优先级天然高于内置字幕，保持不变
     final current = _currentSubtitleTrackNotifier.value;
     final hasExternalMatch = current != null &&
         _currentExternalSubtitles.contains(current) &&
-        (_isSimplified(current.label) || _isTraditional(current.label));
+        (_isSimplified(current.label) ||
+            _isGenericChinese(current.label) ||
+            _isTraditional(current.label));
 
     if (hasExternalMatch) {
       return;

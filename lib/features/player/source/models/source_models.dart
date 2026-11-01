@@ -163,6 +163,22 @@ class SourceResolveResult {
       'subtitles': subtitles.map((s) => s.toJson()).toList(),
     if (fonts.isNotEmpty) 'fonts': fonts,
   };
+
+  SourceResolveResult copyWith({
+    String? url,
+    Map<String, String>? headers,
+    String? format,
+    List<SourceSubtitleTrack>? subtitles,
+    List<String>? fonts,
+  }) {
+    return SourceResolveResult(
+      url: url ?? this.url,
+      headers: headers ?? this.headers,
+      format: format ?? this.format,
+      subtitles: subtitles ?? this.subtitles,
+      fonts: fonts ?? this.fonts,
+    );
+  }
 }
 
 class SourceMeta {

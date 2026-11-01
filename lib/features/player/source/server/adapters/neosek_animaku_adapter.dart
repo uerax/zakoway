@@ -115,7 +115,11 @@ class NeosekAnimakuAdapter extends AnimakuSourceAdapter {
     // 1. 优先找 ASS 简中
     defaultIndex = list.indexWhere((s) {
       final label = s.label.toLowerCase();
-      final isHans = label.contains('简') || label.contains('chs') || label.contains('hans') || label.contains('sc');
+      final isHans = label.contains('简') ||
+          label.contains('chs') ||
+          label.contains('hans') ||
+          label.contains('simplified') ||
+          label.contains('sc');
       return s.format.toLowerCase() == 'ass' && isHans;
     });
 
@@ -123,11 +127,25 @@ class NeosekAnimakuAdapter extends AnimakuSourceAdapter {
     if (defaultIndex == -1) {
       defaultIndex = list.indexWhere((s) {
         final label = s.label.toLowerCase();
-        return label.contains('简') || label.contains('chs') || label.contains('hans') || label.contains('sc');
+        return label.contains('简') ||
+            label.contains('chs') ||
+            label.contains('hans') ||
+            label.contains('simplified') ||
+            label.contains('sc');
       });
     }
 
-    // 3. 次选任意标记了 default 的
+    // 3. 次选任意通用中文（包含“中文/chinese/zh”且未标记繁体）
+    if (defaultIndex == -1) {
+      defaultIndex = list.indexWhere((s) {
+        final label = s.label.toLowerCase();
+        final isTrad = label.contains('繁') || label.contains('cht') || label.contains('traditional');
+        final isChinese = label.contains('中文') || label.contains('chinese') || label.contains('zh');
+        return isChinese && !isTrad;
+      });
+    }
+
+    // 4. 次选任意标记了 default 的
     if (defaultIndex == -1) {
       defaultIndex = list.indexWhere((s) => s.isDefault);
     }
@@ -178,38 +196,6 @@ class NeosekAnimakuAdapter extends AnimakuSourceAdapter {
     final resData = res.data is Map ? res.data as Map : null;
     final items = (resData?['data']?['items'] as List?) ?? [];
 
-    final subs = <SourceSubtitleTrack>[];
-    final fonts = <String>[];
-
-    for (final item in items.whereType<Map<String, dynamic>>()) {
-      // 提取字幕列表 (兼容 subtitles 与 captions 字段)
-      final rawSubs = (item['subtitles'] as List?) ?? (item['captions'] as List?) ?? [];
-      for (final s in rawSubs.whereType<Map<String, dynamic>>()) {
-        final subUrl = s['url']?.toString() ?? s['file']?['url']?.toString();
-        if (subUrl != null && subUrl.isNotEmpty) {
-          final label = s['label']?.toString() ?? s['name']?.toString() ?? s['language']?.toString() ?? '外挂字幕';
-          final format = (s['format']?.toString() ?? (subUrl.endsWith('.ass') ? 'ass' : 'vtt')).toLowerCase();
-          final isDef = s['default'] as bool? ?? false;
-          subs.add(SourceSubtitleTrack(
-            id: s['id']?.toString() ?? 'sub-${subs.length}',
-            label: label,
-            url: subUrl,
-            format: format,
-            isDefault: isDef,
-          ));
-        }
-      }
-
-      // 提取字体包列表
-      final rawFonts = (item['fonts'] as List?) ?? [];
-      for (final f in rawFonts) {
-        final fontUrl = f is Map ? f['url']?.toString() : f?.toString();
-        if (fontUrl != null && fontUrl.isNotEmpty) {
-          fonts.add(fontUrl);
-        }
-      }
-    }
-
-    return (subtitles: subs, fonts: fonts);
+    return NeosekSource.parseSubtitlesAndFonts(items);
   }
 }

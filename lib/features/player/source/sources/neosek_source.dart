@@ -182,8 +182,6 @@ class NeosekSource extends VideoSource {
     final items = (resData?['data']?['items'] as List?) ?? [];
     String? playUrl;
     String format = 'hls';
-    final subtitles = <SourceSubtitleTrack>[];
-    final fonts = <String>[];
 
     // 特殊处理说明：
     // 该站 HLS Master Playlist (fMP4) 包含 1400+ 秒独立长 VTT 字幕分片，
@@ -206,32 +204,9 @@ class NeosekSource extends VideoSource {
           }
         }
       }
-
-      final rawSubs = (item['subtitles'] as List?) ?? (item['captions'] as List?) ?? [];
-      for (final s in rawSubs.whereType<Map<String, dynamic>>()) {
-        final subUrl = s['url']?.toString() ?? s['file']?['url']?.toString();
-        if (subUrl != null && subUrl.isNotEmpty) {
-          final label = s['label']?.toString() ?? s['name']?.toString() ?? s['language']?.toString() ?? '外挂字幕';
-          final subFormat = (s['format']?.toString() ?? (subUrl.endsWith('.ass') ? 'ass' : 'vtt')).toLowerCase();
-          final isDef = s['default'] as bool? ?? false;
-          subtitles.add(SourceSubtitleTrack(
-            id: s['id']?.toString() ?? 'sub-${subtitles.length}',
-            label: label,
-            url: subUrl,
-            format: subFormat,
-            isDefault: isDef,
-          ));
-        }
-      }
-
-      final rawFonts = (item['fonts'] as List?) ?? [];
-      for (final f in rawFonts) {
-        final fontUrl = f is Map ? f['url']?.toString() : f?.toString();
-        if (fontUrl != null && fontUrl.isNotEmpty) {
-          fonts.add(fontUrl);
-        }
-      }
     }
+
+    final parsedAssets = parseSubtitlesAndFonts(items);
 
     if (playUrl == null || playUrl.isEmpty) {
       throw Exception('未从 Neosek 找到可用播放流');
@@ -244,8 +219,122 @@ class NeosekSource extends VideoSource {
         'User-Agent': _kDefaultUserAgent,
       },
       format: format,
-      subtitles: subtitles,
-      fonts: fonts,
+      subtitles: parsedAssets.subtitles,
+      fonts: parsedAssets.fonts,
     );
+  }
+
+  /// 解析 Neosek 源站 items 中的外挂字幕与字体包
+  ///
+  /// 特殊处理说明：
+  /// 1. 源站数据结构中，字幕与字体分别存放在 `item['video']['subtitles']` 和 `item['video']['fonts']`；
+  ///    同时向后兼容可能存在的顶层 `item['subtitles']` 与 `item['fonts']`；
+  /// 2. 源站针对同一语言（如简体中文/繁体中文）会同时挂载 `ass`（特效字幕）与 `vtt`（文本字幕）子对象；
+  ///    按照 ASS 优先契约，若同时存在，将 ASS 格式字幕排在前面（优先挂载渲染），并保留 VTT 格式供切换；
+  /// 3. 字体包 URL 存放于 `font['file']['url']`，提取后供底层 libass 引擎高保真渲染。
+  static ({List<SourceSubtitleTrack> subtitles, List<String> fonts}) parseSubtitlesAndFonts(
+    List<dynamic> items,
+  ) {
+    final subtitles = <SourceSubtitleTrack>[];
+    final fonts = <String>[];
+    final seenSubUrls = <String>{};
+    final seenFontUrls = <String>{};
+
+    for (final item in items.whereType<Map<String, dynamic>>()) {
+      final video = item['video'] as Map<String, dynamic>?;
+
+      // 1. 提取字幕列表
+      final rawSubs = (video?['subtitles'] as List?) ??
+          (video?['captions'] as List?) ??
+          (item['subtitles'] as List?) ??
+          (item['captions'] as List?) ??
+          [];
+
+      for (final s in rawSubs.whereType<Map<String, dynamic>>()) {
+        final rawLabel = s['label']?.toString()?.trim() ?? s['name']?.toString()?.trim();
+        final rawLang = s['language']?.toString()?.trim().toLowerCase() ?? '';
+        final label = (rawLabel != null && rawLabel.isNotEmpty)
+            ? rawLabel
+            : (rawLang.contains('zh') ? '中文' : (rawLang.isNotEmpty ? rawLang : '外挂字幕'));
+        final isDef = s['default'] as bool? ?? false;
+        final baseId = s['id']?.toString() ?? 'sub-${subtitles.length}';
+
+        // 提取 ASS 链接
+        final assObj = s['ass'];
+        final assUrl = (assObj is Map ? assObj['url']?.toString() : assObj?.toString())?.trim();
+
+        // 提取 VTT 链接
+        final vttObj = s['vtt'];
+        final vttUrl = (vttObj is Map ? vttObj['url']?.toString() : vttObj?.toString())?.trim();
+
+        // 兼容旧扁平 url / file.url
+        final flatUrl = (s['url']?.toString() ?? s['file']?['url']?.toString())?.trim();
+
+        // ASS 格式优先添加
+        if (assUrl != null && assUrl.isNotEmpty && !seenSubUrls.contains(assUrl)) {
+          seenSubUrls.add(assUrl);
+          subtitles.add(SourceSubtitleTrack(
+            id: '$baseId-ass',
+            label: label,
+            url: assUrl,
+            format: 'ass',
+            isDefault: isDef,
+          ));
+        }
+
+        // VTT 格式紧随其后（若 ASS 存在则作为备选轨，isDefault 降级为 false）
+        if (vttUrl != null && vttUrl.isNotEmpty && !seenSubUrls.contains(vttUrl)) {
+          seenSubUrls.add(vttUrl);
+          final hasAss = assUrl != null && assUrl.isNotEmpty;
+          subtitles.add(SourceSubtitleTrack(
+            id: '$baseId-vtt',
+            label: hasAss ? '$label (VTT)' : label,
+            url: vttUrl,
+            format: 'vtt',
+            isDefault: hasAss ? false : isDef,
+          ));
+        }
+
+        // 若无 ass/vtt 结构，降级回退 flatUrl
+        if ((assUrl == null || assUrl.isEmpty) &&
+            (vttUrl == null || vttUrl.isEmpty) &&
+            flatUrl != null &&
+            flatUrl.isNotEmpty &&
+            !seenSubUrls.contains(flatUrl)) {
+          seenSubUrls.add(flatUrl);
+          final format = (s['format']?.toString() ??
+                  (flatUrl.endsWith('.ass') ? 'ass' : 'vtt'))
+              .toLowerCase();
+          subtitles.add(SourceSubtitleTrack(
+            id: baseId,
+            label: label,
+            url: flatUrl,
+            format: format,
+            isDefault: isDef,
+          ));
+        }
+      }
+
+      // 2. 提取字体列表
+      final rawFonts = (video?['fonts'] as List?) ??
+          (item['fonts'] as List?) ??
+          [];
+
+      for (final f in rawFonts) {
+        String? fontUrl;
+        if (f is Map) {
+          fontUrl = f['file']?['url']?.toString() ?? f['url']?.toString();
+        } else {
+          fontUrl = f?.toString();
+        }
+        final trimmed = fontUrl?.trim();
+        if (trimmed != null && trimmed.isNotEmpty && !seenFontUrls.contains(trimmed)) {
+          seenFontUrls.add(trimmed);
+          fonts.add(trimmed);
+        }
+      }
+    }
+
+    return (subtitles: subtitles, fonts: fonts);
   }
 }
