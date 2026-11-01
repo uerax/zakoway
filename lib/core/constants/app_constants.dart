@@ -5,8 +5,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 class AppConstants {
   const AppConstants._();
 
-  static String _appVersion = '0.0.1';
-  static int _buildNumber = 1;
+  static String _appVersion = '0.0.2';
+  static int _buildNumber = 2;
 
   /// 应用语义化版本号（优先从平台原生运行环境中动态获取，默认 fallback 为 0.0.1）
   static String get appVersion => _appVersion;
