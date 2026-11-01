@@ -295,18 +295,21 @@ class ZakowayPlaybackController implements PlaybackController {
     final failure = _fsm!.failure;
 
     // 特殊处理说明：
-    // 事实存活与状态自愈双重对齐 (Liveness Proof Overrides Stale FSM)：
-    // 若底层播放时间轴已向前推进 (例如直链 MP4 瞬间解码开播)，事实播放拥有最高权威；
-    // 强制将 hasFirstFrame 置为 true、isPlaying 置为 true、isLoading 置为 false，
-    // 彻底杜绝底层已经在播但 UI 误显暂停图标或小菊花卡死的问题。
-    final isFactuallyPlaying = fsmCore.playing || _lastPosition > Duration.zero;
-    final hasFirstFrame = fsmCore.firstFrameRendered || isFactuallyPlaying;
-    final isPlaying = isFactuallyPlaying;
+    // 首帧事实出画与播放状态彻底解耦：
+    // 1. 出画与消灭转圈 (hasFirstFrame)：若时间轴已向前推移 (_lastPosition > Duration.zero)，
+    //    物理事实证明媒体已成功完成首帧解码，用于即刻消除起播小菊花与黑屏；
+    // 2. 播放状态 (isPlaying)：严禁被 _lastPosition > 0 绑架！
+    //    当用户或底层进入暂停态 (fsmState == paused 或 !fsmCore.playing) 时，坚决判定为 false，
+    //    彻底杜绝点击暂停后因播放进度大于零而导致的 UI 状态死锁；
+    // 3. 加载转圈 (isLoading)：处于暂停态时绝对不展示转圈。
+    final hasFirstFrame = fsmCore.firstFrameRendered || _lastPosition > Duration.zero;
+    final isPaused = fsmState == core_state.PlaybackState.paused || !fsmCore.playing;
+    final isPlaying = !isPaused && (fsmCore.playing || fsmState == core_state.PlaybackState.playing);
     final isLoading = (fsmState == core_state.PlaybackState.resolving ||
             fsmState == core_state.PlaybackState.preparing ||
             fsmState == core_state.PlaybackState.recovering ||
             !hasFirstFrame) &&
-        !isFactuallyPlaying &&
+        !isPaused &&
         fsmState != core_state.PlaybackState.error;
     final isBuffering = fsmCore.buffering;
     final isCompleted = fsmCore.completed;

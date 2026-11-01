@@ -68,6 +68,12 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 
 dependency_overrides:
+  # 覆盖 media_kit 核心包：
+  # 官方包在 InitializerNativeCallable.dispose 中粗暴提前关闭 NativeCallable 指针，且在 Player.dispose 中硬编码延迟 5 秒释放 mpv 实例，
+  # 导致切集/销毁时发生 C 多线程撞针崩溃（Callback invoked after it has been deleted）以及后台多实例资源竞争。
+  # 通过本地 packages/media_kit 修复销毁生命周期时序并消除 5 秒僵尸实例。
+  media_kit:
+    path: packages/media_kit
   # 覆盖 Windows 平台底层 mpv 依赖包：
   # media_kit_libs_windows_video 官方包内置硬编码了 2023 年旧版 libmpv-2.dll，在 Windows 上存在严重的 HLS/渲染/内存泄漏 bug。
   # 通过本地 packages 包将构建拉取地址无缝升级到了 mpv v0.41.0-dev 最新构建。
