@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:open_file_plus/open_file_plus.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -175,20 +175,20 @@ class UpdateService {
 
     if (Platform.isAndroid) {
       // Android 调用系统 PackageInstaller 安装器
-      return await OpenFile.open(
+      return await OpenFilex.open(
         file.path,
         type: 'application/vnd.android.package-archive',
       );
     } else if (Platform.isWindows) {
       // Windows 平台：如果是 zip 压缩包，尝试打开所在文件夹以便用户解压覆盖
-      final result = await OpenFile.open(file.path);
+      final result = await OpenFilex.open(file.path);
       if (result.type != ResultType.done) {
-        return await OpenFile.open(file.parent.path);
+        return await OpenFilex.open(file.parent.path);
       }
       return result;
     } else {
       // macOS 等其他平台
-      return await OpenFile.open(file.path);
+      return await OpenFilex.open(file.path);
     }
   }
 

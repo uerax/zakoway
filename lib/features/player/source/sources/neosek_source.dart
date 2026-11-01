@@ -251,8 +251,8 @@ class NeosekSource extends VideoSource {
           [];
 
       for (final s in rawSubs.whereType<Map<String, dynamic>>()) {
-        final rawLabel = s['label']?.toString()?.trim() ?? s['name']?.toString()?.trim();
-        final rawLang = s['language']?.toString()?.trim().toLowerCase() ?? '';
+        final rawLabel = s['label']?.toString().trim() ?? s['name']?.toString().trim();
+        final rawLang = s['language']?.toString().trim().toLowerCase() ?? '';
         final label = (rawLabel != null && rawLabel.isNotEmpty)
             ? rawLabel
             : (rawLang.contains('zh') ? '中文' : (rawLang.isNotEmpty ? rawLang : '外挂字幕'));
