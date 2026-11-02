@@ -4,6 +4,7 @@ import 'package:zakoway/features/player/source/models/source_models.dart';
 import 'package:zakoway/features/player/source/server/animaku_server_client.dart';
 import 'package:zakoway/features/player/source/sources/anime1_source.dart';
 import 'package:zakoway/features/player/source/sources/animoe_source.dart';
+import 'package:zakoway/features/player/source/sources/bimi_source.dart';
 import 'package:zakoway/features/player/source/sources/cycani_source.dart';
 import 'package:zakoway/features/player/source/sources/girigiri_source.dart';
 import 'package:zakoway/features/player/source/sources/gugu_source.dart';
@@ -48,6 +49,7 @@ class LocalSourceEngine {
     // 5. moonci（月之祠，降权至 girigiri 之后作为备选多线路源）
     // 6. lzizy / animoe / gugu（全品类与备用多线路源）
     registerSource(XifanNextSource(dio: _dio));
+    registerSource(BimiSource(dio: _dio));
     registerSource(CycaniSource(dio: _dio));
     registerSource(MifunSource(dio: _dio));
     registerSource(SoraniSource(dio: _dio));

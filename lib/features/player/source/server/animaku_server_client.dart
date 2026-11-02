@@ -78,6 +78,7 @@ class AnimakuServerClient {
     final norm = sourceId.trim().toLowerCase();
     if (norm == 'xifan_next' || norm == 'xifannext' || norm == 'xifan') return 'xifan-next';
     if (norm == 'neosek') return 'neosekai';
+    if (norm == 'bimiacg' || norm == 'bimibimi') return 'bimi';
     return norm;
   }
 

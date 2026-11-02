@@ -26,6 +26,7 @@ class SourceOrderService extends ChangeNotifier {
   static const Map<String, int> defaultPresetWeights = {
     'xifan-next': 60,
     'xifan': 60,
+    'bimi': 60,
     'neosekai': 60,
     'neosek': 60,
     'cycani': 59,
