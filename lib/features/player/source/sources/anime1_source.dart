@@ -27,7 +27,7 @@ class Anime1Source extends VideoSource {
   String get description => 'MP4 · 动画全集带鉴权直连 (繁体原名优先)';
 
   @override
-  bool get isDirect => true;
+  bool get isDirect => false;
 
   Map<String, String> _headers([String? referer]) {
     final h = <String, String>{

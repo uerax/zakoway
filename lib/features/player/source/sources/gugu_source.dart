@@ -35,7 +35,7 @@ class GuguSource extends VideoSource {
   String get description => '1080P · 国内极速直链/多线路 (需账号鉴权)';
 
   @override
-  bool get isDirect => false;
+  bool get isDirect => true;
 
   Map<String, String> _headers([String? referer]) {
     final h = <String, String>{
